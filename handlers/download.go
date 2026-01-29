@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,29 +11,31 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/uuid"
 )
 
 func HandleMirror(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
-	url, zip, unzip, password := ParseFlags(args)
+	url, zip, unzip, password, quality := ParseFlags(args)
 	var fileName string
 
 	if message.ReplyToMessage != nil {
 		reply := message.ReplyToMessage
 		if reply.Document != nil {
 			fileName = reply.Document.FileName
-			go handleTelegramFileDownload(bot, message, reply.Document.FileID, fileName, zip, unzip, password)
+			go handleTelegramFileDownload(bot, message, reply.Document.FileID, fileName, zip, unzip, password, quality)
 			return
 		} else if reply.Video != nil {
 			fileName = reply.Video.FileName
 			if fileName == "" {
 				fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
 			}
-			go handleTelegramFileDownload(bot, message, reply.Video.FileID, fileName, zip, unzip, password)
+			go handleTelegramFileDownload(bot, message, reply.Video.FileID, fileName, zip, unzip, password, quality)
 			return
 		}
 	}
@@ -40,7 +43,7 @@ func HandleMirror(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) 
 	if url != "" {
 		fileName = GetFileNameFromURL(url)
 		statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "📥 Memulai mirror…"))
-		taskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password)
+		taskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
 		return
 	}
 
@@ -50,7 +53,7 @@ func HandleMirror(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) 
 }
 
 func HandleLeech(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
-	url, zip, unzip, password := ParseFlags(args)
+	url, zip, unzip, password, quality := ParseFlags(args)
 	if url == "" {
 		url = ExtractMagnetFromText(args)
 	}
@@ -67,11 +70,11 @@ func HandleLeech(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 
 	fileName := GetFileNameFromURL(url)
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🔗 Memulai leech…"))
-	taskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password)
+	taskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
 }
 
 func HandleYTDLP(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
-	url, zip, _, password := ParseFlags(args)
+	url, zip, _, password, quality := ParseFlags(args)
 	if url == "" {
 		url = ExtractURLFromText(args)
 	}
@@ -83,12 +86,155 @@ func HandleYTDLP(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 		return
 	}
 
+	if quality == "" && (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) {
+		showYTDLPQualityMenu(bot, message, url, zip, password)
+		return
+	}
+
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 Mengambil info video…"))
-	taskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, false, password)
+	taskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, false, password, quality)
+}
+
+func showYTDLPQualityMenu(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url string, zip bool, password string) {
+	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 Menganalisa kualitas video…"))
+
+	cmd := exec.Command("yt-dlp", "-j", "--no-playlist", url)
+	output, err := cmd.Output()
+	if err != nil {
+		editStatusMessage(bot, statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal mengambil info video:* %v", EscapeMarkdownV2(err.Error())))
+		return
+	}
+
+	var data struct {
+		Formats []struct {
+			Height int     `json:"height"`
+			FPS    float64 `json:"fps"`
+			VCodec string  `json:"vcodec"`
+		} `json:"formats"`
+	}
+
+	if err := json.Unmarshal(output, &data); err != nil {
+		editStatusMessage(bot, statusMsg.Chat.ID, statusMsg.MessageID, "❌ *Gagal memproses data video*")
+		return
+	}
+
+	resMap := make(map[int]float64)
+	for _, f := range data.Formats {
+		if f.VCodec != "none" && f.Height > 0 {
+			if f.FPS > resMap[f.Height] {
+				resMap[f.Height] = f.FPS
+			}
+		}
+	}
+
+	var sortedHeights []int
+	for h := range resMap {
+		sortedHeights = append(sortedHeights, h)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(sortedHeights)))
+
+	sessionID := uuid.New().String()[:8]
+	taskManager.Mu.Lock()
+	taskManager.YTDLPSessions[sessionID] = &YTDLPSession{
+		URL:      url,
+		Zip:      zip,
+		Password: password,
+	}
+	taskManager.Mu.Unlock()
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+	for i := 0; i < len(sortedHeights); i += 2 {
+		var row []tgbotapi.InlineKeyboardButton
+
+		h1 := sortedHeights[i]
+		fps1 := resMap[h1]
+		label1 := formatQualityLabel(h1, fps1)
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(label1, fmt.Sprintf("ytdlp_q:%d:%s", h1, sessionID)))
+
+		if i+1 < len(sortedHeights) {
+			h2 := sortedHeights[i+1]
+			fps2 := resMap[h2]
+			label2 := formatQualityLabel(h2, fps2)
+			row = append(row, tgbotapi.NewInlineKeyboardButtonData(label2, fmt.Sprintf("ytdlp_q:%d:%s", h2, sessionID)))
+		}
+		rows = append(rows, row)
+	}
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🚀 Kualitas Terbaik", fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
+	))
+
+	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
+	if len(sortedHeights) == 0 {
+		text = "📽️ *Pilih Kualitas Video*\n\nResolusi tidak terdeteksi, gunakan kualitas terbaik:"
+	}
+
+	editMsg := tgbotapi.NewEditMessageText(statusMsg.Chat.ID, statusMsg.MessageID, text)
+	editMsg.ParseMode = "MarkdownV2"
+	editMsg.ReplyMarkup = &keyboard
+	bot.Send(editMsg)
+}
+
+func formatQualityLabel(height int, fps float64) string {
+	var label string
+	switch height {
+	case 4320:
+		label = "8K (4320p)"
+	case 2160:
+		label = "4K (2160p)"
+	case 1440:
+		label = "2K (1440p)"
+	default:
+		label = fmt.Sprintf("%dp", height)
+	}
+
+	if fps > 30 {
+		label += fmt.Sprintf(" %dfps", int(fps))
+	}
+	return label
+}
+
+func HandleYTDLPQualityCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
+	if len(parts) < 3 {
+		bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi kadaluarsa"))
+		return
+	}
+
+	quality := parts[1]
+	sessionID := parts[2]
+
+	if quality == "best" {
+		quality = ""
+	}
+
+	taskManager.Mu.Lock()
+	session, exists := taskManager.YTDLPSessions[sessionID]
+	if exists {
+		delete(taskManager.YTDLPSessions, sessionID)
+	}
+	taskManager.Mu.Unlock()
+
+	if !exists {
+		bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi tidak ditemukan"))
+		return
+	}
+
+	bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Memulai download..."))
+
+	text := fmt.Sprintf("🎬 *YT\\-DLP dimulai* kualiti: `%s`", quality)
+	if quality == "" {
+		text = "🎬 *YT\\-DLP dimulai* kualiti: `Terbaik`"
+	}
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = "MarkdownV2"
+	bot.Send(editMsg)
+
+	taskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality)
 }
 
 func HandleTorrent(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
-	url, zip, unzip, password := ParseFlags(args)
+	url, zip, unzip, password, quality := ParseFlags(args)
 	if url == "" {
 		url = ExtractMagnetFromText(args)
 	}
@@ -102,10 +248,10 @@ func HandleTorrent(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string)
 
 	fileName := "torrent_download"
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🧲 Menambahkan torrent…"))
-	taskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password)
+	taskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
 }
 
-func handleTelegramFileDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password string) {
+func handleTelegramFileDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password, quality string) {
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "📥 *Memulai download…*"))
 
 	file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
@@ -115,25 +261,28 @@ func handleTelegramFileDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message,
 	}
 
 	fileURL := file.Link(bot.Token)
-	taskManager.CreateTask(TypeMirror, fileURL, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password)
+	taskManager.CreateTask(TypeMirror, fileURL, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
 }
 
-func handleURLDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url, fileName string, taskType TaskType, zip, unzip bool, password string) {
+func handleURLDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url, fileName string, taskType TaskType, zip, unzip bool, password, quality string) {
 	statusText := fmt.Sprintf("📥 *Memulai %s…*", string(taskType))
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, statusText))
 
-	task := taskManager.CreateTask(taskType, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password)
+	task := taskManager.CreateTask(taskType, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
 	downloadWithAria2(bot, task)
 }
 
-func handleYTDLPDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url string, zip bool, password string) {
+func handleYTDLPDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url string, zip bool, password, quality string) {
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 *Mengambil info video…*"))
-	task := taskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, false, password)
+	task := taskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, false, password, quality)
 	go downloadWithYTDLP(bot, task)
 }
 
 func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 	task.SetStatus(StatusDownloading)
+	task.Mu.Lock()
+	task.StartedAt = time.Now()
+	task.Mu.Unlock()
 	updateTaskStatus(bot, task)
 
 	outputDir := filepath.Join(taskManager.DownloadDir, task.ID)
@@ -196,12 +345,21 @@ func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 
 func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 	task.SetStatus(StatusDownloading)
+	task.Mu.Lock()
+	task.StartedAt = time.Now()
+	task.Mu.Unlock()
 	updateTaskStatus(bot, task)
 
 	outputDir := filepath.Join(taskManager.DownloadDir, task.ID)
 	os.MkdirAll(outputDir, 0755)
 
-	args := []string{"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"), "--newline", task.URL}
+	args := []string{"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"), "--newline"}
+	if task.Quality != "" {
+		format := fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", task.Quality, task.Quality)
+		args = append(args, "-f", format)
+	}
+	args = append(args, task.URL)
+
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
@@ -315,8 +473,26 @@ func updateTaskStatus(bot *tgbotapi.BotAPI, task *Task) {
 
 	switch snapshot.Status {
 	case StatusCompleted:
-		text = fmt.Sprintf("✅ *Completed\\!*\n📄 `%s`\n📁 `%s`",
+		duration := snapshot.CompletedAt.Sub(snapshot.StartedAt)
+		if snapshot.StartedAt.IsZero() {
+			duration = snapshot.CompletedAt.Sub(snapshot.CreatedAt)
+		}
+
+		sizeStr := "Unknown"
+		if snapshot.TotalSize > 0 {
+			sizeStr = FormatBytes(snapshot.TotalSize)
+		} else if snapshot.DownloadedSize > 0 {
+			sizeStr = FormatBytes(snapshot.DownloadedSize)
+		}
+
+		text = fmt.Sprintf("✅ *Completed\\!*\n\n"+
+			"📄 *Name:* `%s`\n"+
+			"📦 *Size:* `%s`\n"+
+			"⏱ *Time:* `%s`\n"+
+			"📁 *Path:* `%s`",
 			EscapeMarkdownV2(snapshot.FileName),
+			EscapeMarkdownV2(sizeStr),
+			EscapeMarkdownV2(FormatDuration(duration)),
 			EscapeMarkdownV2(snapshot.RemotePath))
 	case StatusFailed:
 		text = fmt.Sprintf("❌ *Failed\\!*\n📄 `%s`\nError: `%s`",

@@ -141,7 +141,7 @@ func ExtractMagnetFromText(text string) string {
 	return ""
 }
 
-func ParseFlags(args string) (url string, zip bool, unzip bool, password string) {
+func ParseFlags(args string) (url string, zip bool, unzip bool, password string, quality string) {
 	parts := strings.Fields(args)
 
 	for i := 0; i < len(parts); i++ {
@@ -153,6 +153,11 @@ func ParseFlags(args string) (url string, zip bool, unzip bool, password string)
 		case "-p":
 			if i+1 < len(parts) {
 				password = parts[i+1]
+				i++
+			}
+		case "-q":
+			if i+1 < len(parts) {
+				quality = parts[i+1]
 				i++
 			}
 		default:

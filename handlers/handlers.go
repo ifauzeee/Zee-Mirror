@@ -58,6 +58,7 @@ type Task struct {
 	Zip      bool
 	Unzip    bool
 	Password string
+	Quality  string
 
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
@@ -90,6 +91,13 @@ type TaskSnapshot struct {
 	Zip            bool
 	Unzip          bool
 	Password       string
+	Quality        string
+}
+
+type YTDLPSession struct {
+	URL      string
+	Zip      bool
+	Password string
 }
 
 type TaskManager struct {
@@ -100,6 +108,7 @@ type TaskManager struct {
 	DownloadDir   string
 	RcloneDest    string
 	ConfigDir     string
+	YTDLPSessions map[string]*YTDLPSession
 	Mu            sync.RWMutex
 	Wg            sync.WaitGroup
 	ShutdownChan  chan struct{}
@@ -119,6 +128,7 @@ func InitTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclon
 		DownloadDir:   downloadDir,
 		RcloneDest:    rcloneDest,
 		ConfigDir:     configDir,
+		YTDLPSessions: make(map[string]*YTDLPSession),
 		ShutdownChan:  make(chan struct{}),
 		Bot:           bot,
 	}
@@ -135,7 +145,7 @@ func ShutdownTaskManager() {
 	}
 }
 
-func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID int, userID int64, zip, unzip bool, password string) *Task {
+func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID int, userID int64, zip, unzip bool, password, quality string) *Task {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
@@ -150,6 +160,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		Zip:        zip,
 		Unzip:      unzip,
 		Password:   password,
+		Quality:    quality,
 		CreatedAt:  time.Now(),
 		Ctx:        ctx,
 		CancelFunc: cancel,
@@ -295,6 +306,7 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		Zip:            t.Zip,
 		Unzip:          t.Unzip,
 		Password:       t.Password,
+		Quality:        t.Quality,
 	}
 }
 

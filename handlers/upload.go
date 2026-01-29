@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -22,8 +23,14 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 	updateTaskStatus(bot, task)
 
 	uploadPath := task.LocalPath
-	if task.LocalPath == "" {
+	if uploadPath == "" {
 		return fmt.Errorf("no file to upload")
+	}
+
+	if info, err := os.Stat(uploadPath); err == nil {
+		task.Mu.Lock()
+		task.TotalSize = info.Size()
+		task.Mu.Unlock()
 	}
 
 	remotePath := filepath.Join(taskManager.RcloneDest, task.FileName)

@@ -209,6 +209,8 @@ func handleCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 		handlers.HandleConfirmCallback(bot, callback, parts)
 	case "refresh_status":
 		handlers.HandleRefreshStatusCallback(bot, callback)
+	case "ytdlp_q":
+		handlers.HandleYTDLPQualityCallback(bot, callback, parts)
 	default:
 		bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
