@@ -37,7 +37,7 @@ vendor/
 *.dylib
 *.test
 *.out
-go.sum
+# go.sum - should be tracked
 
 # Logs
 *.log
