@@ -184,8 +184,11 @@ func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 		createZipArchive(bot, task)
 	}
 
-	uploadWithRclone(bot, task)
-	task.SetStatus(StatusCompleted)
+	if err := uploadWithRclone(bot, task); err != nil {
+		task.SetError(fmt.Sprintf("Upload failed: %v", err))
+	} else {
+		task.SetStatus(StatusCompleted)
+	}
 	updateTaskStatus(bot, task)
 	cleanupTask(task)
 	handleAutoDelete(bot, task)
@@ -212,8 +215,11 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 	task.LocalPath = findDownloadedFile(outputDir)
 	task.FileName = filepath.Base(task.LocalPath)
 
-	uploadWithRclone(bot, task)
-	task.SetStatus(StatusCompleted)
+	if err := uploadWithRclone(bot, task); err != nil {
+		task.SetError(fmt.Sprintf("Upload failed: %v", err))
+	} else {
+		task.SetStatus(StatusCompleted)
+	}
 	updateTaskStatus(bot, task)
 	cleanupTask(task)
 }

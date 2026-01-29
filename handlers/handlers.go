@@ -97,6 +97,7 @@ type TaskManager struct {
 	MaxConcurrent int
 	DownloadDir   string
 	RcloneDest    string
+	ConfigDir     string
 	Mu            sync.RWMutex
 	Wg            sync.WaitGroup
 	ShutdownChan  chan struct{}
@@ -108,13 +109,14 @@ var (
 	settings    *Settings
 )
 
-func InitTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest string) {
+func InitTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string) {
 	taskManager = &TaskManager{
 		Tasks:         make(map[string]*Task),
 		Queue:         make(chan *Task, 100),
 		MaxConcurrent: maxConcurrent,
 		DownloadDir:   downloadDir,
 		RcloneDest:    rcloneDest,
+		ConfigDir:     configDir,
 		ShutdownChan:  make(chan struct{}),
 		Bot:           bot,
 	}

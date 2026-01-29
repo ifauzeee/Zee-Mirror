@@ -111,7 +111,7 @@ func main() {
 
 	log.Printf("✅ Bot authorized sebagai @%s", bot.Self.UserName)
 
-	handlers.InitTaskManager(bot, AppConfig.MaxConcurrentDownloads, AppConfig.DownloadDir, AppConfig.RcloneDest)
+	handlers.InitTaskManager(bot, AppConfig.MaxConcurrentDownloads, AppConfig.DownloadDir, AppConfig.RcloneDest, AppConfig.ConfigDir)
 	handlers.InitSettings()
 
 	u := tgbotapi.NewUpdate(0)

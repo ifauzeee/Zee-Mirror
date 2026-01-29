@@ -27,10 +27,12 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 	remotePath := filepath.Join(taskManager.RcloneDest, task.FileName)
 	task.RemotePath = remotePath
 
+	configPath := filepath.Join(taskManager.ConfigDir, "rclone.conf")
 	args := []string{
 		"copy",
 		uploadPath,
 		taskManager.RcloneDest,
+		"--config", configPath,
 		"--progress",
 		"--stats", "1s",
 		"--stats-one-line",
