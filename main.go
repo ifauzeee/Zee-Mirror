@@ -194,6 +194,11 @@ func handleCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	case "settings":
 		handlers.HandleSettings(bot, message)
 	default:
+		if strings.HasPrefix(cmd, "cancel_") {
+			taskID := strings.TrimPrefix(cmd, "cancel_")
+			handlers.HandleCancel(bot, message, taskID)
+			return
+		}
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❓ Command tidak dikenal\\. Gunakan /help untuk melihat daftar command\\.")
 		msg.ParseMode = handlers.MarkdownV2
 		_, _ = bot.Send(msg)

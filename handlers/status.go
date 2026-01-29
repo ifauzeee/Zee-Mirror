@@ -2,39 +2,73 @@ package handlers
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func HandleStatus(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
-	tasks := taskManager.GetActiveTasks()
+	UpdateSharedDashboard(bot, message.Chat.ID, true)
+}
+
+func UpdateSharedDashboard(bot *tgbotapi.BotAPI, chatID int64, forceNew bool) {
+	taskManager.StatusMu.Lock()
+	defer taskManager.StatusMu.Unlock()
+
+	tasks := taskManager.GetActiveTasksByChat(chatID)
 
 	if len(tasks) == 0 {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, atau /torrent untuk memulai.")
-		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		taskManager.Mu.Lock()
+		lastMsgID, exists := taskManager.LastStatusMsg[chatID]
+		if exists {
+			_, _ = bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
+			delete(taskManager.LastStatusMsg, chatID)
+			delete(lastStatusText, chatID)
+		}
+		taskManager.Mu.Unlock()
+
+		if forceNew {
+			msg := tgbotapi.NewMessage(chatID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, atau /torrent untuk memulai\\.")
+			msg.ParseMode = MarkdownV2
+			_, _ = bot.Send(msg)
+		}
 		return
 	}
 
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+	})
+
 	text := StatusHeaderText
 
-	for _, task := range tasks {
+	for i, task := range tasks {
 		snapshot := task.GetSnapshot()
 		emoji := StatusEmoji(string(snapshot.Status))
 		bar := ProgressBar(snapshot.Progress, 10)
 
 		text += fmt.Sprintf(
-			"%s *ID:* `%s`\n"+
-				"📄 %s\n"+
+			"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+				"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
 				"%s\n"+
-				"⚡ %s | ⏱ %s\n\n",
+				"📄 *File:* %s\n"+
+				"📦 *Size:* %s\n"+
+				"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
+				"🚫 *Action:* /cancel\\_%s\n",
 			emoji,
 			snapshot.ID,
+			EscapeMarkdownV2(FormatStatus(string(snapshot.Status))),
+			EscapeMarkdownV2(bar),
 			EscapeMarkdownV2(TruncateString(snapshot.FileName, 40)),
-			bar,
+			EscapeMarkdownV2(FormatBytes(snapshot.TotalSize)),
 			EscapeMarkdownV2(FormatSpeed(snapshot.Speed)),
+			snapshot.Connections,
 			EscapeMarkdownV2(FormatDuration(snapshot.ETA)),
+			snapshot.ID,
 		)
+		if i == len(tasks)-1 {
+			text += "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+		}
 	}
 
 	text += fmt.Sprintf("_Total: %d task aktif_", len(tasks))
@@ -45,11 +79,48 @@ func HandleStatus(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		),
 	)
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	taskManager.Mu.RLock()
+	lastMsgID, exists := taskManager.LastStatusMsg[chatID]
+	taskManager.Mu.RUnlock()
+
+	lastText, textExists := lastStatusText[chatID]
+
+	if exists && forceNew {
+		_, _ = bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
+		exists = false
+		delete(lastStatusText, chatID)
+	}
+
+	if exists && !forceNew {
+		if textExists && lastText == text {
+			return
+		}
+
+		editMsg := tgbotapi.NewEditMessageText(chatID, lastMsgID, text)
+		editMsg.ParseMode = MarkdownV2
+		editMsg.ReplyMarkup = &keyboard
+		if _, err := bot.Send(editMsg); err == nil {
+			lastStatusText[chatID] = text
+			return
+		} else if strings.Contains(err.Error(), "message is not modified") {
+			lastStatusText[chatID] = text
+			return
+		}
+	}
+
+	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, _ = bot.Send(msg)
+	sentMsg, err := bot.Send(msg)
+	if err == nil {
+		taskManager.Mu.Lock()
+		taskManager.LastStatusMsg[chatID] = sentMsg.MessageID
+		taskManager.Mu.Unlock()
+		lastStatusText[chatID] = text
+	}
 }
+
+var lastStatusText = make(map[int64]string)
 
 func HandleCancel(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 	if args == "" {
@@ -65,6 +136,7 @@ func HandleCancel(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) 
 		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Task `%s` dibatalkan*", taskID))
 		msg.ParseMode = MarkdownV2
 		_, _ = bot.Send(msg)
+		UpdateSharedDashboard(bot, message.Chat.ID, false)
 		return
 	}
 
@@ -91,59 +163,15 @@ func HandleCancelCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf(text, taskID))
 		editMsg.ParseMode = MarkdownV2
 		_, _ = bot.Send(editMsg)
+		UpdateSharedDashboard(bot, callback.Message.Chat.ID, false)
 	} else {
 		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Gagal membatalkan task"))
 	}
 }
 
 func HandleRefreshStatusCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
-	tasks := taskManager.GetActiveTasks()
-
-	if len(tasks) == 0 {
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "Tidak ada task aktif"))
-
-		text := "📭 *Tidak ada task aktif*"
-		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = MarkdownV2
-		_, _ = bot.Send(editMsg)
-		return
-	}
-
 	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
-
-	text := StatusHeaderText
-
-	for _, task := range tasks {
-		snapshot := task.GetSnapshot()
-		emoji := StatusEmoji(string(snapshot.Status))
-		bar := ProgressBar(snapshot.Progress, 10)
-
-		text += fmt.Sprintf(
-			"%s *ID:* `%s`\n"+
-				"📄 %s\n"+
-				"%s\n"+
-				"⚡ %s \\| ⏱ %s\n\n",
-			emoji,
-			snapshot.ID,
-			EscapeMarkdownV2(TruncateString(snapshot.FileName, 40)),
-			bar,
-			EscapeMarkdownV2(FormatSpeed(snapshot.Speed)),
-			EscapeMarkdownV2(FormatDuration(snapshot.ETA)),
-		)
-	}
-
-	text += fmt.Sprintf("_Total: %d task aktif_", len(tasks))
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "refresh_status"),
-		),
-	)
-
-	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
-	editMsg.ReplyMarkup = &keyboard
-	_, _ = bot.Send(editMsg)
+	UpdateSharedDashboard(bot, callback.Message.Chat.ID, false)
 }
 
 func HandleConfirmCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {

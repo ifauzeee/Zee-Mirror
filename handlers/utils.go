@@ -24,8 +24,8 @@ func ProgressBar(progress float64, width int) string {
 
 	empty := width - filled
 
-	filledChar := "█"
-	emptyChar := "░"
+	filledChar := "■"
+	emptyChar := "□"
 
 	bar := strings.Repeat(filledChar, filled) + strings.Repeat(emptyChar, empty)
 	return fmt.Sprintf("[%s] %.1f%%", bar, progress)
@@ -278,6 +278,11 @@ func ParseBytesString(s string) int64 {
 	}
 
 	lowerS := strings.ToLower(s)
+	lowerS = strings.TrimSuffix(lowerS, "/s")
+	lowerS = strings.TrimSuffix(lowerS, "b/s")
+	lowerS = strings.TrimSuffix(lowerS, "/sec")
+	lowerS = strings.TrimSpace(lowerS)
+
 	for suffix, m := range suffixes {
 		if strings.HasSuffix(lowerS, suffix) {
 			mult = m

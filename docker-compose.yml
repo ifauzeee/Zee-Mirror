@@ -15,7 +15,7 @@ services:
       - TZ=${TZ:-Asia/Jakarta}
     
     volumes:
-      - ./downloads:/app/downloads
+      - downloads:/app/downloads
       - ./config:/app/config
     
     # Resource constraints (optional)
@@ -43,3 +43,7 @@ services:
 networks:
   zee-network:
     driver: bridge
+
+volumes:
+  downloads:
+  configs:

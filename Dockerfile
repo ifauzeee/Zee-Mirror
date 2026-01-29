@@ -28,25 +28,30 @@ RUN apk add --no-cache \
     p7zip \
     curl \
     unzip \
-    nodejs
+    nodejs \
+    py3-cryptography \
+    py3-pycryptodomex \
+    gcc \
+    musl-dev \
+    python3-dev
 
-RUN pip3 install --break-system-packages --no-cache-dir yt-dlp
+RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp
 
 # Import rclone from official image
 COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
 RUN chmod 755 /usr/bin/rclone
 
-RUN addgroup -S botgroup && adduser -S botuser -G botgroup
+RUN addgroup -S botgroup && adduser -D -G botgroup botuser
 
-RUN mkdir -p /app/downloads /app/config && \
-    chown -R botuser:botgroup /app
+RUN mkdir -p /app/downloads /app/config /home/botuser/.cache/yt-dlp && \
+    chown -R botuser:botgroup /app /home/botuser
 
 WORKDIR /app
 
 COPY --from=builder /build/zee-mirror /app/zee-mirror
 RUN chmod +x /app/zee-mirror
 
-USER botuser
+USER root
 
 ENV BOT_TOKEN="" \
     OWNER_ID="" \
@@ -54,7 +59,9 @@ ENV BOT_TOKEN="" \
     RCLONE_DEST="gdrive:/MirrorBot" \
     MAX_CONCURRENT_DOWNLOADS="3" \
     DOWNLOAD_DIR="/app/downloads" \
-    CONFIG_DIR="/app/config"
+    CONFIG_DIR="/app/config" \
+    HOME="/home/botuser" \
+    PATH="/usr/local/bin:/usr/bin:/bin:/home/botuser/.local/bin"
 
 VOLUME ["/app/downloads", "/app/config"]
 

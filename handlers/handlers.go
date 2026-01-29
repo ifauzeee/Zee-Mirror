@@ -50,6 +50,7 @@ type Task struct {
 	DownloadedSize int64
 	UploadedSize   int64
 	Speed          int64
+	Connections    int
 	ETA            time.Duration
 	Progress       float64
 	Error          string
@@ -84,6 +85,7 @@ type TaskSnapshot struct {
 	DownloadedSize int64
 	UploadedSize   int64
 	Speed          int64
+	Connections    int
 	ETA            time.Duration
 	Progress       float64
 	Error          string
@@ -115,9 +117,11 @@ type TaskManager struct {
 	ConfigDir     string
 	YTDLPSessions map[string]*YTDLPSession
 	Mu            sync.RWMutex
+	StatusMu      sync.Mutex
 	Wg            sync.WaitGroup
 	ShutdownChan  chan struct{}
 	Bot           *tgbotapi.BotAPI
+	LastStatusMsg map[int64]int
 }
 
 var (
@@ -136,6 +140,7 @@ func InitTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclon
 		YTDLPSessions: make(map[string]*YTDLPSession),
 		ShutdownChan:  make(chan struct{}),
 		Bot:           bot,
+		LastStatusMsg: make(map[int64]int),
 	}
 
 	for i := 0; i < maxConcurrent; i++ {
@@ -195,6 +200,19 @@ func (tm *TaskManager) GetTaskByGID(gid string) *Task {
 		}
 	}
 	return nil
+}
+
+func (tm *TaskManager) GetActiveTasksByChat(chatID int64) []*Task {
+	tm.Mu.RLock()
+	defer tm.Mu.RUnlock()
+
+	var active []*Task
+	for _, task := range tm.Tasks {
+		if task.ChatID == chatID && task.Status != StatusCompleted && task.Status != StatusFailed && task.Status != StatusCancelled {
+			active = append(active, task)
+		}
+	}
+	return active
 }
 
 func (tm *TaskManager) GetActiveTasks() []*Task {
@@ -267,11 +285,16 @@ func (t *Task) UpdateProgress(downloaded, total int64, speed int64) {
 
 func (t *Task) SetStatus(status TaskStatus) {
 	t.Mu.Lock()
-	defer t.Mu.Unlock()
 	t.Status = status
+	if status == StatusDownloading {
+		if t.Type == TypeYTDLP || t.Type == TypeMirror || t.Type == TypeLeech || t.Type == TypeTorrent {
+			t.Connections = 16
+		}
+	}
 	if status == StatusCompleted || status == StatusFailed {
 		t.CompletedAt = time.Now()
 	}
+	t.Mu.Unlock()
 }
 
 func (t *Task) SetError(err string) {
@@ -299,6 +322,7 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		DownloadedSize: t.DownloadedSize,
 		UploadedSize:   t.UploadedSize,
 		Speed:          t.Speed,
+		Connections:    t.Connections,
 		ETA:            t.ETA,
 		Progress:       t.Progress,
 		Error:          t.Error,

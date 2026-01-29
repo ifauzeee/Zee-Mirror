@@ -42,8 +42,9 @@ func HandleMirror(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) 
 
 	if url != "" {
 		fileName = GetFileNameFromURL(url)
-		statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "📥 Memulai mirror…"))
-		taskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
+		task := taskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+		UpdateSharedDashboard(bot, message.Chat.ID, true)
+		log.Printf("[Mirror] Task created: %s", task.ID)
 		return
 	}
 
@@ -69,8 +70,9 @@ func HandleLeech(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 	}
 
 	fileName := GetFileNameFromURL(url)
-	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🔗 Memulai leech…"))
-	taskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
+	task := taskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+	UpdateSharedDashboard(bot, message.Chat.ID, true)
+	log.Printf("[Leech] Task created: %s", task.ID)
 }
 
 func HandleYTDLP(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
@@ -91,25 +93,54 @@ func HandleYTDLP(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 		return
 	}
 
-	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 Mengambil info video…"))
-	taskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, false, password, quality)
+	task := taskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, 0, message.From.ID, zip, false, password, quality)
+	UpdateSharedDashboard(bot, message.Chat.ID, true)
+	log.Printf("[YTDLP] Task created: %s", task.ID)
 }
 
 func showYTDLPQualityMenu(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url string, zip bool, password string) {
 	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 Menganalisa kualitas video…"))
 
-	cmd := exec.Command("yt-dlp", "-j", "--no-playlist", url)
+	args := []string{
+		"-j",
+		"--no-playlist",
+		"--no-check-certificate",
+		"--extractor-args", "youtube:player-client=web,web_embedded,ios,mweb,tv",
+		"--socket-timeout", "60",
+		"--add-header", "Accept-Language: en-US,en;q=0.9",
+		"--add-header", "Referer: https://www.youtube.com/",
+		"--remote-components", "ejs:github",
+		"--js-runtime", "node",
+		"--cache-dir", "/home/botuser/.cache/yt-dlp-final",
+	}
+
+	cookiesPath := filepath.Join(taskManager.ConfigDir, "cookies.txt")
+	if _, err := os.Stat(cookiesPath); err == nil {
+		log.Printf("[YTDLP-Info] Using cookies from: %s", cookiesPath)
+		args = append(args, "--cookies", cookiesPath)
+		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+	}
+
+	args = append(args, url)
+	cmd := exec.Command("yt-dlp", args...)
+
 	output, err := cmd.Output()
 	if err != nil {
-		editStatusMessage(bot, statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal mengambil info video:* %v", EscapeMarkdownV2(err.Error())))
+		stderr := ""
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = string(exitErr.Stderr)
+		}
+		log.Printf("[YTDLP-Info] Error: %v, Stderr: %s", err, stderr)
+		editStatusMessage(bot, statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal menganalisa video:* %v\n\n_Pastikan URL valid atau coba lagi nanti\\._", EscapeMarkdownV2(err.Error())))
 		return
 	}
 
 	var data struct {
 		Formats []struct {
-			Height int     `json:"height"`
-			FPS    float64 `json:"fps"`
-			VCodec string  `json:"vcodec"`
+			FormatID string  `json:"format_id"`
+			Height   int     `json:"height"`
+			FPS      float64 `json:"fps"`
+			VCodec   string  `json:"vcodec"`
 		} `json:"formats"`
 	}
 
@@ -120,7 +151,13 @@ func showYTDLPQualityMenu(bot *tgbotapi.BotAPI, message *tgbotapi.Message, url s
 
 	resMap := make(map[int]float64)
 	for _, f := range data.Formats {
-		if f.VCodec != "none" && f.Height > 0 {
+		log.Printf("[YTDLP-Format] ID: %s, Res: %dp, FPS: %.1f, VCodec: %s", f.FormatID, f.Height, f.FPS, f.VCodec)
+
+		if strings.HasPrefix(f.FormatID, "sb") {
+			continue
+		}
+
+		if f.Height > 0 && f.VCodec != "" && f.VCodec != "none" {
 			if f.FPS > resMap[f.Height] {
 				resMap[f.Height] = f.FPS
 			}
@@ -222,15 +259,11 @@ func HandleYTDLPQualityCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.Callbac
 
 	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Memulai download..."))
 
-	text := fmt.Sprintf("🎬 *YT\\-DLP dimulai* kualiti: `%s`", quality)
-	if quality == "" {
-		text = "🎬 *YT\\-DLP dimulai* kualiti: `Terbaik`"
-	}
-	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
-	_, _ = bot.Send(editMsg)
+	_, _ = bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
 
-	taskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality)
+	task := taskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, 0, callback.From.ID, session.Zip, false, session.Password, quality)
+	UpdateSharedDashboard(bot, callback.Message.Chat.ID, true)
+	log.Printf("[YTDLPCallback] Task created: %s", task.ID)
 }
 
 func HandleTorrent(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
@@ -247,21 +280,24 @@ func HandleTorrent(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string)
 	}
 
 	fileName := "torrent_download"
-	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🧲 Menambahkan torrent…"))
-	taskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
+	task := taskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+	UpdateSharedDashboard(bot, message.Chat.ID, true)
+	log.Printf("[Torrent] Task created: %s", task.ID)
 }
 
 func handleTelegramFileDownload(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password, quality string) {
-	statusMsg, _ := bot.Send(tgbotapi.NewMessage(message.Chat.ID, "📥 *Memulai download…*"))
-
-	file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+	tgFile, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
 	if err != nil {
-		editStatusMessage(bot, statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Error:* %s", EscapeMarkdownV2(err.Error())))
+		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("❌ *Error:* %s", EscapeMarkdownV2(err.Error())))
+		msg.ParseMode = MarkdownV2
+		_, _ = bot.Send(msg)
 		return
 	}
 
-	fileURL := file.Link(bot.Token)
-	taskManager.CreateTask(TypeMirror, fileURL, fileName, message.Chat.ID, statusMsg.MessageID, message.From.ID, zip, unzip, password, quality)
+	fileURL := tgFile.Link(bot.Token)
+	task := taskManager.CreateTask(TypeMirror, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+	UpdateSharedDashboard(bot, message.Chat.ID, true)
+	log.Printf("[TGDownload] Task created: %s", task.ID)
 }
 
 func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
@@ -272,7 +308,8 @@ func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 	updateTaskStatus(bot, task)
 
 	outputDir := filepath.Join(taskManager.DownloadDir, task.ID)
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
+	//nolint:gosec
+	if err := os.MkdirAll(outputDir, 0777); err != nil {
 		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
 		updateTaskStatus(bot, task)
 		return
@@ -282,9 +319,28 @@ func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 		"--dir=" + outputDir,
 		"--allow-overwrite=true",
 		"--max-connection-per-server=16",
-		"--split=16",
-		"--summary-interval=1",
+		"--split=32",
+		"--min-split-size=1M",
+		"--max-overall-download-limit=0",
+		"--max-resume-failure-tries=0",
+		"--retry-wait=1",
+		"--connect-timeout=30",
+		"--timeout=30",
 		"--console-log-level=notice",
+		"--summary-interval=1",
+		"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"--header=Accept-Encoding: gzip, deflate",
+		"--async-dns=true",
+		"--file-allocation=none",
+		"--disk-cache=128M",
+		"--enable-mmap=true",
+		"--check-certificate=false",
+		"--optimize-concurrent-downloads=true",
+		"--max-file-not-found=2",
+		"--disable-ipv6=true",
+		"--enable-http-pipelining=true",
+		"--peer-id-prefix=-AZ2060-",
+		"--peer-agent=Transmission/2.94",
 		task.URL,
 	}
 
@@ -306,7 +362,13 @@ func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 	}
 
 	go parseAria2Progress(bot, task, stdout)
-	_ = cmd.Wait()
+	err := cmd.Wait()
+	if err != nil && task.Status != StatusCancelled {
+		task.SetError(fmt.Sprintf("aria2c execution failed: %v", err))
+		updateTaskStatus(bot, task)
+		cleanupTask(task)
+		return
+	}
 
 	if task.Status == StatusCancelled {
 		cleanupTask(task)
@@ -352,7 +414,8 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 	updateTaskStatus(bot, task)
 
 	outputDir := filepath.Join(taskManager.DownloadDir, task.ID)
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
+	//nolint:gosec
+	if err := os.MkdirAll(outputDir, 0777); err != nil {
 		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
 		updateTaskStatus(bot, task)
 		return
@@ -365,21 +428,27 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 		"--continue",
 		"--merge-output-format", "mp4",
 		"--no-check-certificate",
-		"--format-sort", "res,vcodec:h264",
-		"--extractor-args", "youtube:player-client=tv,android,web",
+		"--format-sort", "res,fps,codec:vp9,vcodec,br",
+		"--extractor-args", "youtube:player-client=web,web_embedded,ios,mweb,tv",
+		"--socket-timeout", "60",
+		"--concurrent-fragments", "16",
+		"--buffer-size", "1M",
+		"--add-header", "Accept-Language: en-US,en;q=0.9",
+		"--add-header", "Referer: https://www.youtube.com/",
 		"--remote-components", "ejs:github",
-	}
-
-	args = append(args, "--js-runtime", "node")
-
-	if task.Quality != "" {
-		format := fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", task.Quality, task.Quality)
-		args = append(args, "-f", format)
+		"--js-runtime", "node",
+		"--cache-dir", "/home/botuser/.cache/yt-dlp-final",
 	}
 
 	cookiesPath := filepath.Join(taskManager.ConfigDir, "cookies.txt")
 	if _, err := os.Stat(cookiesPath); err == nil {
 		args = append(args, "--cookies", cookiesPath)
+		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+	}
+
+	if task.Quality != "" {
+		format := fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", task.Quality, task.Quality)
+		args = append(args, "-f", format)
 	}
 
 	args = append(args, task.URL)
@@ -450,9 +519,7 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 
 func parseAria2Progress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
-	progressRegex := regexp.MustCompile(`[\(\[\s](\d+)%`)
-	speedRegex := regexp.MustCompile(`DL:(\S+)`)
-	etaRegex := regexp.MustCompile(`ETA:(\S+)`)
+	statusRegex := regexp.MustCompile(`\[#\w+\s+(\S+)/(\S+)\((\d+)%\)(?:\s+CN:(\d+))?.*DL:(\S+)(?:\s+ETA:(\S+))?\]`)
 	lastUpdate := time.Now()
 
 	for scanner.Scan() {
@@ -462,27 +529,42 @@ func parseAria2Progress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) 
 			log.Printf("[Aria2 Output] %s", line)
 		}
 
-		matches := progressRegex.FindStringSubmatch(line)
-		if len(matches) >= 2 {
-			if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
+		matches := statusRegex.FindStringSubmatch(line)
+		if len(matches) >= 5 {
+			downloadedStr := matches[1]
+			totalStr := matches[2]
+			pctStr := matches[3]
+			cnStr := matches[4]
+			speedStr := matches[5]
+			etaStr := ""
+			if len(matches) >= 7 {
+				etaStr = matches[6]
+			}
+
+			downloaded := ParseBytesString(downloadedStr)
+			total := ParseBytesString(totalStr)
+			speed := ParseBytesString(speedStr)
+
+			task.Mu.Lock()
+			task.DownloadedSize = downloaded
+			task.TotalSize = total
+			task.Speed = speed
+			if cn, err := strconv.Atoi(cnStr); err == nil {
+				task.Connections = cn
+			}
+			if pct, err := strconv.ParseFloat(pctStr, 64); err == nil {
 				task.Progress = pct
 			}
-		}
-
-		speedMatches := speedRegex.FindStringSubmatch(line)
-		if len(speedMatches) >= 2 {
-			speedStr := speedMatches[1]
-			speedStr = strings.TrimRight(speedStr, "]")
-			task.Speed = ParseBytesString(speedStr)
-		}
-
-		etaMatches := etaRegex.FindStringSubmatch(line)
-		if len(etaMatches) >= 2 {
-			etaStr := etaMatches[1]
-			etaStr = strings.TrimRight(etaStr, "]")
-			if d, err := time.ParseDuration(etaStr); err == nil {
-				task.ETA = d
+			if total > 0 && downloaded > 0 && task.Progress == 0 {
+				task.Progress = float64(downloaded) / float64(total) * 100
 			}
+			if etaStr != "" {
+				etaStr = strings.TrimRight(etaStr, "]")
+				if d, err := time.ParseDuration(etaStr); err == nil {
+					task.ETA = d
+				}
+			}
+			task.Mu.Unlock()
 		}
 
 		if time.Since(lastUpdate) >= 3*time.Second {
@@ -494,7 +576,7 @@ func parseAria2Progress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) 
 
 func parseYTDLPProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
-	progressRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
+	progressRegex := regexp.MustCompile(`\[download\]\s+([\d\.]+)%\s+of\s+(?:~)?(\S+)\s+at\s+(\S+)\s+ETA\s+(\S+)`)
 	lastUpdate := time.Now()
 
 	for scanner.Scan() {
@@ -508,17 +590,84 @@ func parseYTDLPProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) 
 			task.Mu.Unlock()
 		}
 
+		if strings.HasPrefix(line, "[download] Destination:") {
+			title := strings.TrimPrefix(line, "[download] Destination:")
+			title = filepath.Base(strings.TrimSpace(title))
+			task.Mu.Lock()
+			task.FileName = title
+			task.Mu.Unlock()
+		} else if strings.HasPrefix(line, "[download]") && strings.Contains(line, "has already been downloaded") {
+			title := strings.TrimPrefix(line, "[download]")
+			title = strings.TrimSuffix(title, " has already been downloaded")
+			title = filepath.Base(strings.TrimSpace(title))
+			task.Mu.Lock()
+			task.FileName = title
+			task.Mu.Unlock()
+		}
+
 		matches := progressRegex.FindStringSubmatch(line)
-		if len(matches) >= 2 {
-			if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
+		if len(matches) >= 5 {
+			pctStr := matches[1]
+			totalStr := matches[2]
+			speedStr := matches[3]
+			etaStr := matches[4]
+
+			task.Mu.Lock()
+			if pct, err := strconv.ParseFloat(pctStr, 64); err == nil {
 				task.Progress = pct
 			}
-			if time.Since(lastUpdate) >= 5*time.Second {
-				updateTaskStatus(bot, task)
-				lastUpdate = time.Now()
+			task.TotalSize = ParseBytesString(totalStr)
+			task.Speed = ParseBytesString(speedStr)
+			task.Connections = 16
+			if d, err := parseYTDLPDuration(etaStr); err == nil {
+				task.ETA = d
 			}
+			task.Mu.Unlock()
+		}
+
+		if time.Since(lastUpdate) >= 5*time.Second {
+			updateTaskStatus(bot, task)
+			lastUpdate = time.Now()
 		}
 	}
+}
+
+func parseYTDLPDuration(s string) (time.Duration, error) {
+	parts := strings.Split(s, ":")
+	var h, m, s_ int
+	var err error
+
+	switch len(parts) {
+	case 3:
+		h, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, err
+		}
+		m, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, err
+		}
+		s_, err = strconv.Atoi(parts[2])
+		if err != nil {
+			return 0, err
+		}
+	case 2:
+		m, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, err
+		}
+		s_, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, err
+		}
+	default:
+		s_, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s_)*time.Second, nil
 }
 
 func findDownloadedFile(dir string) string {
@@ -545,16 +694,15 @@ func findDownloadedFile(dir string) string {
 
 func updateTaskStatus(bot *tgbotapi.BotAPI, task *Task) {
 	snapshot := task.GetSnapshot()
-	emoji := StatusEmoji(string(snapshot.Status))
-	bar := ProgressBar(snapshot.Progress, 10)
 
-	text := fmt.Sprintf("%s *%s*\n📄 `%s`\n`%s`\n⚡ %s \\| ⏱ %s",
-		emoji, EscapeMarkdownV2(FormatStatus(string(snapshot.Status))),
-		EscapeMarkdownV2(TruncateString(snapshot.FileName, 50)),
-		EscapeMarkdownV2(bar),
-		EscapeMarkdownV2(FormatSpeed(snapshot.Speed)),
-		EscapeMarkdownV2(FormatDuration(snapshot.ETA)))
+	if snapshot.Status != StatusCompleted && snapshot.Status != StatusFailed && snapshot.Status != StatusCancelled {
+		UpdateSharedDashboard(bot, snapshot.ChatID, false)
+		return
+	}
 
+	UpdateSharedDashboard(bot, snapshot.ChatID, false)
+
+	var text string
 	switch snapshot.Status {
 	case StatusCompleted:
 		duration := snapshot.CompletedAt.Sub(snapshot.StartedAt)
@@ -582,30 +730,23 @@ func updateTaskStatus(bot *tgbotapi.BotAPI, task *Task) {
 		text = fmt.Sprintf("❌ *Failed\\!*\n📄 `%s`\nError: `%s`",
 			EscapeMarkdownV2(snapshot.FileName),
 			EscapeMarkdownV2(TruncateString(snapshot.Error, 100)))
+	default:
+		return
 	}
 
-	editMsg := tgbotapi.NewEditMessageText(snapshot.ChatID, snapshot.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
+	msg.ParseMode = MarkdownV2
 
-	if snapshot.Status == StatusDownloading || snapshot.Status == StatusUploading {
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("cancel_task:%s", snapshot.ID)),
-			),
-		)
-		editMsg.ReplyMarkup = &keyboard
-	} else if snapshot.Status == StatusCompleted && snapshot.RemoteURL != "" {
+	if snapshot.Status == StatusCompleted && snapshot.RemoteURL != "" {
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
 			),
 		)
-		editMsg.ReplyMarkup = &keyboard
+		msg.ReplyMarkup = keyboard
 	}
 
-	if _, err := bot.Send(editMsg); err != nil {
-		log.Printf("[StatusUpdate] Gagal update status task %s: %v", task.ID, err)
-	}
+	_, _ = bot.Send(msg)
 }
 
 func editStatusMessage(bot *tgbotapi.BotAPI, chatID int64, msgID int, text string) {

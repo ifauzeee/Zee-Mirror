@@ -45,6 +45,14 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 		"--progress",
 		"--stats", "1s",
 		"--stats-one-line",
+		"--transfers", "10",
+		"--checkers", "20",
+		"--drive-chunk-size", "256M",
+		"--drive-upload-cutoff", "256M",
+		"--buffer-size", "128M",
+		"--low-level-retries", "10",
+		"--use-mmap",
+		"--size-only",
 		"-v",
 	}
 
@@ -95,13 +103,35 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 
 func parseRcloneProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		for i := 0; i < len(data); i++ {
+			if data[i] == '\n' || data[i] == '\r' {
+				return i + 1, data[0:i], nil
+			}
+		}
+		if atEOF {
+			return len(data), data, nil
+		}
+		return 0, nil, nil
+	})
+
 	progressRegex := regexp.MustCompile(`Transferred:.*?(\d+)%`)
-	speedRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(B|KiB|MiB|GiB)/s`)
+	speedRegex := regexp.MustCompile(`,\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+/s)`)
 
 	lastUpdate := time.Now()
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		if strings.Contains(line, "Transferred:") {
+			log.Printf("[Rclone %s] %s", task.ID, line)
+		}
 
 		if matches := progressRegex.FindStringSubmatch(line); len(matches) >= 2 {
 			if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
@@ -110,23 +140,13 @@ func parseRcloneProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser)
 		}
 
 		if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 3 {
-			speed, err := strconv.ParseFloat(matches[1], 64)
-			if err != nil {
-				continue
-			}
-			switch matches[2] {
-			case "KiB":
-				task.Speed = int64(speed * 1024)
-			case "MiB":
-				task.Speed = int64(speed * 1024 * 1024)
-			case "GiB":
-				task.Speed = int64(speed * 1024 * 1024 * 1024)
-			default:
-				task.Speed = int64(speed)
-			}
+			speedStr := matches[1] + matches[2]
+			task.Mu.Lock()
+			task.Speed = ParseBytesString(speedStr)
+			task.Mu.Unlock()
 		}
 
-		if time.Since(lastUpdate) >= 5*time.Second {
+		if time.Since(lastUpdate) >= 2*time.Second {
 			updateTaskStatus(bot, task)
 			lastUpdate = time.Now()
 		}

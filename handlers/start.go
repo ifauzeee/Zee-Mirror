@@ -192,15 +192,21 @@ func formatTaskLine(task TaskSnapshot) string {
 	bar := ProgressBar(task.Progress, 10)
 
 	return fmt.Sprintf(
-		"%s *ID:* `%s`\n"+
-			"📄 %s\n"+
+		"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+			"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
 			"%s\n"+
-			"⚡ %s | ⏱ %s",
+			"📄 *File:* %s\n"+
+			"📦 *Size:* %s\n"+
+			"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
+			"━━━━━━━━━━━━━━━━━━━━━━━━",
 		emoji,
 		task.ID,
+		EscapeMarkdownV2(FormatStatus(string(task.Status))),
+		EscapeMarkdownV2(bar),
 		EscapeMarkdownV2(TruncateString(task.FileName, 40)),
-		bar,
+		EscapeMarkdownV2(FormatBytes(task.TotalSize)),
 		EscapeMarkdownV2(FormatSpeed(task.Speed)),
+		task.Connections,
 		EscapeMarkdownV2(FormatDuration(task.ETA)),
 	)
 }
