@@ -31,6 +31,11 @@ const (
 	TypeTorrent TaskType = "torrent"
 )
 
+const (
+	MarkdownV2       = "MarkdownV2"
+	StatusHeaderText = "📊 *Status Task Aktif*\n\n"
+)
+
 type Task struct {
 	ID             string
 	GID            string

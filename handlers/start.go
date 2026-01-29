@@ -38,7 +38,7 @@ func HandleStart(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, welcomeText)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
 
 	if _, err := bot.Send(msg); err != nil {
@@ -71,13 +71,13 @@ func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		"\\- Cancel task kapan saja dengan /cancel"
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = MarkdownV2
 
-	bot.Send(msg)
+	_, _ = bot.Send(msg)
 }
 
 func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
-	bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 
 	action := ""
 	if len(callback.Data) > 10 {
@@ -145,8 +145,8 @@ func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 	}
 
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = "MarkdownV2"
-	bot.Send(msg)
+	msg.ParseMode = MarkdownV2
+	_, _ = bot.Send(msg)
 }
 
 func HandleStatusFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
@@ -154,12 +154,12 @@ func HandleStatusFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQ
 
 	if len(tasks) == 0 {
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "📭 *Tidak ada task aktif*")
-		msg.ParseMode = "MarkdownV2"
-		bot.Send(msg)
+		msg.ParseMode = MarkdownV2
+		_, _ = bot.Send(msg)
 		return
 	}
 
-	text := "📊 *Status Task Aktif*\n\n"
+	text := StatusHeaderText
 	for _, task := range tasks {
 		snapshot := task.GetSnapshot()
 		text += formatTaskLine(snapshot) + "\n\n"
@@ -172,9 +172,9 @@ func HandleStatusFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQ
 	)
 
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	bot.Send(msg)
+	_, _ = bot.Send(msg)
 }
 
 func HandleSettingsFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
@@ -182,9 +182,9 @@ func HandleSettingsFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.Callbac
 	keyboard := getSettingsKeyboard()
 
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	bot.Send(msg)
+	_, _ = bot.Send(msg)
 }
 
 func formatTaskLine(task TaskSnapshot) string {

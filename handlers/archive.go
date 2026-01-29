@@ -15,7 +15,9 @@ func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	updateTaskStatus(bot, task)
 
 	extractDir := filepath.Join(filepath.Dir(task.LocalPath), "extracted")
-	os.MkdirAll(extractDir, 0755)
+	if err := os.MkdirAll(extractDir, 0750); err != nil {
+		return fmt.Errorf("failed to create extract directory: %v", err)
+	}
 
 	args := []string{
 		"x",
@@ -31,6 +33,7 @@ func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
+	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "7z", args...)
 
 	output, err := cmd.CombinedOutput()
@@ -74,6 +77,7 @@ func createZipArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
+	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "7z", args...)
 
 	output, err := cmd.CombinedOutput()
@@ -95,7 +99,7 @@ func createZipArchive(bot *tgbotapi.BotAPI, task *Task) error {
 func cleanupTask(task *Task) {
 	if task.LocalPath != "" {
 		taskDir := filepath.Join(taskManager.DownloadDir, task.ID)
-		os.RemoveAll(taskDir)
+		_ = os.RemoveAll(taskDir)
 	}
 }
 
@@ -116,7 +120,7 @@ func handleAutoDelete(bot *tgbotapi.BotAPI, task *Task) {
 			<-ctx.Done()
 
 			deleteMsg := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
-			bot.Request(deleteMsg)
+			_, _ = bot.Request(deleteMsg)
 		}
 	}()
 }

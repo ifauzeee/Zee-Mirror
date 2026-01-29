@@ -11,12 +11,12 @@ func HandleStatus(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	if len(tasks) == 0 {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, atau /torrent untuk memulai.")
-		msg.ParseMode = "MarkdownV2"
-		bot.Send(msg)
+		msg.ParseMode = MarkdownV2
+		_, _ = bot.Send(msg)
 		return
 	}
 
-	text := "📊 *Status Task Aktif*\n\n"
+	text := StatusHeaderText
 
 	for _, task := range tasks {
 		snapshot := task.GetSnapshot()
@@ -46,16 +46,16 @@ func HandleStatus(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	bot.Send(msg)
+	_, _ = bot.Send(msg)
 }
 
 func HandleCancel(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 	if args == "" {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nGunakan: `/cancel <TaskID>`\n\nLihat daftar task dengan /status")
-		msg.ParseMode = "MarkdownV2"
-		bot.Send(msg)
+		msg.ParseMode = MarkdownV2
+		_, _ = bot.Send(msg)
 		return
 	}
 
@@ -63,8 +63,8 @@ func HandleCancel(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) 
 
 	if taskManager.CancelTask(taskID) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Task `%s` dibatalkan*", taskID))
-		msg.ParseMode = "MarkdownV2"
-		bot.Send(msg)
+		msg.ParseMode = MarkdownV2
+		_, _ = bot.Send(msg)
 		return
 	}
 
@@ -72,27 +72,27 @@ func HandleCancel(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) 
 	if task != nil {
 		if taskManager.CancelTask(task.ID) {
 			msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Task `%s` dibatalkan*", task.ID))
-			msg.ParseMode = "MarkdownV2"
-			bot.Send(msg)
+			msg.ParseMode = MarkdownV2
+			_, _ = bot.Send(msg)
 			return
 		}
 	}
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("❌ *Task `%s` tidak ditemukan*", EscapeMarkdownV2(taskID)))
-	msg.ParseMode = "MarkdownV2"
-	bot.Send(msg)
+	msg.ParseMode = MarkdownV2
+	_, _ = bot.Send(msg)
 }
 
 func HandleCancelCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, taskID string) {
 	if taskManager.CancelTask(taskID) {
-		bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Task dibatalkan"))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Task dibatalkan"))
 
 		text := "🚫 *Task Dibatalkan*\n\nID: `%s`"
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf(text, taskID))
-		editMsg.ParseMode = "MarkdownV2"
-		bot.Send(editMsg)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = bot.Send(editMsg)
 	} else {
-		bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Gagal membatalkan task"))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Gagal membatalkan task"))
 	}
 }
 
@@ -100,18 +100,18 @@ func HandleRefreshStatusCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.Callba
 	tasks := taskManager.GetActiveTasks()
 
 	if len(tasks) == 0 {
-		bot.Request(tgbotapi.NewCallback(callback.ID, "Tidak ada task aktif"))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "Tidak ada task aktif"))
 
 		text := "📭 *Tidak ada task aktif*"
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = "MarkdownV2"
-		bot.Send(editMsg)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = bot.Send(editMsg)
 		return
 	}
 
-	bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
+	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
 
-	text := "📊 *Status Task Aktif*\n\n"
+	text := StatusHeaderText
 
 	for _, task := range tasks {
 		snapshot := task.GetSnapshot()
@@ -141,13 +141,13 @@ func HandleRefreshStatusCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.Callba
 	)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = "MarkdownV2"
+	editMsg.ParseMode = MarkdownV2
 	editMsg.ReplyMarkup = &keyboard
-	bot.Send(editMsg)
+	_, _ = bot.Send(editMsg)
 }
 
 func HandleConfirmCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
-	bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 
 	if len(parts) < 2 {
 		return
@@ -158,13 +158,13 @@ func HandleConfirmCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuer
 	case "yes":
 		text := "✅ *Dikonfirmasi*"
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = "MarkdownV2"
-		bot.Send(editMsg)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = bot.Send(editMsg)
 
 	case "no":
 		text := "❌ *Dibatalkan*"
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = "MarkdownV2"
-		bot.Send(editMsg)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = bot.Send(editMsg)
 	}
 }

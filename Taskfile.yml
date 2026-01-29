@@ -1,0 +1,40 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build the binary
+    cmds:
+      - go build -o zee-mirror.exe main.go
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  all:
+    desc: Run all checks and build
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
+
+  pre-push:
+    desc: Commands to run before push
+    cmds:
+      - task: lint
+      - task: test

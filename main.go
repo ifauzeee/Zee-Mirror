@@ -101,8 +101,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	os.MkdirAll(AppConfig.DownloadDir, 0755)
-	os.MkdirAll(AppConfig.ConfigDir, 0755)
+	if err := os.MkdirAll(AppConfig.DownloadDir, 0750); err != nil {
+		log.Printf("⚠️ Gagal membuat DownloadDir: %v", err)
+	}
+	if err := os.MkdirAll(AppConfig.ConfigDir, 0750); err != nil {
+		log.Printf("⚠️ Gagal membuat ConfigDir: %v", err)
+	}
 
 	bot, err := tgbotapi.NewBotAPI(AppConfig.BotToken)
 	if err != nil {
@@ -146,8 +150,8 @@ func main() {
 		if !isAuthorized(update.Message.From.ID) {
 			log.Printf("⛔ Akses ditolak untuk user ID: %d", update.Message.From.ID)
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "⛔ *Anda tidak memiliki akses ke bot ini\\.*")
-			msg.ParseMode = "MarkdownV2"
-			bot.Send(msg)
+			msg.ParseMode = handlers.MarkdownV2
+			_, _ = bot.Send(msg)
 			continue
 		}
 
@@ -182,14 +186,14 @@ func handleCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		handlers.HandleSettings(bot, message)
 	default:
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❓ Command tidak dikenal\\. Gunakan /help untuk melihat daftar command\\.")
-		msg.ParseMode = "MarkdownV2"
-		bot.Send(msg)
+		msg.ParseMode = handlers.MarkdownV2
+		_, _ = bot.Send(msg)
 	}
 }
 
 func handleCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 	if !isAuthorized(callback.From.ID) {
-		bot.Request(tgbotapi.NewCallback(callback.ID, "⛔ Akses ditolak"))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "⛔ Akses ditolak"))
 		return
 	}
 
@@ -212,6 +216,6 @@ func handleCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 	case "ytdlp_q":
 		handlers.HandleYTDLPQualityCallback(bot, callback, parts)
 	default:
-		bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
 }

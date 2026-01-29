@@ -1,0 +1,38 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - gofmt
+    - goimports
+    - misspell
+    - gosec
+    - bodyclose
+    - unconvert
+    - goconst
+    - gocritic
+    - gocyclo
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true # Set to true if you don't want to enforce comments on exported symbols
+  gocyclo:
+    min-complexity: 15
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

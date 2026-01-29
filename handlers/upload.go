@@ -51,6 +51,7 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
+	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "rclone", args...)
 
 	stderr, err := cmd.StderrPipe()
@@ -79,6 +80,7 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 		"--config", configPath,
 		filepath.Join(taskManager.RcloneDest, task.FileName),
 	}
+	//nolint:gosec
 	linkCmd := exec.CommandContext(ctx, "rclone", linkArgs...)
 	linkOutput, linkErr := linkCmd.Output()
 	if linkErr == nil {
@@ -108,7 +110,10 @@ func parseRcloneProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser)
 		}
 
 		if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 3 {
-			speed, _ := strconv.ParseFloat(matches[1], 64)
+			speed, err := strconv.ParseFloat(matches[1], 64)
+			if err != nil {
+				continue
+			}
 			switch matches[2] {
 			case "KiB":
 				task.Speed = int64(speed * 1024)

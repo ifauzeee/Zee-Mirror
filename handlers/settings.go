@@ -16,7 +16,7 @@ type Settings struct {
 func InitSettings() {
 	settings = &Settings{
 		AutoDeleteMessages: false,
-		DefaultMode:        "mirror",
+		DefaultMode:        string(TypeMirror),
 	}
 }
 
@@ -25,14 +25,14 @@ func HandleSettings(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	keyboard := getSettingsKeyboard()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	bot.Send(msg)
+	_, _ = bot.Send(msg)
 }
 
 func HandleSettingsCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 2 {
-		bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
 
@@ -43,21 +43,21 @@ func HandleSettingsCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQue
 	case "auto_delete":
 		settings.AutoDeleteMessages = !settings.AutoDeleteMessages
 		if settings.AutoDeleteMessages {
-			bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Auto Delete: ON"))
+			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Auto Delete: ON"))
 		} else {
-			bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Auto Delete: OFF"))
+			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Auto Delete: OFF"))
 		}
 
 	case "default_mirror":
-		settings.DefaultMode = "mirror"
-		bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
+		settings.DefaultMode = string(TypeMirror)
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
 
 	case "default_leech":
-		settings.DefaultMode = "leech"
-		bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
+		settings.DefaultMode = string(TypeLeech)
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
 	default:
-		bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
 
 	settings.mu.Unlock()
@@ -66,9 +66,9 @@ func HandleSettingsCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQue
 	keyboard := getSettingsKeyboard()
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = "MarkdownV2"
+	editMsg.ParseMode = MarkdownV2
 	editMsg.ReplyMarkup = &keyboard
-	bot.Send(editMsg)
+	_, _ = bot.Send(editMsg)
 }
 
 func formatSettingsMessage() string {
@@ -138,7 +138,7 @@ func IsAutoDeleteEnabled() bool {
 
 func GetDefaultMode() string {
 	if settings == nil {
-		return "mirror"
+		return string(TypeMirror)
 	}
 	settings.mu.RLock()
 	defer settings.mu.RUnlock()
