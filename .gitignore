@@ -1,0 +1,52 @@
+# .gitignore untuk Zee-Mirror Bot
+
+# Binary
+zee-mirror
+zee-mirror.exe
+
+# Environment files
+.env
+*.env.local
+
+# Config files dengan credentials
+config/rclone.conf
+config/*.json
+!config/*.example
+
+# Download temporary files
+downloads/
+*.torrent
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.sum
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Temp
+tmp/
+temp/
+*.tmp

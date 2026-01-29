@@ -1,0 +1,59 @@
+# Rclone Configuration Example
+# Lokasi file: config/rclone.conf
+#
+# Untuk setup Google Drive, jalankan:
+# rclone config
+#
+# Atau salin konfigurasi dari komputer Anda:
+# Windows: %APPDATA%\rclone\rclone.conf
+# Linux/Mac: ~/.config/rclone/rclone.conf
+
+[gdrive]
+type = drive
+scope = drive
+# token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+# root_folder_id = xxxxx (optional, untuk folder spesifik)
+
+# ============================================
+# Contoh konfigurasi untuk berbagai remote:
+# ============================================
+
+# Google Drive dengan Service Account
+# [gdrive-sa]
+# type = drive
+# scope = drive
+# service_account_file = /app/config/service_account.json
+# root_folder_id = your_folder_id
+
+# OneDrive
+# [onedrive]
+# type = onedrive
+# token = {"access_token":"..."}
+
+# Mega.nz
+# [mega]
+# type = mega
+# user = your_email@example.com
+# pass = your_encrypted_password
+
+# Dropbox
+# [dropbox]
+# type = dropbox
+# token = {"access_token":"..."}
+
+# WebDAV (Nextcloud, etc)
+# [nextcloud]
+# type = webdav
+# url = https://your-nextcloud.com/remote.php/dav/files/username/
+# vendor = nextcloud
+# user = username
+# pass = password
+
+# ============================================
+# Catatan:
+# ============================================
+# 
+# 1. Jangan bagikan file ini karena berisi kredensial
+# 2. Untuk keamanan, gunakan Service Account untuk Google Drive
+# 3. Password di rclone sudah terenkripsi (obscured)
+# 4. Pastikan token selalu up-to-date

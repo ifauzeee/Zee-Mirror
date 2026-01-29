@@ -1,0 +1,31 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+README.md
+LICENSE
+*.md
+
+# Config dengan credentials
+config/rclone.conf
+config/*.json
+
+# Downloads
+downloads/
+*.torrent
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test files
+*_test.go
