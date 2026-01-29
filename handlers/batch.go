@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"zee-mirror/pkg/utils"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
 )
@@ -51,10 +53,8 @@ type BatchManager struct {
 	Mu            sync.RWMutex
 }
 
-var batchManager *BatchManager
-
-func init() {
-	batchManager = &BatchManager{
+func NewBatchManager() *BatchManager {
+	return &BatchManager{
 		Batches:       make(map[string]*BatchTask),
 		PriorityQueue: make([]*BatchTask, 0),
 	}
@@ -111,7 +111,7 @@ func parseBatchArguments(args string) *BatchOptions {
 			continue
 		}
 
-		if IsValidURL(line) {
+		if utils.IsValidURL(line) {
 			options.URLs = append(options.URLs, line)
 		}
 	}
@@ -119,9 +119,9 @@ func parseBatchArguments(args string) *BatchOptions {
 	return options
 }
 
-func HandleBatch(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
+func (s *BotService) HandleBatch(message *tgbotapi.Message, args string) {
 	if args == "" {
-		sendBatchHelp(bot, message.Chat.ID)
+		s.sendBatchHelp(message.Chat.ID)
 		return
 	}
 
@@ -130,22 +130,22 @@ func HandleBatch(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 	if len(options.URLs) == 0 {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nTidak ada URL valid yang ditemukan\\.\n\nGunakan `/batch` untuk melihat cara penggunaan\\.")
 		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		_, _ = s.Bot.Send(msg)
 		return
 	}
 
 	if !options.ZipAll {
 		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔄 *Creating %d regular tasks...*", len(options.URLs)))
 		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		_, _ = s.Bot.Send(msg)
 
 		for _, url := range options.URLs {
-			fileName := GetFileNameFromURL(url)
-			task := taskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, message.From.ID, false, false, options.Password, "")
+			fileName := utils.GetFileNameFromURL(url)
+			task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, message.From.ID, false, false, options.Password, "")
 			log.Printf("[Batch-Mirror] Created task %s for %s", task.ID, url)
 		}
 
-		UpdateSharedDashboard(bot, message.Chat.ID, true)
+		s.UpdateSharedDashboard(message.Chat.ID, true)
 		return
 	}
 
@@ -153,20 +153,20 @@ func HandleBatch(bot *tgbotapi.BotAPI, message *tgbotapi.Message, args string) {
 		options.Name = fmt.Sprintf("batch_%s", time.Now().Format("20060102_150405"))
 	}
 
-	batch := createBatchTask(options.Name, options.URLs, message.Chat.ID, 0, message.From.ID, options.ZipAll, options.Password, options.Priority)
+	batch := s.createBatchTask(options.Name, options.URLs, message.Chat.ID, 0, message.From.ID, options.ZipAll, options.Password, options.Priority)
 
-	UpdateSharedDashboard(bot, message.Chat.ID, true)
+	s.UpdateSharedDashboard(message.Chat.ID, true)
 
-	go processBatchTask(bot, batch)
+	go s.processBatchTask(batch)
 
 	log.Printf("[Batch] Created batch %s with %d URLs, priority: %d", batch.ID, len(options.URLs), options.Priority)
 }
 
-func updateBatchStatus(bot *tgbotapi.BotAPI, batch *BatchTask) {
-	UpdateSharedDashboard(bot, batch.ChatID, false)
+func (s *BotService) updateBatchStatus(batch *BatchTask) {
+	s.UpdateSharedDashboard(batch.ChatID, false)
 }
 
-func sendBatchHelp(bot *tgbotapi.BotAPI, chatID int64) {
+func (s *BotService) sendBatchHelp(chatID int64) {
 	helpText := `📦 *Batch Download System*
 
 *Penggunaan:*
@@ -200,14 +200,14 @@ URL3
 
 	msg := tgbotapi.NewMessage(chatID, helpText)
 	msg.ParseMode = MarkdownV2
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func createBatchTask(name string, urls []string, chatID int64, msgID int, userID int64, zipAll bool, password string, priority int) *BatchTask {
+func (s *BotService) createBatchTask(name string, urls []string, chatID int64, msgID int, userID int64, zipAll bool, password string, priority int) *BatchTask {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	batchID := uuid.New().String()[:8]
-	downloadDir := filepath.Join(taskManager.DownloadDir, "batch_"+batchID)
+	downloadDir := filepath.Join(s.TaskManager.DownloadDir, "batch_"+batchID)
 
 	batch := &BatchTask{
 		ID:          batchID,
@@ -228,32 +228,32 @@ func createBatchTask(name string, urls []string, chatID int64, msgID int, userID
 	}
 
 	for i, url := range urls {
-		batch.SubTasks[i] = createBatchSubTask(batch, url, i)
+		batch.SubTasks[i] = s.createBatchSubTask(batch, url, i)
 	}
 
-	batchManager.Mu.Lock()
-	batchManager.Batches[batch.ID] = batch
-	batchManager.PriorityQueue = append(batchManager.PriorityQueue, batch)
+	s.BatchManager.Mu.Lock()
+	s.BatchManager.Batches[batch.ID] = batch
+	s.BatchManager.PriorityQueue = append(s.BatchManager.PriorityQueue, batch)
 
-	sort.Slice(batchManager.PriorityQueue, func(i, j int) bool {
-		return batchManager.PriorityQueue[i].Priority > batchManager.PriorityQueue[j].Priority
+	sort.Slice(s.BatchManager.PriorityQueue, func(i, j int) bool {
+		return s.BatchManager.PriorityQueue[i].Priority > s.BatchManager.PriorityQueue[j].Priority
 	})
-	batchManager.Mu.Unlock()
+	s.BatchManager.Mu.Unlock()
 
 	return batch
 }
 
-func processBatchTask(bot *tgbotapi.BotAPI, batch *BatchTask) {
+func (s *BotService) processBatchTask(batch *BatchTask) {
 	log.Printf("[Batch %s] Starting processing %d URLs", batch.ID, len(batch.URLs))
 
 	if err := os.MkdirAll(batch.DownloadDir, 0750); err != nil {
 		batch.SetError(fmt.Sprintf("Failed to create batch directory: %v", err))
-		updateBatchStatus(bot, batch)
+		s.updateBatchStatus(batch)
 		return
 	}
 
 	batch.SetStatus(StatusDownloading)
-	updateBatchStatus(bot, batch)
+	s.updateBatchStatus(batch)
 
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, 3)
@@ -263,7 +263,7 @@ func processBatchTask(bot *tgbotapi.BotAPI, batch *BatchTask) {
 		case <-batch.Ctx.Done():
 			log.Printf("[Batch %s] Cancelled", batch.ID)
 			batch.SetStatus(StatusCancelled)
-			updateBatchStatus(bot, batch)
+			s.updateBatchStatus(batch)
 			return
 		default:
 		}
@@ -277,7 +277,7 @@ func processBatchTask(bot *tgbotapi.BotAPI, batch *BatchTask) {
 
 			subTask := batch.SubTasks[idx]
 
-			err := downloadBatchItem(batch, subTask)
+			err := s.downloadBatchItem(batch, subTask)
 
 			if err != nil {
 				batch.Mu.Lock()
@@ -289,9 +289,9 @@ func processBatchTask(bot *tgbotapi.BotAPI, batch *BatchTask) {
 			} else {
 				if !batch.ZipAll {
 					subTask.SetStatus(StatusUploading)
-					updateBatchStatus(bot, batch)
+					s.updateBatchStatus(batch)
 
-					upErr := UploadWithRclone(bot, subTask)
+					upErr := s.UploadWithRclone(subTask)
 
 					batch.Mu.Lock()
 					if upErr != nil {
@@ -317,7 +317,7 @@ func processBatchTask(bot *tgbotapi.BotAPI, batch *BatchTask) {
 				}
 			}
 
-			updateBatchStatus(bot, batch)
+			s.updateBatchStatus(batch)
 		}(i, url)
 	}
 
@@ -326,48 +326,48 @@ func processBatchTask(bot *tgbotapi.BotAPI, batch *BatchTask) {
 	select {
 	case <-batch.Ctx.Done():
 		batch.SetStatus(StatusCancelled)
-		updateBatchStatus(bot, batch)
-		cleanupBatch(batch)
+		s.updateBatchStatus(batch)
+		s.cleanupBatch(batch)
 		return
 	default:
 	}
 
 	if batch.ZipAll && batch.Completed > 0 {
 		batch.SetStatus(StatusZipping)
-		updateBatchStatus(bot, batch)
+		s.updateBatchStatus(batch)
 
-		err := zipBatchResults(batch)
+		err := s.zipBatchResults(batch)
 		if err != nil {
 			batch.SetError(fmt.Sprintf("Zip failed: %v", err))
-			updateBatchStatus(bot, batch)
-			cleanupBatch(batch)
+			s.updateBatchStatus(batch)
+			s.cleanupBatch(batch)
 			return
 		}
 
 		batch.SetStatus(StatusUploading)
-		updateBatchStatus(bot, batch)
+		s.updateBatchStatus(batch)
 
-		err = uploadBatchResults(batch)
+		err = s.uploadBatchResults(batch)
 		if err != nil {
 			batch.SetError(fmt.Sprintf("Upload failed: %v", err))
-			updateBatchStatus(bot, batch)
-			cleanupBatch(batch)
+			s.updateBatchStatus(batch)
+			s.cleanupBatch(batch)
 			return
 		}
 	}
 
 	batch.SetStatus(StatusCompleted)
 	batch.CompletedAt = time.Now()
-	updateBatchStatus(bot, batch)
+	s.updateBatchStatus(batch)
 
-	sendBatchCompletionMessage(bot, batch)
-	cleanupBatch(batch)
+	s.sendBatchCompletionMessage(batch)
+	s.cleanupBatch(batch)
 }
 
-func createBatchSubTask(batch *BatchTask, url string, index int) *Task {
+func (s *BotService) createBatchSubTask(batch *BatchTask, url string, index int) *Task {
 	ctx, cancel := context.WithCancel(batch.Ctx)
 
-	fileName := GetFileNameFromURL(url)
+	fileName := utils.GetFileNameFromURL(url)
 	if fileName == "unknown_file" {
 		fileName = fmt.Sprintf("file_%d", index+1)
 	}
@@ -389,7 +389,7 @@ func createBatchSubTask(batch *BatchTask, url string, index int) *Task {
 	return task
 }
 
-func downloadBatchItem(batch *BatchTask, task *Task) error {
+func (s *BotService) downloadBatchItem(batch *BatchTask, task *Task) error {
 	task.SetStatus(StatusDownloading)
 
 	taskDir := filepath.Join(batch.DownloadDir, task.ID)
@@ -397,7 +397,7 @@ func downloadBatchItem(batch *BatchTask, task *Task) error {
 		return fmt.Errorf("failed to create task directory: %v", err)
 	}
 
-	configPath := filepath.Join(taskManager.ConfigDir, "cookies.txt")
+	configPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
 	args := []string{
 		task.URL,
 		"-d", taskDir,
@@ -452,11 +452,11 @@ func downloadBatchItem(batch *BatchTask, task *Task) error {
 	return nil
 }
 
-func zipBatchResults(batch *BatchTask) error {
+func (s *BotService) zipBatchResults(batch *BatchTask) error {
 	log.Printf("[Batch %s] Zipping results...", batch.ID)
 
-	zipFileName := SanitizeFileName(batch.Name) + ".zip"
-	zipPath := filepath.Join(taskManager.DownloadDir, "batch_"+batch.ID+"_output", zipFileName)
+	zipFileName := utils.SanitizeFileName(batch.Name) + ".zip"
+	zipPath := filepath.Join(s.TaskManager.DownloadDir, "batch_"+batch.ID+"_output", zipFileName)
 
 	if err := os.MkdirAll(filepath.Dir(zipPath), 0750); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
@@ -499,7 +499,7 @@ func zipBatchResults(batch *BatchTask) error {
 	return nil
 }
 
-func uploadBatchResults(batch *BatchTask) error {
+func (s *BotService) uploadBatchResults(batch *BatchTask) error {
 	log.Printf("[Batch %s] Uploading results...", batch.ID)
 
 	uploadPath := batch.LocalPath
@@ -507,14 +507,14 @@ func uploadBatchResults(batch *BatchTask) error {
 		uploadPath = batch.DownloadDir
 	}
 
-	remotePath := filepath.Join(taskManager.RcloneDest, filepath.Base(uploadPath))
+	remotePath := filepath.Join(s.TaskManager.RcloneDest, filepath.Base(uploadPath))
 	batch.RemotePath = remotePath
 
-	configPath := filepath.Join(taskManager.ConfigDir, "rclone.conf")
+	configPath := filepath.Join(s.Config.ConfigDir, "rclone.conf")
 	args := []string{
 		"copy",
 		uploadPath,
-		taskManager.RcloneDest,
+		s.TaskManager.RcloneDest,
 		"--config", configPath,
 		"--progress",
 		"--stats", "2s",
@@ -545,7 +545,7 @@ func uploadBatchResults(batch *BatchTask) error {
 	linkArgs := []string{
 		"link",
 		"--config", configPath,
-		filepath.Join(taskManager.RcloneDest, uploadName),
+		filepath.Join(s.TaskManager.RcloneDest, uploadName),
 	}
 
 	linkCmd := exec.CommandContext(ctx, "rclone", linkArgs...)
@@ -558,7 +558,7 @@ func uploadBatchResults(batch *BatchTask) error {
 	return nil
 }
 
-func sendBatchCompletionMessage(bot *tgbotapi.BotAPI, batch *BatchTask) {
+func (s *BotService) sendBatchCompletionMessage(batch *BatchTask) {
 	duration := batch.CompletedAt.Sub(batch.CreatedAt)
 
 	text := fmt.Sprintf(`✅ *Batch Download Selesai\\!*
@@ -569,12 +569,12 @@ func sendBatchCompletionMessage(bot *tgbotapi.BotAPI, batch *BatchTask) {
 ❌ *Gagal:* %d
 📦 *Total Size:* %s
 ⏱️ *Duration:* %s`,
-		EscapeMarkdownV2(batch.Name),
+		utils.EscapeMarkdownV2(batch.Name),
 		len(batch.URLs),
 		batch.Completed,
 		batch.Failed,
-		EscapeMarkdownV2(FormatBytes(batch.TotalSize)),
-		EscapeMarkdownV2(FormatDuration(duration)),
+		utils.EscapeMarkdownV2(utils.FormatBytes(batch.TotalSize)),
+		utils.EscapeMarkdownV2(utils.FormatDuration(duration)),
 	)
 
 	if batch.RemoteURL != "" {
@@ -593,83 +593,83 @@ func sendBatchCompletionMessage(bot *tgbotapi.BotAPI, batch *BatchTask) {
 		msg.ReplyMarkup = keyboard
 	}
 
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func cleanupBatch(batch *BatchTask) {
+func (s *BotService) cleanupBatch(batch *BatchTask) {
 	if batch.DownloadDir != "" {
 		_ = os.RemoveAll(batch.DownloadDir)
 	}
 
-	outputDir := filepath.Join(taskManager.DownloadDir, "batch_"+batch.ID+"_output")
+	outputDir := filepath.Join(s.TaskManager.DownloadDir, "batch_"+batch.ID+"_output")
 	_ = os.RemoveAll(outputDir)
 
 	go func() {
 		time.Sleep(1 * time.Hour)
-		batchManager.Mu.Lock()
-		delete(batchManager.Batches, batch.ID)
-		for i, b := range batchManager.PriorityQueue {
+		s.BatchManager.Mu.Lock()
+		delete(s.BatchManager.Batches, batch.ID)
+		for i, b := range s.BatchManager.PriorityQueue {
 			if b.ID == batch.ID {
-				batchManager.PriorityQueue = append(batchManager.PriorityQueue[:i], batchManager.PriorityQueue[i+1:]...)
+				s.BatchManager.PriorityQueue = append(s.BatchManager.PriorityQueue[:i], s.BatchManager.PriorityQueue[i+1:]...)
 				break
 			}
 		}
-		batchManager.Mu.Unlock()
+		s.BatchManager.Mu.Unlock()
 	}()
 }
 
-func HandleBatchCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
+func (s *BotService) HandleBatchCallback(callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
 
 	action := parts[1]
 	batchID := parts[2]
 
-	batchManager.Mu.RLock()
-	batch, exists := batchManager.Batches[batchID]
-	batchManager.Mu.RUnlock()
+	s.BatchManager.Mu.RLock()
+	batch, exists := s.BatchManager.Batches[batchID]
+	s.BatchManager.Mu.RUnlock()
 
 	if !exists {
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Batch not found"))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Batch not found"))
 		return
 	}
 
 	switch action {
 	case "refresh":
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
-		updateBatchStatus(bot, batch)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
+		s.updateBatchStatus(batch)
 
 	case "cancel":
 		batch.CancelFunc()
 		batch.SetStatus(StatusCancelled)
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🚫 Batch cancelled"))
-		updateBatchStatus(bot, batch)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚫 Batch cancelled"))
+		s.updateBatchStatus(batch)
 	}
 }
 
-func HandleBatchStatus(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
-	batchManager.Mu.RLock()
-	defer batchManager.Mu.RUnlock()
+func (s *BotService) HandleBatchStatus(message *tgbotapi.Message) {
+	s.BatchManager.Mu.RLock()
+	defer s.BatchManager.Mu.RUnlock()
 
-	if len(batchManager.Batches) == 0 {
+	if len(s.BatchManager.Batches) == 0 {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "📭 *Tidak ada batch aktif*")
 		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		_, _ = s.Bot.Send(msg)
 		return
 	}
 
 	text := "📦 *Active Batches:*\n\n"
-	for _, batch := range batchManager.Batches {
+	for _, batch := range s.BatchManager.Batches {
 		if batch.Status == StatusCompleted || batch.Status == StatusCancelled || batch.Status == StatusFailed {
 			continue
 		}
-		emoji := StatusEmoji(string(batch.Status))
+		emoji := utils.StatusEmoji(string(batch.Status))
 		text += fmt.Sprintf("%s `%s` \\- %s \\(%d/%d\\)\n",
 			emoji,
 			batch.ID,
-			EscapeMarkdownV2(batch.Name),
+			utils.EscapeMarkdownV2(batch.Name),
 			batch.Completed,
 			len(batch.URLs),
 		)
@@ -677,28 +677,28 @@ func HandleBatchStatus(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func HandleCancelBatch(bot *tgbotapi.BotAPI, message *tgbotapi.Message, batchID string) {
-	batchManager.Mu.RLock()
-	batch, exists := batchManager.Batches[batchID]
-	batchManager.Mu.RUnlock()
+func (s *BotService) HandleCancelBatch(message *tgbotapi.Message, batchID string) {
+	s.BatchManager.Mu.RLock()
+	batch, exists := s.BatchManager.Batches[batchID]
+	s.BatchManager.Mu.RUnlock()
 
 	if !exists {
 		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("❌ *Batch `%s` tidak ditemukan*", batchID))
 		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		_, _ = s.Bot.Send(msg)
 		return
 	}
 
 	batch.CancelFunc()
 	batch.SetStatus(StatusCancelled)
-	updateBatchStatus(bot, batch)
+	s.updateBatchStatus(batch)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Batch `%s` dibatalkan*", batchID))
 	msg.ParseMode = MarkdownV2
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
 func (b *BatchTask) SetStatus(status TaskStatus) {
@@ -716,8 +716,4 @@ func (b *BatchTask) SetError(err string) {
 	b.Error = err
 	b.Status = StatusFailed
 	b.CompletedAt = time.Now()
-}
-
-func GetBatchManager() *BatchManager {
-	return batchManager
 }

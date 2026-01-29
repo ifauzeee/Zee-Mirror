@@ -5,10 +5,12 @@ import (
 	"strconv"
 	"strings"
 
+	"zee-mirror/pkg/utils"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func HandleStart(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+func (s *BotService) HandleStart(message *tgbotapi.Message) {
 	fmt.Println("👉 HandleStart dipanggil")
 	welcomeText := "🚀 *Selamat Datang di Zee\\-Mirror Bot\\!*\n\n" +
 		"Bot ini membantu Anda melakukan mirror/leech file ke Google Drive\\.\n\n" +
@@ -47,14 +49,14 @@ func HandleStart(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
 
-	if _, err := bot.Send(msg); err != nil {
+	if _, err := s.Bot.Send(msg); err != nil {
 		fmt.Printf("❌ Error sending welcome message: %v\n", err)
 	} else {
 		fmt.Println("✅ Welcome message sent")
 	}
 }
 
-func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 	helpText := "📚 *Panduan Penggunaan Zee\\-Mirror Bot*\n\n" +
 		"*Perintah Utama:*\n\n" +
 		"/start \\- Tampilkan dashboard utama\n" +
@@ -84,10 +86,10 @@ func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
 	msg.ParseMode = MarkdownV2
 
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
+func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 	parts := strings.Split(callback.Data, ":")
 	if len(parts) < 2 {
 		return
@@ -99,11 +101,11 @@ func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 	case "page":
 		if len(parts) >= 3 {
 			page, _ := strconv.Atoi(parts[2])
-			taskManager.Mu.Lock()
-			taskManager.StatusPages[callback.Message.Chat.ID] = page
-			taskManager.Mu.Unlock()
-			UpdateSharedDashboard(bot, callback.Message.Chat.ID, false)
-			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Halaman %d", page+1)))
+			s.TaskManager.Mu.Lock()
+			s.TaskManager.StatusPages[callback.Message.Chat.ID] = page
+			s.TaskManager.Mu.Unlock()
+			s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Halaman %d", page+1)))
 		}
 		return
 	case "mirror":
@@ -147,11 +149,11 @@ func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 			"Atau reply ke file \\.torrent dengan /torrent"
 
 	case "status":
-		HandleStatusFromCallback(bot, callback)
+		s.HandleStatusFromCallback(callback)
 		return
 
 	case "settings":
-		HandleSettingsFromCallback(bot, callback)
+		s.HandleSettingsFromCallback(callback)
 		return
 
 	case "cancel":
@@ -188,16 +190,16 @@ func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func HandleStatusFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
-	tasks := taskManager.GetActiveTasks()
+func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) {
+	tasks := s.TaskManager.GetActiveTasks()
 
 	if len(tasks) == 0 {
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "📭 *Tidak ada task aktif*")
 		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		_, _ = s.Bot.Send(msg)
 		return
 	}
 
@@ -216,22 +218,22 @@ func HandleStatusFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQ
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func HandleSettingsFromCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
-	text := formatSettingsMessage()
-	keyboard := getSettingsKeyboard()
+func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery) {
+	text := s.formatSettingsMessage()
+	keyboard := s.getSettingsKeyboard()
 
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
 func formatTaskLine(task TaskSnapshot) string {
-	emoji := StatusEmoji(string(task.Status))
-	bar := ProgressBar(task.Progress, 10)
+	emoji := utils.StatusEmoji(string(task.Status))
+	bar := utils.ProgressBar(task.Progress, 10)
 
 	return fmt.Sprintf(
 		"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
@@ -243,12 +245,12 @@ func formatTaskLine(task TaskSnapshot) string {
 			"━━━━━━━━━━━━━━━━━━━━━━━━",
 		emoji,
 		task.ID,
-		EscapeMarkdownV2(FormatStatus(string(task.Status))),
-		EscapeMarkdownV2(bar),
-		EscapeMarkdownV2(TruncateString(task.FileName, 40)),
-		EscapeMarkdownV2(FormatBytes(task.TotalSize)),
-		EscapeMarkdownV2(FormatSpeed(task.Speed)),
+		utils.EscapeMarkdownV2(utils.FormatStatus(string(task.Status))),
+		utils.EscapeMarkdownV2(bar),
+		utils.EscapeMarkdownV2(utils.TruncateString(task.FileName, 40)),
+		utils.EscapeMarkdownV2(utils.FormatBytes(task.TotalSize)),
+		utils.EscapeMarkdownV2(utils.FormatSpeed(task.Speed)),
 		task.Connections,
-		EscapeMarkdownV2(FormatDuration(task.ETA)),
+		utils.EscapeMarkdownV2(utils.FormatDuration(task.ETA)),
 	)
 }

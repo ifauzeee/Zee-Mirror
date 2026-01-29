@@ -110,48 +110,49 @@ type YTDLPSession struct {
 }
 
 type TaskManager struct {
-	Tasks         map[string]*Task
-	Queue         chan *Task
-	ActiveCount   int
-	MaxConcurrent int
-	DownloadDir   string
-	RcloneDest    string
-	ConfigDir     string
-	YTDLPSessions map[string]*YTDLPSession
-	Mu            sync.RWMutex
-	StatusMu      sync.Mutex
-	Wg            sync.WaitGroup
-	ShutdownChan  chan struct{}
-	Bot           *tgbotapi.BotAPI
-	LastStatusMsg map[int64]int
-	StatusPages   map[int64]int
+	Tasks                map[string]*Task
+	Queue                chan *Task
+	ActiveCount          int
+	MaxConcurrent        int
+	DownloadDir          string
+	RcloneDest           string
+	ConfigDir            string
+	YTDLPSessions        map[string]*YTDLPSession
+	Mu                   sync.RWMutex
+	StatusMu             sync.Mutex
+	Wg                   sync.WaitGroup
+	ShutdownChan         chan struct{}
+	Bot                  *tgbotapi.BotAPI
+	LastStatusMsg        map[int64]int
+	StatusPages          map[int64]int
+	ProcessTaskFunc      func(*Task)
+	RefreshDashboardFunc func(int64, bool)
 }
 
-var (
-	taskManager *TaskManager
-	settings    *Settings
-)
-
-func InitTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string) {
-	taskManager = &TaskManager{
-		Tasks:         make(map[string]*Task),
-		Queue:         make(chan *Task, 100),
-		MaxConcurrent: maxConcurrent,
-		DownloadDir:   downloadDir,
-		RcloneDest:    rcloneDest,
-		ConfigDir:     configDir,
-		YTDLPSessions: make(map[string]*YTDLPSession),
-		ShutdownChan:  make(chan struct{}),
-		Bot:           bot,
-		LastStatusMsg: make(map[int64]int),
-		StatusPages:   make(map[int64]int),
+func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool)) *TaskManager {
+	tm := &TaskManager{
+		Tasks:                make(map[string]*Task),
+		Queue:                make(chan *Task, 100),
+		MaxConcurrent:        maxConcurrent,
+		DownloadDir:          downloadDir,
+		RcloneDest:           rcloneDest,
+		ConfigDir:            configDir,
+		YTDLPSessions:        make(map[string]*YTDLPSession),
+		ShutdownChan:         make(chan struct{}),
+		Bot:                  bot,
+		LastStatusMsg:        make(map[int64]int),
+		StatusPages:          make(map[int64]int),
+		ProcessTaskFunc:      processTaskFunc,
+		RefreshDashboardFunc: refreshDashboardFunc,
 	}
 
 	for i := 0; i < maxConcurrent; i++ {
-		go taskManager.worker(i)
+		go tm.worker(i)
 	}
 
-	go taskManager.startAutoRefresh()
+	go tm.startAutoRefresh()
+
+	return tm
 }
 
 func (tm *TaskManager) startAutoRefresh() {
@@ -177,14 +178,9 @@ func (tm *TaskManager) refreshActiveDashboards() {
 	tm.Mu.RUnlock()
 
 	for _, chatID := range chats {
-		UpdateSharedDashboard(tm.Bot, chatID, false)
-	}
-}
-
-func ShutdownTaskManager() {
-	if taskManager != nil {
-		close(taskManager.ShutdownChan)
-		taskManager.Wg.Wait()
+		if tm.RefreshDashboardFunc != nil {
+			tm.RefreshDashboardFunc(chatID, false)
+		}
 	}
 }
 
@@ -293,7 +289,9 @@ func (tm *TaskManager) worker(_ int) {
 			return
 		case task := <-tm.Queue:
 			tm.Wg.Add(1)
-			processTask(tm.Bot, task)
+			if tm.ProcessTaskFunc != nil {
+				tm.ProcessTaskFunc(task)
+			}
 			tm.Wg.Done()
 		}
 	}
@@ -371,8 +369,4 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		Password:       t.Password,
 		Quality:        t.Quality,
 	}
-}
-
-func GetTaskManager() *TaskManager {
-	return taskManager
 }

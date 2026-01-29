@@ -9,12 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"zee-mirror/pkg/utils"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
+func (s *BotService) extractArchive(task *Task) error {
 	task.SetStatus(StatusExtracting)
-	updateTaskStatus(bot, task)
+	s.updateTaskStatus(task)
 
 	var originalFilename string
 	if task.OrigFileName != "" {
@@ -59,7 +61,7 @@ func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	task.LocalPath = extractDir
 	task.FileName = filepath.Base(extractDir)
 
-	totalSize, err := calculateDirSize(extractDir)
+	totalSize, err := utils.CalculateDirSize(extractDir)
 	if err != nil {
 		log.Printf("[Extract] Warning: Could not calculate directory size: %v", err)
 	} else {
@@ -73,9 +75,9 @@ func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	return nil
 }
 
-func createZipArchive(bot *tgbotapi.BotAPI, task *Task) error {
+func (s *BotService) createZipArchive(task *Task) error {
 	task.SetStatus(StatusZipping)
-	updateTaskStatus(bot, task)
+	s.updateTaskStatus(task)
 
 	zipPath := task.LocalPath + ".zip"
 	if filepath.Ext(task.LocalPath) != "" {
@@ -117,13 +119,13 @@ func createZipArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	return nil
 }
 
-func cleanupTask(task *Task) {
-	taskDir := filepath.Join(taskManager.DownloadDir, task.ID)
+func (s *BotService) cleanupTask(task *Task) {
+	taskDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
 	_ = os.RemoveAll(taskDir)
 }
 
-func handleAutoDelete(bot *tgbotapi.BotAPI, task *Task) {
-	if settings == nil || !settings.AutoDeleteMessages {
+func (s *BotService) handleAutoDelete(task *Task) {
+	if s.Settings == nil || !s.Settings.AutoDeleteMessages {
 		return
 	}
 
@@ -139,7 +141,7 @@ func handleAutoDelete(bot *tgbotapi.BotAPI, task *Task) {
 			<-ctx.Done()
 
 			deleteMsg := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
-			_, _ = bot.Request(deleteMsg)
+			_, _ = s.Bot.Request(deleteMsg)
 		}
 	}()
 }

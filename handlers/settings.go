@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"zee-mirror/pkg/utils"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -13,75 +15,75 @@ type Settings struct {
 	mu                 sync.RWMutex
 }
 
-func InitSettings() {
-	settings = &Settings{
+func NewSettings() *Settings {
+	return &Settings{
 		AutoDeleteMessages: false,
 		DefaultMode:        string(TypeMirror),
 	}
 }
 
-func HandleSettings(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
-	text := formatSettingsMessage()
-	keyboard := getSettingsKeyboard()
+func (s *BotService) HandleSettings(message *tgbotapi.Message) {
+	text := s.formatSettingsMessage()
+	keyboard := s.getSettingsKeyboard()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func HandleSettingsCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
+func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 2 {
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
 
 	action := parts[1]
-	settings.mu.Lock()
+	s.Settings.mu.Lock()
 
 	switch action {
 	case "auto_delete":
-		settings.AutoDeleteMessages = !settings.AutoDeleteMessages
-		if settings.AutoDeleteMessages {
-			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Auto Delete: ON"))
+		s.Settings.AutoDeleteMessages = !s.Settings.AutoDeleteMessages
+		if s.Settings.AutoDeleteMessages {
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Auto Delete: ON"))
 		} else {
-			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Auto Delete: OFF"))
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Auto Delete: OFF"))
 		}
 
 	case "default_mirror":
-		settings.DefaultMode = string(TypeMirror)
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
+		s.Settings.DefaultMode = string(TypeMirror)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
 
 	case "default_leech":
-		settings.DefaultMode = string(TypeLeech)
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
+		s.Settings.DefaultMode = string(TypeLeech)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
 	default:
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
 
-	settings.mu.Unlock()
+	s.Settings.mu.Unlock()
 
-	text := formatSettingsMessage()
-	keyboard := getSettingsKeyboard()
+	text := s.formatSettingsMessage()
+	keyboard := s.getSettingsKeyboard()
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = MarkdownV2
 	editMsg.ReplyMarkup = &keyboard
-	_, _ = bot.Send(editMsg)
+	_, _ = s.Bot.Send(editMsg)
 }
 
-func formatSettingsMessage() string {
-	settings.mu.RLock()
-	defer settings.mu.RUnlock()
+func (s *BotService) formatSettingsMessage() string {
+	s.Settings.mu.RLock()
+	defer s.Settings.mu.RUnlock()
 
 	autoDeleteStatus := "❌ OFF"
-	if settings.AutoDeleteMessages {
+	if s.Settings.AutoDeleteMessages {
 		autoDeleteStatus = "✅ ON"
 	}
 
 	defaultModeEmoji := "📥"
-	if settings.DefaultMode == "leech" {
+	if s.Settings.DefaultMode == "leech" {
 		defaultModeEmoji = "🔗"
 	}
 
@@ -96,16 +98,16 @@ _Mode yang digunakan saat tidak ada flag_
 Klik tombol di bawah untuk mengubah pengaturan\.`,
 		autoDeleteStatus,
 		defaultModeEmoji,
-		EscapeMarkdownV2(settings.DefaultMode),
+		utils.EscapeMarkdownV2(s.Settings.DefaultMode),
 	)
 }
 
-func getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
-	settings.mu.RLock()
-	defer settings.mu.RUnlock()
+func (s *BotService) getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
+	s.Settings.mu.RLock()
+	defer s.Settings.mu.RUnlock()
 
 	autoDeleteLabel := "🔕 Auto Delete: OFF"
-	if settings.AutoDeleteMessages {
+	if s.Settings.AutoDeleteMessages {
 		autoDeleteLabel = "🔔 Auto Delete: ON"
 	}
 
@@ -121,26 +123,4 @@ func getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", "dashboard:start"),
 		),
 	)
-}
-
-func GetSettings() *Settings {
-	return settings
-}
-
-func IsAutoDeleteEnabled() bool {
-	if settings == nil {
-		return false
-	}
-	settings.mu.RLock()
-	defer settings.mu.RUnlock()
-	return settings.AutoDeleteMessages
-}
-
-func GetDefaultMode() string {
-	if settings == nil {
-		return string(TypeMirror)
-	}
-	settings.mu.RLock()
-	defer settings.mu.RUnlock()
-	return settings.DefaultMode
 }

@@ -10,7 +10,7 @@ COPY . .
 # Build with cache mounts for improved performance
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zee-mirror .
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zee-mirror ./cmd/zee-mirror
 
 # Runtime Stage
 FROM alpine:3.19

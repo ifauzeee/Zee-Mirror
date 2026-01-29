@@ -15,13 +15,13 @@ import (
 	"strings"
 	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"zee-mirror/pkg/utils"
 )
 
-func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
+func (s *BotService) UploadWithRclone(task *Task) error {
 	task.SetStatus(StatusUploading)
 	task.Progress = 0
-	updateTaskStatus(bot, task)
+	s.updateTaskStatus(task)
 
 	uploadPath := task.LocalPath
 	if uploadPath == "" {
@@ -31,7 +31,7 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 	if info, err := os.Stat(uploadPath); err == nil {
 		task.Mu.Lock()
 		if info.IsDir() {
-			dirSize, err := calculateDirSize(uploadPath)
+			dirSize, err := utils.CalculateDirSize(uploadPath)
 			if err != nil {
 				log.Printf("[Upload] Warning: Could not calculate directory size: %v", err)
 				task.TotalSize = info.Size()
@@ -44,15 +44,15 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 		task.Mu.Unlock()
 	}
 
-	remotePath := filepath.Join(taskManager.RcloneDest, task.FileName)
+	remotePath := filepath.Join(s.TaskManager.RcloneDest, task.FileName)
 	task.RemotePath = remotePath
 
-	rcloneDest := taskManager.RcloneDest
+	rcloneDest := s.TaskManager.RcloneDest
 	if info, err := os.Stat(uploadPath); err == nil && info.IsDir() {
 		rcloneDest = remotePath
 	}
 
-	configPath := filepath.Join(taskManager.ConfigDir, "rclone.conf")
+	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
 	args := []string{
 		"copy",
 		uploadPath,
@@ -87,7 +87,7 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 		return fmt.Errorf("failed to start rclone: %v", err)
 	}
 
-	go parseRcloneProgress(bot, task, stderr)
+	go s.parseRcloneProgress(task, stderr)
 
 	if err := cmd.Wait(); err != nil {
 		if task.Status == StatusCancelled {
@@ -100,13 +100,13 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 		return fmt.Errorf("task cancelled")
 	}
 
-	generateRcloneLink(ctx, task, configPath, uploadPath)
+	s.generateRcloneLink(ctx, task, configPath, uploadPath)
 
 	task.Progress = 100
 	return nil
 }
 
-func generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath string) {
+func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath string) {
 	isDirUpload := false
 	if info, err := os.Stat(uploadPath); err == nil {
 		isDirUpload = info.IsDir()
@@ -115,7 +115,7 @@ func generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath 
 	linkArgs := []string{
 		"link",
 		"--config", configPath,
-		filepath.Join(taskManager.RcloneDest, task.FileName),
+		filepath.Join(s.TaskManager.RcloneDest, task.FileName),
 	}
 	//nolint:gosec
 	linkCmd := exec.CommandContext(ctx, "rclone", linkArgs...)
@@ -136,7 +136,7 @@ func generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath 
 		"lsjson",
 		"--config", configPath,
 		"--dirs-only",
-		taskManager.RcloneDest,
+		s.TaskManager.RcloneDest,
 	}
 	idCmd := exec.CommandContext(ctx, "rclone", idArgs...)
 	idOutput, idErr := idCmd.Output()
@@ -163,7 +163,7 @@ func generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath 
 		log.Printf("[RcloneLink] Failed to list parent directory contents: %v", idErr)
 	}
 
-	parentPath := taskManager.RcloneDest
+	parentPath := s.TaskManager.RcloneDest
 	linkArgsParent := []string{
 		"link",
 		"--config", configPath,
@@ -180,7 +180,7 @@ func generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath 
 	}
 }
 
-func parseRcloneProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) {
+func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
@@ -221,12 +221,12 @@ func parseRcloneProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser)
 		if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 3 {
 			speedStr := matches[1] + matches[2]
 			task.Mu.Lock()
-			task.Speed = ParseBytesString(speedStr)
+			task.Speed = utils.ParseBytesString(speedStr)
 			task.Mu.Unlock()
 		}
 
 		if time.Since(lastUpdate) >= 2*time.Second {
-			updateTaskStatus(bot, task)
+			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
 		}
 	}

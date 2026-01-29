@@ -4,7 +4,7 @@ tasks:
   build:
     desc: Build the binary
     cmds:
-      - go build -o zee-mirror.exe main.go
+      - go build -o zee-mirror.exe ./cmd/zee-mirror
 
   test:
     desc: Run tests

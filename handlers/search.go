@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"zee-mirror/pkg/utils"
+
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -37,11 +39,11 @@ var (
 	SearchMu       sync.RWMutex
 )
 
-func HandleSearch(bot *tgbotapi.BotAPI, message *tgbotapi.Message, query string) {
+func (s *BotService) HandleSearch(message *tgbotapi.Message, query string) {
 	if query == "" {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "🔍 *Pencarian Torrent*\n\nGunakan: `/search <kata kunci>`")
 		msg.ParseMode = MarkdownV2
-		_, _ = bot.Send(msg)
+		_, _ = s.Bot.Send(msg)
 		return
 	}
 
@@ -55,26 +57,26 @@ func HandleSearch(bot *tgbotapi.BotAPI, message *tgbotapi.Message, query string)
 		),
 	)
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Pencarian:* `%s`\n\nPilih provider pencarian yang lebih stabil:", EscapeMarkdownV2(query)))
+	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Pencarian:* `%s`\n\nPilih provider pencarian yang lebih stabil:", utils.EscapeMarkdownV2(query)))
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, _ = bot.Send(msg)
+	_, _ = s.Bot.Send(msg)
 }
 
-func HandleSearchCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
+func (s *BotService) HandleSearchCallback(callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Query tidak valid"))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Query tidak valid"))
 		return
 	}
 
 	provider := parts[1]
 	query := strings.Join(parts[2:], ":")
 
-	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "🔍 Mencari..."))
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔍 Mencari..."))
 
-	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("🔍 Mencari `%s` di *%s*...", EscapeMarkdownV2(query), provider))
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("🔍 Mencari `%s` di *%s*...", utils.EscapeMarkdownV2(query), provider))
 	editMsg.ParseMode = MarkdownV2
-	_, _ = bot.Send(editMsg)
+	_, _ = s.Bot.Send(editMsg)
 
 	var results []SearchResult
 	log.Printf("[Search] Switching to provider: %s", provider)
@@ -88,7 +90,7 @@ func HandleSearchCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery
 	}
 
 	if len(results) == 0 {
-		editStatusMessage(bot, callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("📭 *Tidak ada hasil ditemukan di %s*\n\n_Cobalah menggunakan kata kunci lain atau provider yang berbeda\\._", provider))
+		s.editStatusMessage(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("📭 *Tidak ada hasil ditemukan di %s*\n\n_Cobalah menggunakan kata kunci lain atau provider yang berbeda\\._", provider))
 		return
 	}
 
@@ -105,16 +107,16 @@ func HandleSearchCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery
 	SearchSessions[sessionID] = session
 	SearchMu.Unlock()
 
-	showSearchResults(bot, callback.Message.Chat.ID, callback.Message.MessageID, sessionID)
+	s.showSearchResults(callback.Message.Chat.ID, callback.Message.MessageID, sessionID)
 }
 
-func showSearchResults(bot *tgbotapi.BotAPI, chatID int64, messageID int, sessionID string) {
+func (s *BotService) showSearchResults(chatID int64, messageID int, sessionID string) {
 	SearchMu.RLock()
 	session, exists := SearchSessions[sessionID]
 	SearchMu.RUnlock()
 
 	if !exists {
-		editStatusMessage(bot, chatID, messageID, "❌ Sesi pencarian telah berakhir. Silakan cari ulang.")
+		s.editStatusMessage(chatID, messageID, "❌ Sesi pencarian telah berakhir. Silakan cari ulang.")
 		return
 	}
 
@@ -137,7 +139,7 @@ func showSearchResults(bot *tgbotapi.BotAPI, chatID int64, messageID int, sessio
 
 	visibleItems := session.Results[start:end]
 
-	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", session.Provider, EscapeMarkdownV2(session.Query))
+	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", session.Provider, utils.EscapeMarkdownV2(session.Query))
 	text += fmt.Sprintf("📄 Halaman %d/%d\n\n", session.Page+1, totalPages)
 
 	var rows [][]tgbotapi.InlineKeyboardButton
@@ -147,9 +149,9 @@ func showSearchResults(bot *tgbotapi.BotAPI, chatID int64, messageID int, sessio
 		idx := start + i + 1
 		text += fmt.Sprintf("%d\\. *%s*\n📦 %s \\| 👤 %s\n\n",
 			idx,
-			EscapeMarkdownV2(TruncateString(item.Title, 40)),
-			EscapeMarkdownV2(item.Size),
-			EscapeMarkdownV2(item.Seeders),
+			utils.EscapeMarkdownV2(utils.TruncateString(item.Title, 40)),
+			utils.EscapeMarkdownV2(item.Size),
+			utils.EscapeMarkdownV2(item.Seeders),
 		)
 
 		numberKeyRow = append(numberKeyRow, tgbotapi.NewInlineKeyboardButtonData(
@@ -178,7 +180,7 @@ func showSearchResults(bot *tgbotapi.BotAPI, chatID int64, messageID int, sessio
 	editMsg.ParseMode = MarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 
-	if _, err := bot.Send(editMsg); err != nil {
+	if _, err := s.Bot.Send(editMsg); err != nil {
 		log.Printf("[Search] Markdown error: %v", err)
 		fallbackText := fmt.Sprintf("🔍 Hasil Pencarian (%s): %s\n\nHalaman %d/%d\n\n", session.Provider, session.Query, session.Page+1, totalPages)
 		for i, item := range visibleItems {
@@ -186,11 +188,11 @@ func showSearchResults(bot *tgbotapi.BotAPI, chatID int64, messageID int, sessio
 		}
 		fallbackEdit := tgbotapi.NewEditMessageText(chatID, messageID, fallbackText)
 		fallbackEdit.ReplyMarkup = &keyboard
-		_, _ = bot.Send(fallbackEdit)
+		_, _ = s.Bot.Send(fallbackEdit)
 	}
 }
 
-func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, parts []string) {
+func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, parts []string) {
 	action := parts[0]
 
 	if action == "t_back" {
@@ -200,7 +202,7 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 		SearchMu.RUnlock()
 
 		if !exists {
-			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
 			return
 		}
 
@@ -216,17 +218,17 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 		)
 
 		delMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
-		_, _ = bot.Request(delMsg)
+		_, _ = s.Bot.Request(delMsg)
 
 		textRaw := fmt.Sprintf("🔍 Pencarian: %s\n\nPilih provider pencarian yang lebih stabil:", query)
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, textRaw)
 		msg.ReplyMarkup = keyboard
 
-		if _, err := bot.Send(msg); err != nil {
+		if _, err := s.Bot.Send(msg); err != nil {
 			log.Printf("[Callback] t_back Send error: %v", err)
 		}
 
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
 
@@ -235,7 +237,7 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 		SearchMu.Lock()
 		delete(SearchSessions, sessionID)
 		SearchMu.Unlock()
-		_, _ = bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
+		_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
 		return
 	}
 
@@ -253,8 +255,8 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 		}
 		SearchMu.Unlock()
 
-		showSearchResults(bot, callback.Message.Chat.ID, callback.Message.MessageID, sessionID)
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		s.showSearchResults(callback.Message.Chat.ID, callback.Message.MessageID, sessionID)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
 
@@ -267,7 +269,7 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 		SearchMu.RUnlock()
 
 		if !exists {
-			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
 			return
 		}
 
@@ -285,10 +287,10 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 			"*Source:* `%s`\n\n"+
 			"🧲 *Magnet Link:*\n`%s`\n\n"+
 			"Klik link di atas untuk menyalin atau reply dengan /mirror",
-			EscapeMarkdownV2(item.Title),
-			EscapeMarkdownV2(item.Size),
-			EscapeMarkdownV2(item.Seeders),
-			EscapeMarkdownV2(item.Source),
+			utils.EscapeMarkdownV2(item.Title),
+			utils.EscapeMarkdownV2(item.Size),
+			utils.EscapeMarkdownV2(item.Seeders),
+			utils.EscapeMarkdownV2(item.Source),
 			cleanMagnet,
 		)
 
@@ -302,14 +304,14 @@ func HandleSearchNavCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 		editMsg.ParseMode = MarkdownV2
 		editMsg.ReplyMarkup = &keyboard
 
-		if _, err := bot.Send(editMsg); err != nil {
+		if _, err := s.Bot.Send(editMsg); err != nil {
 			log.Printf("[SearchItem] Markdown error: %v", err)
 			fallbackText := fmt.Sprintf("Detail Torrent:\n\n%s\nSize: %s\nMagnet:\n%s", item.Title, item.Size, cleanMagnet)
 			fallbackEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fallbackText)
 			fallbackEdit.ReplyMarkup = &keyboard
-			_, _ = bot.Send(fallbackEdit)
+			_, _ = s.Bot.Send(fallbackEdit)
 		}
-		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
 }
 
@@ -367,7 +369,7 @@ func searchSolidTorrents(query string) []SearchResult {
 
 		results = append(results, SearchResult{
 			Title:   cleanTitle,
-			Size:    FormatBytes(item.Size),
+			Size:    utils.FormatBytes(item.Size),
 			Seeders: fmt.Sprintf("%d", item.Seeders),
 			Magnet:  item.Magnet,
 			Source:  "Solid",
@@ -476,7 +478,7 @@ func searchPirateBay(query string) []SearchResult {
 
 		results = append(results, SearchResult{
 			Title:   item.Name,
-			Size:    FormatBytes(sizeInt),
+			Size:    utils.FormatBytes(sizeInt),
 			Seeders: item.Seeders,
 			Magnet:  magnet,
 			Source:  "TPB",
