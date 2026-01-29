@@ -25,7 +25,7 @@ linters-settings:
   revive:
     rules:
       - name: exported
-        disabled: true # Set to true if you don't want to enforce comments on exported symbols
+        disabled: true 
   gocyclo:
     min-complexity: 15
   goconst:

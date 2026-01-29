@@ -358,11 +358,30 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 		return
 	}
 
-	args := []string{"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"), "--newline"}
+	args := []string{
+		"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
+		"--newline",
+		"--no-playlist",
+		"--continue",
+		"--merge-output-format", "mp4",
+		"--no-check-certificate",
+		"--format-sort", "res,vcodec:h264",
+		"--extractor-args", "youtube:player-client=tv,android,web",
+		"--remote-components", "ejs:github",
+	}
+
+	args = append(args, "--js-runtime", "node")
+
 	if task.Quality != "" {
 		format := fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", task.Quality, task.Quality)
 		args = append(args, "-f", format)
 	}
+
+	cookiesPath := filepath.Join(taskManager.ConfigDir, "cookies.txt")
+	if _, err := os.Stat(cookiesPath); err == nil {
+		args = append(args, "--cookies", cookiesPath)
+	}
+
 	args = append(args, task.URL)
 
 	ctx, cancel := context.WithCancel(task.Ctx)
@@ -371,6 +390,7 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	stdout, _ := cmd.StdoutPipe()
+	cmd.Stderr = cmd.Stdout
 
 	if err := cmd.Start(); err != nil {
 		task.SetError(fmt.Sprintf("yt-dlp failed to start: %v", err))
@@ -378,10 +398,36 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 		return
 	}
 	go parseYTDLPProgress(bot, task, stdout)
-	_ = cmd.Wait()
+
+	if err := cmd.Wait(); err != nil {
+		task.Mu.RLock()
+		capturedErr := task.Error
+		task.Mu.RUnlock()
+
+		errMsg := fmt.Sprintf("yt-dlp error: %v", err)
+		if capturedErr != "" {
+			errMsg = capturedErr
+		}
+
+		task.SetError(errMsg)
+		updateTaskStatus(bot, task)
+		cleanupTask(task)
+		return
+	}
 
 	task.LocalPath = findDownloadedFile(outputDir)
+	if task.LocalPath == "" {
+		task.SetError("Downloaded file not found or incomplete (.part files ignored)")
+		updateTaskStatus(bot, task)
+		cleanupTask(task)
+		return
+	}
 	task.FileName = filepath.Base(task.LocalPath)
+
+	if info, err := os.Stat(task.LocalPath); err == nil {
+		task.DownloadedSize = info.Size()
+		task.TotalSize = info.Size()
+	}
 
 	if err := uploadWithRclone(bot, task); err != nil {
 		task.SetError(fmt.Sprintf("Upload failed: %v", err))
@@ -443,6 +489,15 @@ func parseYTDLPProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) 
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		log.Printf("[YT-DLP %s] %s", task.ID, line)
+
+		if strings.Contains(line, "ERROR:") {
+			task.Mu.Lock()
+			task.Error = line
+			task.Mu.Unlock()
+		}
+
 		matches := progressRegex.FindStringSubmatch(line)
 		if len(matches) >= 2 {
 			if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
@@ -460,7 +515,16 @@ func findDownloadedFile(dir string) string {
 	var result string
 	var maxSize int64
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err == nil && !info.IsDir() && info.Size() > maxSize {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+
+		name := strings.ToLower(info.Name())
+		if strings.HasSuffix(name, ".part") || strings.HasSuffix(name, ".ytdl") || strings.HasSuffix(name, ".aria2") {
+			return nil
+		}
+
+		if info.Size() > maxSize {
 			maxSize = info.Size()
 			result = path
 		}
