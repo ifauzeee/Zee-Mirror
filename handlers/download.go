@@ -749,11 +749,33 @@ func calculateDuration(snapshot TaskSnapshot) time.Duration {
 
 func determineSizeString(snapshot TaskSnapshot) string {
 	sizeStr := "Unknown"
-	if snapshot.TotalSize > 0 {
-		sizeStr = FormatBytes(snapshot.TotalSize)
-	} else if snapshot.DownloadedSize > 0 {
-		sizeStr = FormatBytes(snapshot.DownloadedSize)
+
+	if snapshot.LocalPath != "" {
+		if info, err := os.Stat(snapshot.LocalPath); err == nil && info.IsDir() {
+			if dirSize, err := calculateDirSize(snapshot.LocalPath); err == nil && dirSize > 0 {
+				sizeStr = FormatBytes(dirSize)
+			} else {
+				if snapshot.TotalSize > 0 {
+					sizeStr = FormatBytes(snapshot.TotalSize)
+				} else if snapshot.DownloadedSize > 0 {
+					sizeStr = FormatBytes(snapshot.DownloadedSize)
+				}
+			}
+		} else {
+			if snapshot.TotalSize > 0 {
+				sizeStr = FormatBytes(snapshot.TotalSize)
+			} else if snapshot.DownloadedSize > 0 {
+				sizeStr = FormatBytes(snapshot.DownloadedSize)
+			}
+		}
+	} else {
+		if snapshot.TotalSize > 0 {
+			sizeStr = FormatBytes(snapshot.TotalSize)
+		} else if snapshot.DownloadedSize > 0 {
+			sizeStr = FormatBytes(snapshot.DownloadedSize)
+		}
 	}
+
 	return sizeStr
 }
 

@@ -61,10 +61,11 @@ type Task struct {
 	StartedAt      time.Time
 	CompletedAt    time.Time
 
-	Zip      bool
-	Unzip    bool
-	Password string
-	Quality  string
+	Zip          bool
+	Unzip        bool
+	Password     string
+	Quality      string
+	OrigFileName string
 
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
@@ -99,6 +100,7 @@ type TaskSnapshot struct {
 	Unzip          bool
 	Password       string
 	Quality        string
+	OrigFileName   string
 }
 
 type YTDLPSession struct {
@@ -190,21 +192,22 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
-		ID:         uuid.New().String()[:8],
-		Type:       taskType,
-		Status:     StatusQueued,
-		URL:        url,
-		FileName:   fileName,
-		ChatID:     chatID,
-		MessageID:  msgID,
-		UserID:     userID,
-		Zip:        zip,
-		Unzip:      unzip,
-		Password:   password,
-		Quality:    quality,
-		CreatedAt:  time.Now(),
-		Ctx:        ctx,
-		CancelFunc: cancel,
+		ID:           uuid.New().String()[:8],
+		Type:         taskType,
+		Status:       StatusQueued,
+		URL:          url,
+		FileName:     fileName,
+		OrigFileName: fileName,
+		ChatID:       chatID,
+		MessageID:    msgID,
+		UserID:       userID,
+		Zip:          zip,
+		Unzip:        unzip,
+		Password:     password,
+		Quality:      quality,
+		CreatedAt:    time.Now(),
+		Ctx:          ctx,
+		CancelFunc:   cancel,
 	}
 
 	tm.Mu.Lock()

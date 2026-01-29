@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -29,18 +30,33 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 
 	if info, err := os.Stat(uploadPath); err == nil {
 		task.Mu.Lock()
-		task.TotalSize = info.Size()
+		if info.IsDir() {
+			dirSize, err := calculateDirSize(uploadPath)
+			if err != nil {
+				log.Printf("[Upload] Warning: Could not calculate directory size: %v", err)
+				task.TotalSize = info.Size()
+			} else {
+				task.TotalSize = dirSize
+			}
+		} else {
+			task.TotalSize = info.Size()
+		}
 		task.Mu.Unlock()
 	}
 
 	remotePath := filepath.Join(taskManager.RcloneDest, task.FileName)
 	task.RemotePath = remotePath
 
+	rcloneDest := taskManager.RcloneDest
+	if info, err := os.Stat(uploadPath); err == nil && info.IsDir() {
+		rcloneDest = remotePath
+	}
+
 	configPath := filepath.Join(taskManager.ConfigDir, "rclone.conf")
 	args := []string{
 		"copy",
 		uploadPath,
-		taskManager.RcloneDest,
+		rcloneDest,
 		"--config", configPath,
 		"--progress",
 		"--stats", "1s",
@@ -73,14 +89,27 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 
 	go parseRcloneProgress(bot, task, stderr)
 
-	err = cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		if task.Status == StatusCancelled {
+			return fmt.Errorf("task cancelled")
+		}
+		return fmt.Errorf("rclone failed: %v", err)
+	}
 
 	if task.Status == StatusCancelled {
 		return fmt.Errorf("task cancelled")
 	}
 
-	if err != nil {
-		return fmt.Errorf("rclone failed: %v", err)
+	generateRcloneLink(ctx, task, configPath, uploadPath)
+
+	task.Progress = 100
+	return nil
+}
+
+func generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath string) {
+	isDirUpload := false
+	if info, err := os.Stat(uploadPath); err == nil {
+		isDirUpload = info.IsDir()
 	}
 
 	linkArgs := []string{
@@ -93,12 +122,62 @@ func UploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 	linkOutput, linkErr := linkCmd.Output()
 	if linkErr == nil {
 		task.RemoteURL = strings.TrimSpace(string(linkOutput))
-	} else {
-		log.Printf("[RcloneLink] Failed to get link for %s: %v", task.FileName, linkErr)
+		return
 	}
 
-	task.Progress = 100
-	return nil
+	log.Printf("[RcloneLink] Failed to get direct link for %s: %v", task.FileName, linkErr)
+
+	if !isDirUpload {
+		log.Printf("[RcloneLink] Skipping directory fallback for file: %s", task.FileName)
+		return
+	}
+
+	idArgs := []string{
+		"lsjson",
+		"--config", configPath,
+		"--dirs-only",
+		taskManager.RcloneDest,
+	}
+	idCmd := exec.CommandContext(ctx, "rclone", idArgs...)
+	idOutput, idErr := idCmd.Output()
+	if idErr == nil {
+		var files []map[string]interface{}
+		if err := json.Unmarshal(idOutput, &files); err == nil {
+			for _, file := range files {
+				if name, ok := file["Name"].(string); ok && name == task.FileName {
+					if id, ok := file["ID"].(string); ok {
+						task.RemoteURL = "https://drive.google.com/drive/folders/" + id
+						return
+					} else if id, ok := file["Id"].(string); ok {
+						task.RemoteURL = "https://drive.google.com/drive/folders/" + id
+						return
+					} else {
+						log.Printf("[RcloneLink] Found folder %s but no ID field in lsjson output", task.FileName)
+					}
+				}
+			}
+		} else {
+			log.Printf("[RcloneLink] Could not parse lsjson output for parent directory: %v", err)
+		}
+	} else {
+		log.Printf("[RcloneLink] Failed to list parent directory contents: %v", idErr)
+	}
+
+	parentPath := taskManager.RcloneDest
+	linkArgsParent := []string{
+		"link",
+		"--config", configPath,
+		parentPath,
+	}
+	linkCmdParent := exec.CommandContext(ctx, "rclone", linkArgsParent...)
+	linkOutputParent, linkErrParent := linkCmdParent.Output()
+	if linkErrParent == nil {
+		baseURL := strings.TrimSpace(string(linkOutputParent))
+		task.RemoteURL = baseURL + "#folders/" + task.FileName
+	} else {
+		log.Printf("[RcloneLink] Also failed to get parent directory link for %s: %v", task.FileName, linkErrParent)
+		task.RemoteURL = "https://drive.google.com/drive/search?q=\"" + task.FileName + "\" in parents"
+	}
 }
 
 func parseRcloneProgress(bot *tgbotapi.BotAPI, task *Task, reader io.ReadCloser) {

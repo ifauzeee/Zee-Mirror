@@ -3,9 +3,11 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -14,7 +16,15 @@ func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
 	task.SetStatus(StatusExtracting)
 	updateTaskStatus(bot, task)
 
-	extractDir := filepath.Join(filepath.Dir(task.LocalPath), "extracted")
+	var originalFilename string
+	if task.OrigFileName != "" {
+		originalFilename = strings.TrimSuffix(task.OrigFileName, filepath.Ext(task.OrigFileName))
+	} else {
+		originalFilename = strings.TrimSuffix(filepath.Base(task.LocalPath), filepath.Ext(task.LocalPath))
+	}
+
+	extractDir := filepath.Join(filepath.Dir(task.LocalPath), originalFilename)
+
 	if err := os.MkdirAll(extractDir, 0750); err != nil {
 		return fmt.Errorf("failed to create extract directory: %v", err)
 	}
@@ -48,6 +58,17 @@ func extractArchive(bot *tgbotapi.BotAPI, task *Task) error {
 
 	task.LocalPath = extractDir
 	task.FileName = filepath.Base(extractDir)
+
+	totalSize, err := calculateDirSize(extractDir)
+	if err != nil {
+		log.Printf("[Extract] Warning: Could not calculate directory size: %v", err)
+	} else {
+		task.Mu.Lock()
+		task.TotalSize = totalSize
+		task.DownloadedSize = totalSize
+		task.Progress = 100
+		task.Mu.Unlock()
+	}
 
 	return nil
 }
