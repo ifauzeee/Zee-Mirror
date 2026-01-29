@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -59,6 +61,7 @@ func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		"/torrent magnet \\- Download torrent\n" +
 		"/status \\- Lihat status task aktif\n" +
 		"/cancel ID \\- Cancel task tertentu\n" +
+		"/search keyword \\- Cari torrent via Jackett\n" +
 		"/settings \\- Pengaturan bot\n\n" +
 		"*Flag Opsional:*\n\n" +
 		"\\-z : Zip file setelah download\n" +
@@ -75,17 +78,25 @@ func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	_, _ = bot.Send(msg)
 }
-
 func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
-	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
-
-	action := ""
-	if len(callback.Data) > 10 {
-		action = callback.Data[10:]
+	parts := strings.Split(callback.Data, ":")
+	if len(parts) < 2 {
+		return
 	}
+	action := parts[1]
 
 	var text string
 	switch action {
+	case "page":
+		if len(parts) >= 3 {
+			page, _ := strconv.Atoi(parts[2])
+			taskManager.Mu.Lock()
+			taskManager.StatusPages[callback.Message.Chat.ID] = page
+			taskManager.Mu.Unlock()
+			UpdateSharedDashboard(bot, callback.Message.Chat.ID, false)
+			_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Halaman %d", page+1)))
+		}
+		return
 	case "mirror":
 		text = "📥 *Mirror Mode*\n\n" +
 			"Kirim file/media atau reply ke file dengan /mirror untuk memulai\\.\n\n" +

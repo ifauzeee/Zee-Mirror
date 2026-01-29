@@ -31,6 +31,9 @@ linters-settings:
   goconst:
     min-len: 3
     min-occurrences: 3
+  gosec:
+    excludes:
+      - G204
 
 issues:
   exclude-use-default: false

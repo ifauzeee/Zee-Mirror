@@ -19,30 +19,86 @@ func UpdateSharedDashboard(bot *tgbotapi.BotAPI, chatID int64, forceNew bool) {
 	tasks := taskManager.GetActiveTasksByChat(chatID)
 
 	if len(tasks) == 0 {
-		taskManager.Mu.Lock()
-		lastMsgID, exists := taskManager.LastStatusMsg[chatID]
-		if exists {
-			_, _ = bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
-			delete(taskManager.LastStatusMsg, chatID)
-			delete(lastStatusText, chatID)
-		}
-		taskManager.Mu.Unlock()
-
-		if forceNew {
-			msg := tgbotapi.NewMessage(chatID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, atau /torrent untuk memulai\\.")
-			msg.ParseMode = MarkdownV2
-			_, _ = bot.Send(msg)
-		}
+		handleEmptyTasks(bot, chatID, forceNew)
 		return
 	}
 
-	sort.Slice(tasks, func(i, j int) bool {
-		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+	sortedTasks := sortTasksByCreationTime(tasks)
+	page := getCurrentPage(chatID)
+	processedTasks := processPagination(sortedTasks, &page, chatID)
+	text := buildDashboardStatusText(processedTasks, page, len(sortedTasks))
+	keyboard := buildNavigationKeyboard(page, calculateTotalPages(len(sortedTasks)))
+
+	sendStatusMessage(bot, chatID, text, keyboard, forceNew)
+}
+
+func handleEmptyTasks(bot *tgbotapi.BotAPI, chatID int64, forceNew bool) {
+	taskManager.Mu.Lock()
+	lastMsgID, exists := taskManager.LastStatusMsg[chatID]
+	if exists {
+		_, _ = bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
+		delete(taskManager.LastStatusMsg, chatID)
+		delete(lastStatusText, chatID)
+	}
+	taskManager.Mu.Unlock()
+
+	if forceNew {
+		msg := tgbotapi.NewMessage(chatID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, atau /torrent untuk memulai\\.")
+		msg.ParseMode = MarkdownV2
+		_, _ = bot.Send(msg)
+	}
+}
+
+func sortTasksByCreationTime(tasks []*Task) []*Task {
+	sortedTasks := make([]*Task, len(tasks))
+	copy(sortedTasks, tasks)
+	sort.Slice(sortedTasks, func(i, j int) bool {
+		return sortedTasks[i].CreatedAt.Before(sortedTasks[j].CreatedAt)
 	})
+	return sortedTasks
+}
 
+func getCurrentPage(chatID int64) int {
+	taskManager.Mu.RLock()
+	page := taskManager.StatusPages[chatID]
+	taskManager.Mu.RUnlock()
+	return page
+}
+
+func processPagination(tasks []*Task, page *int, chatID int64) []*Task {
+	perPage := 5
+	totalTasks := len(tasks)
+	totalPages := (totalTasks + perPage - 1) / perPage
+
+	if *page >= totalPages && totalPages > 0 {
+		*page = totalPages - 1
+		taskManager.Mu.Lock()
+		taskManager.StatusPages[chatID] = *page
+		taskManager.Mu.Unlock()
+	}
+
+	start := *page * perPage
+	end := start + perPage
+	if end > totalTasks {
+		end = totalTasks
+	}
+
+	return tasks[start:end]
+}
+
+func calculateTotalPages(totalTasks int) int {
+	perPage := 5
+	return (totalTasks + perPage - 1) / perPage
+}
+
+func buildDashboardStatusText(visibleTasks []*Task, page, totalTasks int) string {
+	totalPages := calculateTotalPages(totalTasks)
 	text := StatusHeaderText
+	if totalPages > 1 {
+		text += fmt.Sprintf("📄 *Halaman:* %d/%d\n\n", page+1, totalPages)
+	}
 
-	for i, task := range tasks {
+	for i, task := range visibleTasks {
 		snapshot := task.GetSnapshot()
 		emoji := StatusEmoji(string(snapshot.Status))
 		bar := ProgressBar(snapshot.Progress, 10)
@@ -66,19 +122,31 @@ func UpdateSharedDashboard(bot *tgbotapi.BotAPI, chatID int64, forceNew bool) {
 			EscapeMarkdownV2(FormatDuration(snapshot.ETA)),
 			snapshot.ID,
 		)
-		if i == len(tasks)-1 {
+		if i == len(visibleTasks)-1 {
 			text += "━━━━━━━━━━━━━━━━━━━━━━━━\n"
 		}
 	}
 
-	text += fmt.Sprintf("_Total: %d task aktif_", len(tasks))
+	text += fmt.Sprintf("_Total: %d task aktif_", len(visibleTasks))
+	return text
+}
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "refresh_status"),
-		),
-	)
+func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+	navRow := tgbotapi.NewInlineKeyboardRow()
+	if page > 0 {
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("dashboard:page:%d", page-1)))
+	}
+	navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "refresh_status"))
+	if page < totalPages-1 {
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("dashboard:page:%d", page+1)))
+	}
+	rows = append(rows, navRow)
 
+	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func sendStatusMessage(bot *tgbotapi.BotAPI, chatID int64, text string, keyboard tgbotapi.InlineKeyboardMarkup, forceNew bool) {
 	taskManager.Mu.RLock()
 	lastMsgID, exists := taskManager.LastStatusMsg[chatID]
 	taskManager.Mu.RUnlock()

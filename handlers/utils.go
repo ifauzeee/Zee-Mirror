@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -199,6 +200,45 @@ func IsArchiveFile(filename string) bool {
 	return false
 }
 
+func IsVideoFile(filename string) bool {
+	ext := GetFileExtension(filename)
+	videoExts := []string{".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v"}
+	for _, e := range videoExts {
+		if ext == e {
+			return true
+		}
+	}
+	return false
+}
+
+func GenerateThumbnail(videoPath string) (string, error) {
+	videoPath = filepath.Clean(videoPath)
+	if !filepath.IsAbs(videoPath) {
+		return "", fmt.Errorf("video path must be absolute")
+	}
+
+	thumbnailPath := videoPath + ".jpg"
+
+	if taskManager == nil {
+		return "", fmt.Errorf("task manager not initialized")
+	}
+	allowedBaseDir := filepath.Clean(taskManager.DownloadDir)
+	videoDir := filepath.Dir(videoPath)
+
+	if !strings.HasPrefix(videoDir, allowedBaseDir) {
+		return "", fmt.Errorf("video path is not within allowed directory")
+	}
+
+	cmd := exec.Command("ffmpeg", "-i", videoPath, "-ss", "00:00:05", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
+	if err := cmd.Run(); err != nil {
+		cmd = exec.Command("ffmpeg", "-i", videoPath, "-ss", "00:00:00", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
+		if err := cmd.Run(); err != nil {
+			return "", err
+		}
+	}
+	return thumbnailPath, nil
+}
+
 func TruncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -297,4 +337,8 @@ func ParseBytesString(s string) int64 {
 	}
 
 	return int64(val * float64(mult))
+}
+
+func ParseSizeString(s string) int64 {
+	return ParseBytesString(s)
 }

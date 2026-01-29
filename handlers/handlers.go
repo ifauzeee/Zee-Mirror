@@ -122,6 +122,7 @@ type TaskManager struct {
 	ShutdownChan  chan struct{}
 	Bot           *tgbotapi.BotAPI
 	LastStatusMsg map[int64]int
+	StatusPages   map[int64]int
 }
 
 var (
@@ -141,10 +142,40 @@ func InitTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclon
 		ShutdownChan:  make(chan struct{}),
 		Bot:           bot,
 		LastStatusMsg: make(map[int64]int),
+		StatusPages:   make(map[int64]int),
 	}
 
 	for i := 0; i < maxConcurrent; i++ {
 		go taskManager.worker(i)
+	}
+
+	go taskManager.startAutoRefresh()
+}
+
+func (tm *TaskManager) startAutoRefresh() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-tm.ShutdownChan:
+			return
+		case <-ticker.C:
+			tm.refreshActiveDashboards()
+		}
+	}
+}
+
+func (tm *TaskManager) refreshActiveDashboards() {
+	tm.Mu.RLock()
+	var chats []int64
+	for chatID := range tm.LastStatusMsg {
+		chats = append(chats, chatID)
+	}
+	tm.Mu.RUnlock()
+
+	for _, chatID := range chats {
+		UpdateSharedDashboard(tm.Bot, chatID, false)
 	}
 }
 

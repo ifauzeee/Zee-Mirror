@@ -193,6 +193,8 @@ func handleCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		handlers.HandleCancel(bot, message, args)
 	case "settings":
 		handlers.HandleSettings(bot, message)
+	case "search":
+		handlers.HandleSearch(bot, message, args)
 	default:
 		if strings.HasPrefix(cmd, "cancel_") {
 			taskID := strings.TrimPrefix(cmd, "cancel_")
@@ -206,6 +208,7 @@ func handleCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 }
 
 func handleCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
+	log.Printf("[Callback] User: %s (%d), Data: %s", callback.From.UserName, callback.From.ID, callback.Data)
 	if !isAuthorized(callback.From.ID) {
 		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, "⛔ Akses ditolak"))
 		return
@@ -227,6 +230,10 @@ func handleCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 		handlers.HandleConfirmCallback(bot, callback, parts)
 	case "refresh_status":
 		handlers.HandleRefreshStatusCallback(bot, callback)
+	case "t_search":
+		handlers.HandleSearchCallback(bot, callback, parts)
+	case "t_page", "t_item", "t_close", "t_back":
+		handlers.HandleSearchNavCallback(bot, callback, parts)
 	case "ytdlp_q":
 		handlers.HandleYTDLPQualityCallback(bot, callback, parts)
 	default:

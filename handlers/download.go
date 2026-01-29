@@ -702,20 +702,23 @@ func updateTaskStatus(bot *tgbotapi.BotAPI, task *Task) {
 
 	UpdateSharedDashboard(bot, snapshot.ChatID, false)
 
+	text := buildTaskStatusText(snapshot)
+
+	if snapshot.Status == StatusCompleted && IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
+		if sendVideoWithThumbnail(bot, snapshot, text) {
+			return
+		}
+	}
+
+	sendFinalMessage(bot, snapshot, text)
+}
+
+func buildTaskStatusText(snapshot TaskSnapshot) string {
 	var text string
 	switch snapshot.Status {
 	case StatusCompleted:
-		duration := snapshot.CompletedAt.Sub(snapshot.StartedAt)
-		if snapshot.StartedAt.IsZero() {
-			duration = snapshot.CompletedAt.Sub(snapshot.CreatedAt)
-		}
-
-		sizeStr := "Unknown"
-		if snapshot.TotalSize > 0 {
-			sizeStr = FormatBytes(snapshot.TotalSize)
-		} else if snapshot.DownloadedSize > 0 {
-			sizeStr = FormatBytes(snapshot.DownloadedSize)
-		}
+		duration := calculateDuration(snapshot)
+		sizeStr := determineSizeString(snapshot)
 
 		text = fmt.Sprintf("✅ *Completed\\!*\n\n"+
 			"📄 *Name:* `%s`\n"+
@@ -731,9 +734,51 @@ func updateTaskStatus(bot *tgbotapi.BotAPI, task *Task) {
 			EscapeMarkdownV2(snapshot.FileName),
 			EscapeMarkdownV2(TruncateString(snapshot.Error, 100)))
 	default:
-		return
+		return ""
 	}
+	return text
+}
 
+func calculateDuration(snapshot TaskSnapshot) time.Duration {
+	duration := snapshot.CompletedAt.Sub(snapshot.StartedAt)
+	if snapshot.StartedAt.IsZero() {
+		duration = snapshot.CompletedAt.Sub(snapshot.CreatedAt)
+	}
+	return duration
+}
+
+func determineSizeString(snapshot TaskSnapshot) string {
+	sizeStr := "Unknown"
+	if snapshot.TotalSize > 0 {
+		sizeStr = FormatBytes(snapshot.TotalSize)
+	} else if snapshot.DownloadedSize > 0 {
+		sizeStr = FormatBytes(snapshot.DownloadedSize)
+	}
+	return sizeStr
+}
+
+func sendVideoWithThumbnail(bot *tgbotapi.BotAPI, snapshot TaskSnapshot, text string) bool {
+	if thumb, err := GenerateThumbnail(snapshot.LocalPath); err == nil {
+		photo := tgbotapi.NewPhoto(snapshot.ChatID, tgbotapi.FilePath(thumb))
+		photo.Caption = text
+		photo.ParseMode = MarkdownV2
+		if snapshot.RemoteURL != "" {
+			photo.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+				),
+			)
+		}
+		if _, err := bot.Send(photo); err == nil {
+			_ = os.Remove(thumb)
+			return true
+		}
+		_ = os.Remove(thumb)
+	}
+	return false
+}
+
+func sendFinalMessage(bot *tgbotapi.BotAPI, snapshot TaskSnapshot, text string) {
 	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
 	msg.ParseMode = MarkdownV2
 
