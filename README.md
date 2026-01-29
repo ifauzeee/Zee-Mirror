@@ -2,7 +2,7 @@
 
 Bot Telegram untuk mirror/leech file ke Google Drive dengan performa tinggi, ditulis dalam **Go**.
 
-![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
@@ -73,6 +73,13 @@ cp ~/.config/rclone/rclone.conf config/rclone.conf
 Atau setup rclone baru:
 ```bash
 docker run --rm -it -v $(pwd)/config:/config rclone/rclone config --config /config/rclone.conf
+```
+
+Opsional: Jika Anda perlu login ke situs tertentu untuk download (misalnya cookie authentication), tambahkan file `cookies.txt` ke folder config:
+```bash
+# Contoh struktur cookies.txt (format Netscape)
+# .site.com	TRUE	/	FALSE	9999999999	cookie_name	cookie_value
+echo ".example.com	TRUE	/	FALSE	9999999999	session_id	abc123" > config/cookies.txt
 ```
 
 ### 4. Build & Run
@@ -165,30 +172,37 @@ https://example.com/file3.rar
 | Path | Deskripsi |
 |------|-----------|
 | `/app/downloads` | Temporary download files |
-| `/app/config` | Config files (rclone.conf) |
+| `/app/config` | Config files (rclone.conf, cookies.txt) |
 
 ## 📁 Struktur Project
 
 ```
 zee-mirror/
 ├── main.go              # Entry point
-├── task_manager.go      # (Legacy) Task management
-├── utils.go             # (Legacy) Utility functions
 ├── handlers/
-│   ├── handlers.go      # Core task management
-│   ├── start.go         # /start dan /help handler
-│   ├── download.go      # Download handlers (aria2, yt-dlp)
-│   ├── upload.go        # Upload handler (rclone)
 │   ├── archive.go       # Zip/unzip handler (7zz)
-│   ├── status.go        # Status dan cancel handler
+│   ├── batch.go         # Batch download handler
+│   ├── download.go      # Download handlers (aria2, yt-dlp)
+│   ├── handlers.go      # Core task management
+│   ├── search.go        # Torrent search handler
 │   ├── settings.go      # Settings handler
+│   ├── start.go         # /start dan /help handler
+│   ├── status.go        # Status dan cancel handler
+│   ├── upload.go        # Upload handler (rclone)
 │   └── utils.go         # Utility functions
 ├── config/
 │   └── rclone.conf.example
+├── downloads/           # Temporary download files
+├── scripts/
+│   └── (shell scripts)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
 ├── go.mod
+├── go.sum
+├── LICENSE
+├── Makefile
+├── Taskfile.yml
 └── README.md
 ```
 
