@@ -97,10 +97,8 @@ func createZipArchive(bot *tgbotapi.BotAPI, task *Task) error {
 }
 
 func cleanupTask(task *Task) {
-	if task.LocalPath != "" {
-		taskDir := filepath.Join(taskManager.DownloadDir, task.ID)
-		_ = os.RemoveAll(taskDir)
-	}
+	taskDir := filepath.Join(taskManager.DownloadDir, task.ID)
+	_ = os.RemoveAll(taskDir)
 }
 
 func handleAutoDelete(bot *tgbotapi.BotAPI, task *Task) {

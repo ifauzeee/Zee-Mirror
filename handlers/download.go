@@ -400,6 +400,11 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 	go parseYTDLPProgress(bot, task, stdout)
 
 	if err := cmd.Wait(); err != nil {
+		if task.Status == StatusCancelled {
+			cleanupTask(task)
+			return
+		}
+
 		task.Mu.RLock()
 		capturedErr := task.Error
 		task.Mu.RUnlock()
@@ -411,6 +416,11 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 
 		task.SetError(errMsg)
 		updateTaskStatus(bot, task)
+		cleanupTask(task)
+		return
+	}
+
+	if task.Status == StatusCancelled {
 		cleanupTask(task)
 		return
 	}
