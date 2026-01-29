@@ -31,6 +31,10 @@ func HandleStart(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "dashboard:torrent"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📦 Batch", "dashboard:batch"),
+			tgbotapi.NewInlineKeyboardButtonData("🔍 Search", "dashboard:search"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📊 Status", "dashboard:status"),
 			tgbotapi.NewInlineKeyboardButtonData("⚙️ Settings", "dashboard:settings"),
 		),
@@ -63,6 +67,10 @@ func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		"/cancel ID \\- Cancel task tertentu\n" +
 		"/search keyword \\- Cari torrent via Jackett\n" +
 		"/settings \\- Pengaturan bot\n\n" +
+		"*Batch Download:*\n\n" +
+		"/batch \\- Download multiple URLs sekaligus\n" +
+		"/batchstatus \\- Status batch aktif\n" +
+		"/cancelbatch ID \\- Cancel batch download\n\n" +
 		"*Flag Opsional:*\n\n" +
 		"\\-z : Zip file setelah download\n" +
 		"\\-uz : Unzip/extract setelah download\n" +
@@ -78,6 +86,7 @@ func HandleHelp(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	_, _ = bot.Send(msg)
 }
+
 func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 	parts := strings.Split(callback.Data, ":")
 	if len(parts) < 2 {
@@ -150,6 +159,28 @@ func HandleDashboardCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQu
 			"Gunakan perintah:\n" +
 			"/cancel TaskID\n\n" +
 			"Lihat daftar task aktif dengan /status"
+
+	case "batch":
+		text = "📦 *Batch Download*\n\n" +
+			"Download multiple URLs sekaligus:\n" +
+			"```\n/batch\nURL1\nURL2\nURL3\n```\n\n" +
+			"*Flags:*\n" +
+			"\\-name NAME : Nama batch\n" +
+			"\\-z : Zip semua hasil\n" +
+			"\\-p PASSWORD : Password zip\n" +
+			"\\-priority 1\\-10 : Prioritas\n\n" +
+			"*Commands:*\n" +
+			"/batchstatus \\- Status batch aktif\n" +
+			"/cancelbatch ID \\- Cancel batch"
+
+	case "search":
+		text = "🔍 *Search Torrent*\n\n" +
+			"Cari torrent dari berbagai sumber:\n" +
+			"/search keyword\n\n" +
+			"*Sources:*\n" +
+			"\\- SolidTorrents\n" +
+			"\\- Nyaa\n" +
+			"\\- PirateBay"
 
 	default:
 		text = "❓ Aksi tidak dikenal"

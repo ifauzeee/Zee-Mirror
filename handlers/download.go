@@ -396,7 +396,7 @@ func downloadWithAria2(bot *tgbotapi.BotAPI, task *Task) {
 		}
 	}
 
-	if err := uploadWithRclone(bot, task); err != nil {
+	if err := UploadWithRclone(bot, task); err != nil {
 		task.SetError(fmt.Sprintf("Upload failed: %v", err))
 	} else {
 		task.SetStatus(StatusCompleted)
@@ -508,7 +508,7 @@ func downloadWithYTDLP(bot *tgbotapi.BotAPI, task *Task) {
 		task.TotalSize = info.Size()
 	}
 
-	if err := uploadWithRclone(bot, task); err != nil {
+	if err := UploadWithRclone(bot, task); err != nil {
 		task.SetError(fmt.Sprintf("Upload failed: %v", err))
 	} else {
 		task.SetStatus(StatusCompleted)

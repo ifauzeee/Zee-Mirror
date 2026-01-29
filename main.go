@@ -195,6 +195,12 @@ func handleCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		handlers.HandleSettings(bot, message)
 	case "search":
 		handlers.HandleSearch(bot, message, args)
+	case "batch":
+		handlers.HandleBatch(bot, message, args)
+	case "batchstatus":
+		handlers.HandleBatchStatus(bot, message)
+	case "cancelbatch":
+		handlers.HandleCancelBatch(bot, message, args)
 	default:
 		if strings.HasPrefix(cmd, "cancel_") {
 			taskID := strings.TrimPrefix(cmd, "cancel_")
@@ -236,6 +242,8 @@ func handleCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 		handlers.HandleSearchNavCallback(bot, callback, parts)
 	case "ytdlp_q":
 		handlers.HandleYTDLPQualityCallback(bot, callback, parts)
+	case "batch":
+		handlers.HandleBatchCallback(bot, callback, parts)
 	default:
 		_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}

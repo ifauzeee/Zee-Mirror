@@ -97,9 +97,18 @@ docker-compose logs -f
 | `/leech <URL>` | Download dari URL |
 | `/ytdlp <URL>` | Download video |
 | `/torrent <magnet>` | Download torrent |
+| `/search <keyword>` | Cari torrent |
 | `/status` | Status task aktif |
 | `/cancel <ID>` | Batalkan task |
 | `/settings` | Pengaturan bot |
+
+### Batch Download
+
+| Command | Deskripsi |
+|---------|-----------|
+| `/batch` | Download multiple URLs sekaligus |
+| `/batchstatus` | Status batch aktif |
+| `/cancelbatch <ID>` | Batalkan batch download |
 
 ### Flags Opsional
 
@@ -108,6 +117,8 @@ docker-compose logs -f
 | `-z` | Zip file sebelum upload |
 | `-uz` | Extract archive setelah download |
 | `-p PASSWORD` | Password untuk zip |
+| `-name NAME` | Nama batch (untuk /batch) |
+| `-priority 1-10` | Prioritas batch (default: 5) |
 
 ### Contoh Penggunaan
 
@@ -127,7 +138,14 @@ docker-compose logs -f
 
 # Download torrent
 /torrent magnet:?xt=urn:btih:xxxxx
+
+# Batch download (multiple URLs)
+/batch -name MyDownloads -z
+https://example.com/file1.zip
+https://example.com/file2.mp4
+https://example.com/file3.rar
 ```
+
 
 ## 🔧 Konfigurasi Lanjutan
 
