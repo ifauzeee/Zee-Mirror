@@ -334,6 +334,13 @@ func updateTaskStatus(bot *tgbotapi.BotAPI, task *Task) {
 			),
 		)
 		editMsg.ReplyMarkup = &keyboard
+	} else if snapshot.Status == StatusCompleted && snapshot.RemoteURL != "" {
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+			),
+		)
+		editMsg.ReplyMarkup = &keyboard
 	}
 
 	if _, err := bot.Send(editMsg); err != nil {

@@ -40,6 +40,7 @@ type Task struct {
 	FileName       string
 	LocalPath      string
 	RemotePath     string
+	RemoteURL      string
 	TotalSize      int64
 	DownloadedSize int64
 	UploadedSize   int64
@@ -72,6 +73,7 @@ type TaskSnapshot struct {
 	FileName       string
 	LocalPath      string
 	RemotePath     string
+	RemoteURL      string
 	TotalSize      int64
 	DownloadedSize int64
 	UploadedSize   int64
@@ -276,6 +278,7 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		FileName:       t.FileName,
 		LocalPath:      t.LocalPath,
 		RemotePath:     t.RemotePath,
+		RemoteURL:      t.RemoteURL,
 		TotalSize:      t.TotalSize,
 		DownloadedSize: t.DownloadedSize,
 		UploadedSize:   t.UploadedSize,

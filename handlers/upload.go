@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -63,6 +65,19 @@ func uploadWithRclone(bot *tgbotapi.BotAPI, task *Task) error {
 
 	if err != nil {
 		return fmt.Errorf("rclone failed: %v", err)
+	}
+
+	linkArgs := []string{
+		"link",
+		"--config", configPath,
+		filepath.Join(taskManager.RcloneDest, task.FileName),
+	}
+	linkCmd := exec.CommandContext(ctx, "rclone", linkArgs...)
+	linkOutput, linkErr := linkCmd.Output()
+	if linkErr == nil {
+		task.RemoteURL = strings.TrimSpace(string(linkOutput))
+	} else {
+		log.Printf("[RcloneLink] Failed to get link for %s: %v", task.FileName, linkErr)
 	}
 
 	task.Progress = 100
