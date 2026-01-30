@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -251,16 +252,42 @@ func FormatStatus(status string) string {
 	return strings.ToUpper(status[:1]) + status[1:]
 }
 
-func GetFileNameFromURL(url string) string {
-	if idx := strings.Index(url, "?"); idx != -1 {
-		url = url[:idx]
+func GetFileNameFromURL(urlStr string) string {
+	u, err := url.Parse(urlStr)
+	if err == nil {
+		q := u.Query()
+		if zipName := q.Get("zipname"); zipName != "" {
+			return SanitizeFileName(zipName)
+		}
+		if fileName := q.Get("filename"); fileName != "" {
+			return SanitizeFileName(fileName)
+		}
+		if strings.Contains(u.Host, "pixeldrain.com") && strings.HasPrefix(u.Path, "/api/file/") {
+			parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+			if len(parts) >= 3 {
+				return SanitizeFileName(parts[2])
+			}
+		}
+
+		path := u.Path
+		if path != "" && path != "/" {
+			parts := strings.Split(path, "/")
+			for i := len(parts) - 1; i >= 0; i-- {
+				if parts[i] != "" {
+					return SanitizeFileName(parts[i])
+				}
+			}
+		}
 	}
 
-	parts := strings.Split(url, "/")
-	if len(parts) > 0 {
-		name := parts[len(parts)-1]
-		if name != "" {
-			return SanitizeFileName(name)
+	if idx := strings.Index(urlStr, "?"); idx != -1 {
+		urlStr = urlStr[:idx]
+	}
+
+	parts := strings.Split(urlStr, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i] != "" {
+			return SanitizeFileName(parts[i])
 		}
 	}
 

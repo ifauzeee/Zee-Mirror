@@ -318,6 +318,33 @@ func (s *BotService) downloadWithAria2(task *Task) {
 		return
 	}
 
+	args := s.buildAria2Args(task, outputDir)
+
+	ctx, cancel := context.WithCancel(task.Ctx)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "aria2c", args...)
+	stdout, _ := cmd.StdoutPipe()
+
+	if err := cmd.Start(); err != nil {
+		task.SetError(fmt.Sprintf("aria2c failed: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	go s.parseAria2Progress(task, stdout)
+	err := cmd.Wait()
+	if err != nil && task.Status != StatusCancelled {
+		task.SetError(fmt.Sprintf("aria2c execution failed: %v", err))
+		s.updateTaskStatus(task)
+		s.cleanupTask(task)
+		return
+	}
+
+	s.handlePostDownload(task, outputDir)
+}
+
+func (s *BotService) buildAria2Args(task *Task, outputDir string) []string {
 	args := []string{
 		"--dir=" + outputDir,
 		"--allow-overwrite=true",
@@ -351,40 +378,34 @@ func (s *BotService) downloadWithAria2(task *Task) {
 		args = append(args, "--load-cookies="+cookiesPath)
 	}
 
+	if task.FileName != "" && task.FileName != "unknown_file" {
+		args = append(args, "--out="+task.FileName)
+	}
+
 	args = append(args, task.URL)
 
 	if utils.IsMagnetLink(task.URL) {
 		args = append(args, "--seed-time=0")
 	}
 
-	ctx, cancel := context.WithCancel(task.Ctx)
-	defer cancel()
+	return args
+}
 
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx, "aria2c", args...)
-	stdout, _ := cmd.StdoutPipe()
-
-	if err := cmd.Start(); err != nil {
-		task.SetError(fmt.Sprintf("aria2c failed: %v", err))
-		s.updateTaskStatus(task)
-		return
-	}
-
-	go s.parseAria2Progress(task, stdout)
-	err := cmd.Wait()
-	if err != nil && task.Status != StatusCancelled {
-		task.SetError(fmt.Sprintf("aria2c execution failed: %v", err))
-		s.updateTaskStatus(task)
-		s.cleanupTask(task)
-		return
-	}
-
+func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 	if task.Status == StatusCancelled {
 		s.cleanupTask(task)
 		return
 	}
 
 	task.LocalPath = findDownloadedFile(outputDir)
+	if task.LocalPath == "" {
+		if task.Error == "" {
+			task.SetError("Downloaded file not found")
+		}
+		s.updateTaskStatus(task)
+		s.cleanupTask(task)
+		return
+	}
 	task.FileName = filepath.Base(task.LocalPath)
 
 	if task.Unzip && utils.IsArchiveFile(task.LocalPath) {
