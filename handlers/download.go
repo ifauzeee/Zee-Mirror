@@ -229,6 +229,9 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 		tgbotapi.NewInlineKeyboardButtonData("🚀 Kualitas Terbaik", fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
 	))
 
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
+	))
 	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
 	if len(sortedHeights) == 0 {
@@ -287,10 +290,12 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Memulai download..."))
 
-	_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
+	s.TaskManager.Mu.Lock()
+	s.TaskManager.LastStatusMsg[callback.Message.Chat.ID] = callback.Message.MessageID
+	s.TaskManager.Mu.Unlock()
 
 	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, 0, callback.From.ID, session.Zip, false, session.Password, quality)
-	s.UpdateSharedDashboard(callback.Message.Chat.ID, true)
+	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	log.Printf("[YTDLPCallback] Task created: %s", task.ID)
 }
 
@@ -716,6 +721,7 @@ func (s *BotService) sendVideoWithThumbnail(snapshot TaskSnapshot, text string) 
 			photo.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+					tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 				),
 			)
 		}
@@ -736,6 +742,7 @@ func (s *BotService) sendFinalMessage(snapshot TaskSnapshot, text string) {
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 			),
 		)
 		msg.ReplyMarkup = keyboard

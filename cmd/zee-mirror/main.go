@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -17,9 +18,25 @@ import (
 const (
 	cmdBatch    = "batch"
 	cmdSettings = "settings"
+	cmdHelp     = "help"
+	cmdStats    = "stats"
 )
 
 func main() {
+	fmt.Println(`
+███████╗███████╗███████╗                       
+╚══███╔╝██╔════╝██╔════╝                       
+  ███╔╝ █████╗  █████╗                         
+ ███╔╝  ██╔══╝  ██╔══╝                         
+███████╗███████╗███████╗                       
+╚══════╝╚══════╝╚══════╝                       
+                                               
+███╗   ███╗██╗██████╗ ██████╗  ██████╗ ██████╗ 
+████╗ ████║██║██╔══██╗██╔══██╗██╔═══██╗██╔══██╗
+██╔████╔██║██║██████╔╝██████╔╝██║   ██║██████╔╝
+██║╚██╔╝██║██║██╔══██╗██╔══██╗██║   ██║██╔══██╗
+██║ ╚═╝ ██║██║██║  ██║██║  ██║╚██████╔╝██║  ██║
+╚═╝     ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`)
 	log.Println("🚀 Starting Zee-Mirror Bot...")
 
 	cfg := config.LoadConfig()
@@ -108,7 +125,7 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 	log.Printf("[Command] Received: /%s from %d", command, msg.From.ID)
 
 	switch command {
-	case "start", "help", cmdSettings, "ping", "speed":
+	case "start", cmdHelp, cmdSettings, "ping", "speed":
 		handleBasicCommands(s, msg, command)
 	case "mirror", "leech", "ytdlp", "torrent", "clone":
 		handleDownloadCommands(s, msg, command, args)
@@ -116,8 +133,20 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 		handleTaskCommands(s, msg, command, args)
 	case cmdBatch, "batchstatus", "cancelbatch":
 		handleBatchCommands(s, msg, command, args)
-	case "authorize", "unauthorize", "users":
+	case "authorize", "unauthorize", "users", "setlogchannel", "setalertchannel":
 		handleAdminCommands(s, msg, command, args)
+	case cmdStats:
+		s.HandleStats(msg)
+	case handlers.CmdSystem, handlers.CmdHealth, handlers.CmdLogs:
+		handleSystemCommands(s, msg, command, args)
+	case "ls", "dir", "mkdir", "rm", "mv", "share", "find":
+		handleFileManagerCommands(s, msg, command, args)
+	case "storages", "setstorage":
+		handleStorageCommands(s, msg, command, args)
+	case "extractaudio", "compress", "thumbnail", "screenshots", "subtitle", "convert", "mediainfo":
+		handleMediaCommands(s, msg, command, args)
+	case "recover", "recoverystatus":
+		handleRecoveryCommands(s, msg, command)
 	default:
 		if strings.HasPrefix(command, "cancel_") {
 			taskID := strings.TrimPrefix(command, "cancel_")
@@ -130,7 +159,7 @@ func handleBasicCommands(s *handlers.BotService, msg *tgbotapi.Message, command 
 	switch command {
 	case "start":
 		s.HandleStart(msg)
-	case "help":
+	case cmdHelp:
 		s.HandleHelp(msg)
 	case cmdSettings:
 		s.HandleSettings(msg)
@@ -183,39 +212,141 @@ func handleAdminCommands(s *handlers.BotService, msg *tgbotapi.Message, command,
 		s.HandleUnauthorize(msg, args)
 	case "users":
 		s.HandleUsers(msg)
+
+	case "setalertchannel":
+		s.HandleSetAlertChannel(msg, args)
+	}
+}
+
+func handleSystemCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
+	case handlers.CmdSystem:
+		s.HandleSystem(msg)
+	case handlers.CmdHealth:
+		s.HandleHealth(msg)
+	case handlers.CmdLogs:
+		s.HandleLogs(msg, args)
+	}
+}
+
+func handleFileManagerCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
+	case "ls", "dir":
+		s.HandleDriveList(msg, args, 0)
+	case "mkdir":
+		s.HandleDriveMkdir(msg, args)
+	case "rm":
+		s.HandleDriveDelete(msg, args)
+	case "mv":
+		s.HandleDriveMove(msg, args)
+	case "share":
+		s.HandleDriveShare(msg, args)
+	case "find":
+		s.HandleDriveSearch(msg, args)
+	}
+}
+
+func handleStorageCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
+	case "storages":
+		s.HandleStorages(msg)
+	case "setstorage":
+		s.HandleSetStorage(msg, args)
+	}
+}
+
+func handleMediaCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
+	case "extractaudio":
+		s.HandleExtractAudio(msg, args)
+	case "compress":
+		s.HandleCompressVideo(msg, args)
+	case "thumbnail":
+		s.HandleGenerateThumbnail(msg, args)
+	case "screenshots":
+		s.HandleScreenshots(msg, args)
+	case "subtitle":
+		s.HandleEmbedSubtitle(msg, args)
+	case "convert":
+		s.HandleConvertFormat(msg, args)
+	case "mediainfo":
+		s.HandleMediaInfo(msg, args)
+	}
+}
+
+func handleRecoveryCommands(s *handlers.BotService, msg *tgbotapi.Message, command string) {
+	switch command {
+	case "recover":
+		s.HandleRecover(msg)
+	case "recoverystatus":
+		s.HandleRecoveryStatus(msg)
 	}
 }
 
 func handleCallback(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
-	data := cb.Data
-	parts := strings.Split(data, ":")
-
+	parts := strings.Split(cb.Data, ":")
 	if len(parts) == 0 {
 		return
 	}
 
 	prefix := parts[0]
 	switch {
-	case prefix == "dashboard":
-		s.HandleDashboardCallback(cb)
-	case prefix == "ytdlp_q":
-		s.HandleYTDLPQualityCallback(cb, parts)
-	case prefix == "t_search":
-		s.HandleSearchCallback(cb, parts)
-	case prefix == "t_page", prefix == "t_item", prefix == "t_back", prefix == "t_close":
-		s.HandleSearchNavCallback(cb, parts)
-	case prefix == "settings":
-		s.HandleSettingsCallback(cb, parts)
-	case prefix == "batch":
-		s.HandleBatchCallback(cb, parts)
-	case prefix == "refresh_status":
-		s.HandleRefreshStatusCallback(cb)
-	case prefix == "confirm":
-		s.HandleConfirmCallback(cb, parts)
+	case prefix == "dashboard", prefix == "help", prefix == "refresh_status":
+		handleStatusCallbacks(s, cb, prefix)
+	case prefix == "t_search", prefix == "t_page", prefix == "t_item", prefix == "t_back", prefix == "t_close":
+		handleSearchCallbacks(s, cb, prefix, parts)
+	case prefix == "ytdlp_q", prefix == "settings", prefix == "batch", prefix == "confirm":
+		handleTaskActionCallbacks(s, cb, prefix, parts)
+	case prefix == "stats", prefix == "system", prefix == "storage", prefix == "drive", prefix == "dr":
+		handleSystemCallbacks(s, cb, prefix, parts)
+	case prefix == "media_m":
+		s.HandleMediaMirrorCallback(cb, parts)
 	case strings.HasPrefix(prefix, "cancel_"):
 		taskID := strings.TrimPrefix(prefix, "cancel_")
 		s.HandleCancelCallback(cb, taskID)
 	default:
-		log.Printf("[Callback] Unknown callback: %s", data)
+		log.Printf("[Callback] Unknown callback: %s", cb.Data)
+	}
+}
+
+func handleStatusCallbacks(s *handlers.BotService, cb *tgbotapi.CallbackQuery, prefix string) {
+	if prefix == "refresh_status" {
+		s.HandleRefreshStatusCallback(cb)
+	} else {
+		s.HandleDashboardCallback(cb)
+	}
+}
+
+func handleSearchCallbacks(s *handlers.BotService, cb *tgbotapi.CallbackQuery, prefix string, parts []string) {
+	if prefix == "t_search" {
+		s.HandleSearchCallback(cb, parts)
+	} else {
+		s.HandleSearchNavCallback(cb, parts)
+	}
+}
+
+func handleTaskActionCallbacks(s *handlers.BotService, cb *tgbotapi.CallbackQuery, prefix string, parts []string) {
+	switch prefix {
+	case "ytdlp_q":
+		s.HandleYTDLPQualityCallback(cb, parts)
+	case "settings":
+		s.HandleSettingsCallback(cb, parts)
+	case "batch":
+		s.HandleBatchCallback(cb, parts)
+	case "confirm":
+		s.HandleConfirmCallback(cb, parts)
+	}
+}
+
+func handleSystemCallbacks(s *handlers.BotService, cb *tgbotapi.CallbackQuery, prefix string, parts []string) {
+	switch prefix {
+	case cmdStats:
+		s.HandleStatsCallback(cb, parts)
+	case handlers.CmdSystem:
+		s.HandleSystemCallback(cb, parts)
+	case "storage":
+		s.HandleStorageCallback(cb, parts)
+	case "drive", "dr":
+		s.HandleDriveCallback(cb, parts)
 	}
 }

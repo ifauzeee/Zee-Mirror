@@ -17,6 +17,16 @@ Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, dit
 - ⚡ **Performa Tinggi** - Menggunakan optimasi goroutine untuk menangani banyak tugas sekaligus.
 - 🐳 **Dockerized** - Memudahkan proses deployment hanya dengan beberapa langkah.
 
+### 🆕 Fitur Baru v2.0
+
+- 📊 **Dashboard Analytics** - Statistik lengkap: harian, mingguan, bulanan, per-user.
+- 💾 **Multi Storage** - Support multiple cloud storage (Google Drive, OneDrive, Mega, dll).
+- 📂 **File Manager** - Kelola file di Google Drive langsung dari Telegram.
+- 🎵 **Media Processing** - Extract audio, compress video, generate thumbnails.
+- 🔄 **Task Recovery** - Otomatis recover task yang terinterupsi saat restart.
+- 🖥️ **Resource Monitor** - Monitoring CPU, RAM, Disk dengan custom alerts.
+- 📢 **Channel Logging** - Log aktivitas ke channel Telegram khusus.
+
 ## 🛠️ Teknologi & Tools
 
 | Tool | Fungsi Utama |
@@ -25,6 +35,7 @@ Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, dit
 | **yt-dlp** | Engine khusus untuk mengunduh video streaming. |
 | **rclone** | Alat transfer file untuk mengunggah hasil ke cloud storage. |
 | **7zz** | Alat kompresi dan ekstraksi arsip dengan performa tinggi. |
+| **ffmpeg** | Media processing: konversi, kompresi, extract audio. |
 
 ## 📋 Persyaratan Sistem
 
@@ -46,27 +57,17 @@ Salin file template `.env.example` menjadi `.env` dan sesuaikan nilainya:
 cp .env.example .env
 nano .env
 ```
-Lengkapi data berikut:
-```env
-BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
-OWNER_ID=123456789
-RCLONE_DEST=gdrive:/MirrorBot
-```
 
 ### 3. Konfigurasi Rclone
 Buat direktori konfigurasi dan masukkan file `rclone.conf` Anda:
 ```bash
 mkdir -p config
-# Salin rclone.conf yang sudah ada ke folder config/
 cp ~/.config/rclone/rclone.conf config/rclone.conf
 ```
 
 ### 4. Jalankan Aplikasi
 ```bash
-# Build dan jalankan container
 docker-compose up -d --build
-
-# Pantau log aktivitas
 docker-compose logs -f
 ```
 
@@ -86,10 +87,59 @@ docker-compose logs -f
 | `/cancel <ID>` | Membatalkan tugas yang sedang diproses. |
 | `/settings` | Membuka menu pengaturan bot. |
 
-### Fitur Batch
+### 📊 Statistik & Analytics
 | Perintah | Deskripsi |
 |----------|-----------|
-| `/batch` | Mengunduh banyak URL sekaligus dalam satu antrean. |
+| `/stats` | Dashboard statistik lengkap (global, harian, per-user). |
+
+### 📂 File Manager (Google Drive)
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/ls [path]` | List file/folder di Google Drive. |
+| `/mkdir <name>` | Buat folder baru. |
+| `/rm <file>` | Hapus file/folder. |
+| `/mv <src> <dst>` | Pindahkan/rename file. |
+| `/share <file>` | Generate share link. |
+| `/find <keyword>` | Cari file di Drive. |
+
+### 💾 Multi Storage
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/storages` | Lihat daftar storage yang dikonfigurasi. |
+| `/setstorage <remote:/path>` | Set default storage destination. |
+
+### 🎵 Media Processing
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/extractaudio` | Extract audio dari video (reply ke video). |
+| `/compress [quality]` | Kompres video (low/medium/high). |
+| `/thumbnail [timestamp]` | Generate thumbnail dari video. |
+| `/screenshots <video> [count]` | Generate multiple screenshots. |
+| `/subtitle <video> <sub>` | Embed subtitle ke video. |
+| `/convert <file> <format>` | Convert format (mp4, mkv, mp3, dll). |
+| `/mediainfo` | Tampilkan informasi media file. |
+
+### 🖥️ System Monitoring
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/system` | Status sistem (CPU, RAM, Disk, Uptime). |
+| `/health` | Health check semua komponen. |
+| `/logs` | Tampilkan log terbaru. |
+
+### 🔄 Task Recovery
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/recover` | Recovery task yang terinterupsi. |
+| `/recoverystatus` | Status task yang bisa di-recover. |
+
+### Admin Commands
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/authorize <ID>` | Izinkan user baru. |
+| `/unauthorize <ID>` | Cabut izin user. |
+| `/users` | Lihat daftar user. |
+| `/setlogchannel [ID]` | Set channel untuk logging aktivitas. |
+| `/setalertchannel [ID]` | Set channel untuk custom alerts. |
 
 ### Flags (Opsi Tambahan)
 Gunakan flag berikut di akhir perintah (misal: `/mirror URL -z`):
@@ -116,28 +166,36 @@ Gunakan flag berikut di akhir perintah (misal: `/mirror URL -z`):
 Zee-Mirror/
 ├── cmd/
 │   └── zee-mirror/
-│       └── main.go      # Titik masuk utama aplikasi (Entry Point)
-├── handlers/            # Logika penanganan perintah Telegram
-│   ├── archive.go       # Operasi Zip/Unzip
-│   ├── batch.go         # Logika Batch Download
-│   ├── download.go      # Integrasi aria2 & yt-dlp
-│   ├── search.go        # Pencarian Torrent
-│   ├── upload.go        # Integrasi Rclone
+│       └── main.go          # Entry Point
+├── handlers/                 # Logika penanganan perintah
+│   ├── archive.go           # Operasi Zip/Unzip
+│   ├── batch.go             # Batch Download
+│   ├── download.go          # Integrasi aria2 & yt-dlp
+│   ├── filemanager.go       # 🆕 File Manager Google Drive
+│   ├── media.go             # 🆕 Media Processing
+│   ├── monitor.go           # 🆕 Resource Monitoring
+│   ├── notifications.go     # 🆕 Channel Logging & Alerts
+│   ├── recovery.go          # 🆕 Task Recovery
+│   ├── statistics.go        # 🆕 Analytics Dashboard
+│   ├── storage.go           # 🆕 Multi Storage Support
+│   ├── upload.go            # Integrasi Rclone
 │   └── ...
 ├── internal/
-│   └── config/          # Manajemen konfigurasi aplikasi
+│   ├── config/              # Manajemen konfigurasi
+│   └── database/            # SQLite database
 ├── pkg/
-│   └── utils/           # Fungsi pembantu (Helper functions)
-├── config/              # Tempat penyimpanan rclone.conf & cookies
-├── Dockerfile           # Konfigurasi build Docker
-└── docker-compose.yml   # Konfigurasi deployment Docker Compose
+│   └── utils/               # Helper functions
+├── config/                   # rclone.conf & cookies
+├── Dockerfile
+└── docker-compose.yml
 ```
 
 ## 🐛 Troubleshooting
 
-- **Bot Tidak Merespons**: Pastikan `BOT_TOKEN` benar dan bot sudah di-*start* di Telegram. Periksa log dengan `docker-compose logs -f`.
-- **Upload Gagal**: Pastikan file `config/rclone.conf` sudah tersedia dan `RCLONE_DEST` sesuai dengan nama remote di konfigurasi.
-- **Download Lambat**: Cek koneksi server atau coba tingkatkan nilai `MAX_CONCURRENT_DOWNLOADS`.
+- **Bot Tidak Merespons**: Pastikan `BOT_TOKEN` benar dan bot sudah di-*start* di Telegram.
+- **Upload Gagal**: Pastikan file `config/rclone.conf` sudah tersedia.
+- **Download Lambat**: Tingkatkan nilai `MAX_CONCURRENT_DOWNLOADS`.
+- **Media Processing Error**: Pastikan ffmpeg terinstal di container.
 
 ---
 Dibuat dengan ❤️ oleh **Zee-Mirror Team**. Lisensi [MIT](LICENSE).

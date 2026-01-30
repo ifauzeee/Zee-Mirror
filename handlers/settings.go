@@ -83,7 +83,7 @@ func (s *BotService) formatSettingsMessage() string {
 	}
 
 	defaultModeEmoji := "📥"
-	if s.Settings.DefaultMode == "leech" {
+	if s.Settings.DefaultMode == ModeLeech {
 		defaultModeEmoji = "🔗"
 	}
 
@@ -120,7 +120,8 @@ func (s *BotService) getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("🔗 Set Leech", "settings:default_leech"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", "dashboard:start"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", "help:back"),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", "dashboard:close"),
 		),
 	)
 }

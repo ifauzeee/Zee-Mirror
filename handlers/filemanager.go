@@ -1,0 +1,692 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"zee-mirror/pkg/utils"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+type DriveFile struct {
+	ID       string `json:"ID"`
+	Name     string `json:"Name"`
+	Size     int64  `json:"Size"`
+	MimeType string `json:"MimeType"`
+	ModTime  string `json:"ModTime"`
+	IsDir    bool   `json:"IsDir"`
+	Path     string `json:"Path"`
+}
+
+func (s *BotService) HandleDriveList(message *tgbotapi.Message, args string, editMessageID int) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	log.Printf("[DriveList] Request from %d with args: %s, editMsgID: %d", message.From.ID, args, editMessageID)
+
+	fullPath, relPath := s.resolveDrivePath(args)
+	log.Printf("[DriveList] Listing path: %s", fullPath)
+
+	sent, err := s.sendLoadingStatus(message.Chat.ID, editMessageID)
+	if err != nil {
+		log.Printf("[DriveList] Error preparing status message: %v", err)
+		return
+	}
+
+	files, err := s.listDriveFiles(fullPath)
+	if err != nil {
+		s.handleDriveError(message.Chat.ID, sent.MessageID, "Gagal memuat daftar file", err)
+		return
+	}
+
+	log.Printf("[DriveList] Successfully found %d items", len(files))
+
+	if s.tryJumpToFileInfo(message, sent.MessageID, relPath, files) {
+		return
+	}
+
+	s.renderDriveList(message.Chat.ID, sent.MessageID, relPath, files)
+}
+
+func (s *BotService) resolveDrivePath(args string) (string, string) {
+	basePath := strings.TrimSuffix(s.TaskManager.RcloneDest, "/")
+	fullPath := basePath
+
+	if args != "" {
+		if strings.HasPrefix(args, "/") {
+			remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
+			fullPath = remoteName + ":" + args
+		} else {
+			fullPath = basePath + "/" + strings.TrimPrefix(args, "/")
+		}
+	}
+	fullPath = strings.TrimSuffix(fullPath, "/")
+
+	baseRel := ""
+	if strings.Contains(s.TaskManager.RcloneDest, ":") {
+		parts := strings.SplitN(s.TaskManager.RcloneDest, ":", 2)
+		if len(parts) > 1 {
+			baseRel = strings.Trim(parts[1], "/")
+		}
+	}
+
+	relPath := ""
+	if strings.Contains(fullPath, ":") {
+		parts := strings.SplitN(fullPath, ":", 2)
+		if len(parts) > 1 {
+			fullPathAfterRemote := strings.Trim(parts[1], "/")
+			if baseRel != "" && (fullPathAfterRemote == baseRel || strings.HasPrefix(fullPathAfterRemote, baseRel+"/")) {
+				relPath = strings.TrimPrefix(fullPathAfterRemote, baseRel)
+				relPath = strings.TrimPrefix(relPath, "/")
+			} else {
+				relPath = "/" + fullPathAfterRemote
+			}
+		}
+	}
+	return fullPath, relPath
+}
+
+func (s *BotService) sendLoadingStatus(chatID int64, editMessageID int) (*tgbotapi.Message, error) {
+	loadingText := "🔍 *Memuat daftar file\\.\\.\\.*"
+	if editMessageID != 0 {
+		editMsg := tgbotapi.NewEditMessageText(chatID, editMessageID, loadingText)
+		editMsg.ParseMode = MarkdownV2
+		m, err := s.Bot.Send(editMsg)
+		if err == nil {
+			return &m, nil
+		}
+	}
+
+	statusMsg := tgbotapi.NewMessage(chatID, loadingText)
+	statusMsg.ParseMode = MarkdownV2
+	m, err := s.Bot.Send(statusMsg)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (s *BotService) handleDriveError(chatID int64, messageID int, title string, err error) {
+	log.Printf("[DriveList] Error: %v", err)
+	errorText := fmt.Sprintf("❌ *%s*\n\nError: %s", title, utils.EscapeMarkdownV2(err.Error()))
+	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, errorText)
+	editMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+}
+
+func (s *BotService) tryJumpToFileInfo(message *tgbotapi.Message, messageID int, relPath string, files []DriveFile) bool {
+	if len(files) == 1 && !files[0].IsDir {
+		fileName := files[0].Name
+		if relPath == fileName || strings.HasSuffix(relPath, "/"+fileName) {
+			log.Printf("[DriveList] Target is a file, jumping to info view: %s (Editing message %d)", relPath, messageID)
+			s.handleDriveFileInfoDetailed(message.Chat.ID, messageID, relPath)
+			return true
+		}
+	}
+	return false
+}
+
+func (s *BotService) renderDriveList(chatID int64, messageID int, relPath string, files []DriveFile) {
+	currentPathForUI := relPath
+	if !strings.HasPrefix(currentPathForUI, "/") {
+		currentPathForUI = "/" + currentPathForUI
+	}
+
+	text := s.formatDriveFileList(currentPathForUI, files)
+	keyboard := s.buildDriveNavigationKeyboard(files, relPath)
+
+	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+
+	if _, err := s.Bot.Send(editMsg); err != nil {
+		log.Printf("[DriveList] Error sending final list message: %v", err)
+		s.handleDriveError(chatID, messageID, "Gagal menampilkan daftar file", err)
+	}
+}
+
+func (s *BotService) listDriveFiles(path string) ([]DriveFile, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	args := []string{
+		"lsjson",
+		path,
+		"--config", configPath,
+		"--no-modtime",
+	}
+
+	cmd := exec.CommandContext(ctx, "rclone", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("rclone lsjson failed: %v", err)
+	}
+
+	var files []DriveFile
+	if err := json.Unmarshal(output, &files); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	return files, nil
+}
+
+func (s *BotService) formatDriveFileList(path string, files []DriveFile) string {
+	var text strings.Builder
+
+	text.WriteString("📂 *FILE MANAGER \\- GDRIVE*\n")
+	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
+	text.WriteString(fmt.Sprintf("📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2(path)))
+
+	if len(files) == 0 {
+		text.WriteString("📭 _Folder ini kosong_\n")
+	} else {
+		folderCount := 0
+		fileCount := 0
+
+		var folders []string
+		for _, f := range files {
+			if f.IsDir {
+				folderCount++
+				folders = append(folders, fmt.Sprintf("%s `%s`", IconFolder, utils.EscapeMarkdownV2(utils.TruncateString(f.Name, 40))))
+			}
+		}
+
+		if len(folders) > 0 {
+			text.WriteString("📁 *FOLDERS*\n")
+			for _, f := range folders {
+				text.WriteString(f + "\n")
+			}
+			text.WriteString("\n")
+		}
+
+		var fileList []string
+		for _, f := range files {
+			if !f.IsDir {
+				fileCount++
+				icon := getFileIcon(f.Name)
+				size := utils.FormatBytes(f.Size)
+				fileList = append(fileList, fmt.Sprintf("%s `%s` \\(%s\\)",
+					icon,
+					utils.EscapeMarkdownV2(utils.TruncateString(f.Name, 35)),
+					utils.EscapeMarkdownV2(size)))
+			}
+		}
+
+		if len(fileList) > 0 {
+			text.WriteString("📄 *FILES*\n")
+			for _, f := range fileList {
+				text.WriteString(f + "\n")
+			}
+			text.WriteString("\n")
+		}
+
+		text.WriteString("📊 *SUMMARY*\n")
+		text.WriteString(fmt.Sprintf("📂 Folders: `%d`\n", folderCount))
+		text.WriteString(fmt.Sprintf("📄 Files: `%d`\n", fileCount))
+	}
+
+	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
+	return text.String()
+}
+
+func (s *BotService) buildDriveNavigationKeyboard(files []DriveFile, currentRelPath string) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	folderCount := 0
+	for _, f := range files {
+		if f.IsDir && folderCount < 10 {
+			folderCount++
+			nextPath := f.Name
+			if currentRelPath != "" {
+				nextPath = strings.TrimSuffix(currentRelPath, "/") + "/" + f.Name
+			}
+			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(
+					fmt.Sprintf("%d. %s %s", folderCount, IconFolder, utils.TruncateString(f.Name, 25)),
+					fmt.Sprintf("dr:c:%s", nextPath),
+				),
+			))
+		}
+	}
+
+	fileCount := 0
+	for _, f := range files {
+		if !f.IsDir && fileCount < 10 {
+			fileCount++
+			filePath := f.Name
+			if currentRelPath != "" {
+				filePath = strings.TrimSuffix(currentRelPath, "/") + "/" + f.Name
+			}
+			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(
+					fmt.Sprintf("%d. %s %s", fileCount, getFileIcon(f.Name), utils.TruncateString(f.Name, 25)),
+					fmt.Sprintf("dr:i:%s", filePath),
+				),
+			))
+		}
+	}
+
+	var navButtons []tgbotapi.InlineKeyboardButton
+	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", fmt.Sprintf("dr:c:%s", currentRelPath)))
+	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🏠 Home", "dr:h"))
+	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dr:x"))
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(navButtons...))
+
+	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (s *BotService) HandleDriveMkdir(message *tgbotapi.Message, args string) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	if args == "" {
+		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/mkdir nama_folder`")
+		return
+	}
+
+	folderPath := s.TaskManager.RcloneDest + "/" + args
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	cmd := exec.CommandContext(ctx, "rclone", "mkdir", folderPath, "--config", configPath)
+
+	if err := cmd.Run(); err != nil {
+		s.reply(message, fmt.Sprintf("❌ *Gagal membuat folder*\n\nError: %s", utils.EscapeMarkdownV2(err.Error())))
+		return
+	}
+
+	s.reply(message, fmt.Sprintf("✅ *Folder Berhasil Dibuat*\n\n📁 `%s`", utils.EscapeMarkdownV2(args)))
+}
+
+func (s *BotService) HandleDriveDelete(message *tgbotapi.Message, args string) {
+	if !s.IsAdmin(message.From.ID) {
+		s.reply(message, "❌ *Akses Ditolak*\nHanya Admin yang bisa menghapus file\\.")
+		return
+	}
+
+	if args == "" {
+		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/rm nama_file_atau_folder`")
+		return
+	}
+
+	targetPath := s.TaskManager.RcloneDest + "/" + args
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✅ Ya, Hapus", fmt.Sprintf("dr:df:%s", args)),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Batal", "dr:xf"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(message.Chat.ID,
+		fmt.Sprintf("⚠️ *Konfirmasi Hapus*\n\nAnda yakin ingin menghapus:\n📁 `%s`\\?",
+			utils.EscapeMarkdownV2(targetPath)))
+	msg.ParseMode = MarkdownV2
+	msg.ReplyMarkup = keyboard
+	_, _ = s.Bot.Send(msg)
+}
+
+func (s *BotService) HandleDriveMove(message *tgbotapi.Message, args string) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	parts := strings.SplitN(args, " ", 2)
+	if len(parts) < 2 {
+		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/mv sumber tujuan`")
+		return
+	}
+
+	source := s.TaskManager.RcloneDest + "/" + parts[0]
+	dest := s.TaskManager.RcloneDest + "/" + parts[1]
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	cmd := exec.CommandContext(ctx, "rclone", "moveto", source, dest, "--config", configPath)
+
+	if err := cmd.Run(); err != nil {
+		s.reply(message, fmt.Sprintf("❌ *Gagal memindahkan file*\n\nError: %s", utils.EscapeMarkdownV2(err.Error())))
+		return
+	}
+
+	s.reply(message, fmt.Sprintf("✅ *File Berhasil Dipindahkan*\n\n📄 `%s`\n➡️ `%s`",
+		utils.EscapeMarkdownV2(parts[0]),
+		utils.EscapeMarkdownV2(parts[1])))
+}
+
+func (s *BotService) HandleDriveShare(message *tgbotapi.Message, args string) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	if args == "" {
+		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/share nama_file`")
+		return
+	}
+
+	targetPath := s.TaskManager.RcloneDest + "/" + args
+
+	statusMsg := tgbotapi.NewMessage(message.Chat.ID, "🔗 *Generating share link\\.\\.\\.*")
+	statusMsg.ParseMode = MarkdownV2
+	sent, _ := s.Bot.Send(statusMsg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	cmd := exec.CommandContext(ctx, "rclone", "link", targetPath, "--config", configPath)
+	output, err := cmd.Output()
+
+	if err != nil {
+		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID,
+			fmt.Sprintf("❌ *Gagal generate link*\n\nError: %s", utils.EscapeMarkdownV2(err.Error())))
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+		return
+	}
+
+	link := strings.TrimSpace(string(output))
+	text := fmt.Sprintf("✅ *Share Link Generated*\n\n📄 File: `%s`\n🔗 Link: %s",
+		utils.EscapeMarkdownV2(args),
+		utils.EscapeMarkdownV2(link))
+
+	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+}
+
+func (s *BotService) HandleDriveSearch(message *tgbotapi.Message, args string) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	if args == "" {
+		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/find keyword`")
+		return
+	}
+
+	statusMsg := tgbotapi.NewMessage(message.Chat.ID, "🔍 *Mencari file\\.\\.\\.*")
+	statusMsg.ParseMode = MarkdownV2
+	sent, _ := s.Bot.Send(statusMsg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	searchPath := s.TaskManager.RcloneDest
+
+	log.Printf("[DriveSearch] Searching for '%s' in %s", args, searchPath)
+
+	cmd := exec.CommandContext(ctx, "rclone", "lsjson", searchPath, "--config", configPath,
+		"--include", "*"+args+"*", "-R", "--max-depth", "5")
+	output, err := cmd.Output()
+
+	if err != nil {
+		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID,
+			fmt.Sprintf("❌ *Gagal mencari file*\n\nError: %s", utils.EscapeMarkdownV2(err.Error())))
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+		return
+	}
+
+	var files []DriveFile
+	if err := json.Unmarshal(output, &files); err != nil {
+		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID,
+			"❌ *Gagal parsing hasil pencarian*")
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+		return
+	}
+
+	text := s.formatSearchResults(args, files)
+	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+}
+
+func (s *BotService) formatSearchResults(query string, files []DriveFile) string {
+	var text strings.Builder
+
+	text.WriteString("🔍 *HASIL PENCARIAN*\n")
+	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
+	text.WriteString(fmt.Sprintf("🔎 Query: `%s`\n\n", utils.EscapeMarkdownV2(query)))
+
+	if len(files) == 0 {
+		text.WriteString("📭 _Tidak ada file ditemukan_\n")
+	} else {
+		maxShow := 20
+		if len(files) > maxShow {
+			text.WriteString(fmt.Sprintf("📊 Menampilkan %d dari %d hasil\n\n", maxShow, len(files)))
+		}
+
+		text.WriteString("📂 *FILES FOUND*\n")
+
+		for i, f := range files {
+			if i >= maxShow {
+				break
+			}
+			icon := IconFolder
+			if !f.IsDir {
+				icon = getFileIcon(f.Name)
+			}
+			size := ""
+			if !f.IsDir {
+				size = fmt.Sprintf(" \\(%s\\)", utils.EscapeMarkdownV2(utils.FormatBytes(f.Size)))
+			}
+			path := f.Path
+			if path == "" {
+				path = f.Name
+			}
+			text.WriteString(fmt.Sprintf("%s `%s`%s\n", icon, utils.EscapeMarkdownV2(utils.TruncateString(path, 45)), size))
+		}
+	}
+
+	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
+	return text.String()
+}
+
+func (s *BotService) HandleDriveCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+	if len(parts) < 2 {
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	}
+
+	action := parts[1]
+
+	switch action {
+	case "cd", "c":
+		if len(parts) >= 3 {
+			fullPath := strings.Join(parts[2:], ":")
+			msg := &tgbotapi.Message{
+				Chat: callback.Message.Chat,
+				From: callback.From,
+			}
+			s.HandleDriveList(msg, fullPath, callback.Message.MessageID)
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📂 Membuka folder..."))
+		}
+
+	case "home", "h":
+		msg := &tgbotapi.Message{
+			Chat: callback.Message.Chat,
+			From: callback.From,
+		}
+		s.HandleDriveList(msg, "", callback.Message.MessageID)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏠 Kembali ke awal"))
+
+	case "info", "i":
+		if len(parts) >= 3 {
+			fullPath := strings.Join(parts[2:], ":")
+			s.handleDriveFileInfoDetailed(callback.Message.Chat.ID, callback.Message.MessageID, fullPath)
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		}
+
+	case CmdClose, "x":
+		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		_, _ = s.Bot.Request(deleteMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
+
+	case "confirm_delete", "df":
+		if len(parts) >= 3 {
+			fileName := parts[2]
+			s.executeDelete(callback, fileName)
+		}
+
+	case "cancel_delete", "xf":
+		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		_, _ = s.Bot.Request(deleteMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Cancelled"))
+	}
+}
+
+func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName string) {
+	targetPath := s.TaskManager.RcloneDest + "/" + fileName
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	cmd := exec.CommandContext(ctx, "rclone", "purge", targetPath, "--config", configPath)
+
+	if err := cmd.Run(); err != nil {
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Failed to delete"))
+		return
+	}
+
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Deleted successfully"))
+
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID,
+		fmt.Sprintf("✅ *File Dihapus*\n\n📁 `%s`", utils.EscapeMarkdownV2(fileName)))
+	editMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+}
+
+func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, relPath string) {
+	basePath := strings.TrimSuffix(s.TaskManager.RcloneDest, "/")
+
+	cleanedRel := strings.Trim(relPath, "/")
+	targetPath := basePath
+	if cleanedRel != "" {
+		targetPath = basePath + "/" + cleanedRel
+	}
+
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+
+	log.Printf("[DriveInfo] Detailed request for: %s | Target: %s", relPath, targetPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "rclone", "lsjson", targetPath, "--config", configPath)
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("[DriveInfo] lsjson error: %v", err)
+	}
+
+	var file DriveFile
+	if err == nil {
+		var files []DriveFile
+		if errJson := json.Unmarshal(output, &files); errJson == nil && len(files) > 0 {
+			file = files[0]
+			log.Printf("[DriveInfo] Metadata found: %s (%d bytes)", file.Name, file.Size)
+		}
+	}
+
+	linkCmd := exec.CommandContext(ctx, "rclone", "link", targetPath, "--config", configPath)
+	linkOutput, _ := linkCmd.Output()
+	cloudLink := strings.TrimSpace(string(linkOutput))
+
+	var text strings.Builder
+	text.WriteString(fmt.Sprintf("%s *FILE INFORMATION*\n", getFileIcon(relPath)))
+	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
+	text.WriteString(fmt.Sprintf("📄 *Name:* `%s`\n", utils.EscapeMarkdownV2(filepath.Base(relPath))))
+
+	if file.Name != "" {
+		text.WriteString(fmt.Sprintf("📦 *Size:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(file.Size))))
+		text.WriteString(fmt.Sprintf("🕒 *Modified:* `%s`\n", utils.EscapeMarkdownV2(file.ModTime)))
+		text.WriteString(fmt.Sprintf("🆔 *MimeType:* `%s`\n", utils.EscapeMarkdownV2(file.MimeType)))
+	} else {
+		text.WriteString("_Metadata limited atau rclone sedang sibuk_\n")
+	}
+
+	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+	if cloudLink != "" && utils.IsValidURL(cloudLink) {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonURL("📥 Cloud Link", cloudLink),
+		))
+	}
+
+	dirPath := filepath.Dir(relPath)
+	if dirPath == "." || dirPath == "/" {
+		dirPath = ""
+	}
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Folder", fmt.Sprintf("dr:c:%s", dirPath)),
+		tgbotapi.NewInlineKeyboardButtonData("❌ Delete", fmt.Sprintf("dr:df:%s", relPath)),
+	))
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dr:x"),
+	))
+
+	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+
+	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text.String())
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+
+	if _, err := s.Bot.Send(editMsg); err != nil {
+		log.Printf("[DriveInfo] Failed to send/edit info message: %v", err)
+		msg := tgbotapi.NewMessage(chatID, text.String())
+		msg.ParseMode = MarkdownV2
+		msg.ReplyMarkup = keyboard
+		_, _ = s.Bot.Send(msg)
+	}
+}
+
+func getFileIcon(filename string) string {
+	lower := strings.ToLower(filename)
+
+	switch {
+	case strings.HasSuffix(lower, ".mp4"), strings.HasSuffix(lower, ".mkv"),
+		strings.HasSuffix(lower, ".avi"), strings.HasSuffix(lower, ".mov"):
+		return "🎬"
+	case strings.HasSuffix(lower, ".mp3"), strings.HasSuffix(lower, ".flac"),
+		strings.HasSuffix(lower, ".wav"), strings.HasSuffix(lower, ".aac"):
+		return "🎵"
+	case strings.HasSuffix(lower, ".jpg"), strings.HasSuffix(lower, ".jpeg"),
+		strings.HasSuffix(lower, ".png"), strings.HasSuffix(lower, ".gif"):
+		return "🖼️"
+	case strings.HasSuffix(lower, ".pdf"):
+		return "📕"
+	case strings.HasSuffix(lower, ".doc"), strings.HasSuffix(lower, ".docx"):
+		return IconFile
+	case strings.HasSuffix(lower, ".xls"), strings.HasSuffix(lower, ".xlsx"):
+		return "📊"
+	case strings.HasSuffix(lower, ".zip"), strings.HasSuffix(lower, ".rar"),
+		strings.HasSuffix(lower, ".7z"), strings.HasSuffix(lower, ".tar"):
+		return "🗜️"
+	case strings.HasSuffix(lower, ".exe"), strings.HasSuffix(lower, ".msi"):
+		return "⚙️"
+	case strings.HasSuffix(lower, ".iso"):
+		return "💿"
+	default:
+		return IconFile
+	}
+}

@@ -1,10 +1,36 @@
 version: '3'
 
+vars:
+  BINARY_NAME: zee-mirror
+  EXE: '{{if eq OS "windows"}}.exe{{end}}'
+  ENTRY_POINT: ./cmd/zee-mirror
+
 tasks:
+  default:
+    desc: List all tasks
+    cmds:
+      - task --list
+
   build:
     desc: Build the binary
     cmds:
-      - go build -o zee-mirror.exe ./cmd/zee-mirror
+      - go build -o {{.BINARY_NAME}}{{.EXE}} {{.ENTRY_POINT}}
+    sources:
+      - ./**/*.go
+    generates:
+      - "{{.BINARY_NAME}}{{.EXE}}"
+
+  run:
+    desc: Run the application directly (dev mode)
+    cmds:
+      - go run {{.ENTRY_POINT}}
+
+  clean:
+    desc: Remove previous build
+    cmds:
+      - rm -f {{.BINARY_NAME}}{{.EXE}}
+      - rm -f {{.BINARY_NAME}} 
+    ignore_error: true
 
   test:
     desc: Run tests
@@ -26,15 +52,36 @@ tasks:
     cmds:
       - go mod tidy
 
-  all:
-    desc: Run all checks and build
+  check:
+    desc: Run formatting, linting, and tests
     cmds:
+      - task: tidy
+      - task: fmt
       - task: lint
       - task: test
+
+  all:
+    desc: Run checks and build
+    cmds:
+      - task: check
       - task: build
 
   pre-push:
-    desc: Commands to run before push
+    desc: Safety check before pushing
     cmds:
-      - task: lint
-      - task: test
+      - task: check
+
+  up:
+    desc: Start the bot using Docker Compose
+    cmds:
+      - docker compose up -d --build
+
+  down:
+    desc: Stop Docker Compose services
+    cmds:
+      - docker compose down
+
+  logs:
+    desc: View clean bot logs (no prefix)
+    cmds:
+      - docker compose logs -f --no-log-prefix zee-mirror

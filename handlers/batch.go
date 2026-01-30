@@ -136,7 +136,7 @@ func (s *BotService) HandleBatch(message *tgbotapi.Message, args string) {
 	}
 
 	if !options.ZipAll {
-		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔄 *Creating %d regular tasks...*", len(options.URLs)))
+		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔄 *Creating %d regular tasks\\.\\.\\.*", len(options.URLs)))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 
@@ -590,6 +590,7 @@ func (s *BotService) sendBatchCompletionMessage(batch *BatchTask) {
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonURL("📥 Download", batch.RemoteURL),
+				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "batch:close:none"),
 			),
 		)
 		msg.ReplyMarkup = keyboard
@@ -639,7 +640,7 @@ func (s *BotService) HandleBatchCallback(callback *tgbotapi.CallbackQuery, parts
 	}
 
 	switch action {
-	case "refresh":
+	case CmdRefresh:
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
 		s.updateBatchStatus(batch)
 
@@ -648,6 +649,12 @@ func (s *BotService) HandleBatchCallback(callback *tgbotapi.CallbackQuery, parts
 		batch.SetStatus(StatusCancelled)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚫 Batch cancelled"))
 		s.updateBatchStatus(batch)
+
+	case CmdClose:
+		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		_, _ = s.Bot.Request(deleteMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
+		return
 	}
 }
 

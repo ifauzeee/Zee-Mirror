@@ -2,55 +2,29 @@ package handlers
 
 import (
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
-
-	"zee-mirror/internal/domain"
+	"time"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+const (
+	ActionBack = "back"
+)
+
 func (s *BotService) HandleStart(message *tgbotapi.Message) {
 	fmt.Println("👉 HandleStart dipanggil")
-	welcomeText := "🚀 *Selamat Datang di Zee\\-Mirror Bot\\!*\n\n" +
-		"Bot ini membantu Anda melakukan mirror/leech file ke Google Drive\\.\n\n" +
-		"*Fitur Utama:*\n" +
-		"📥 Mirror \\- Download \\& upload ke Drive\n" +
-		"🔗 Leech \\- Download dari URL\n" +
-		"🎬 YT\\-DLP \\- Download video streaming\n" +
-		"🧲 Torrent \\- Download via magnet/torrent\n" +
-		"📂 Clone \\- Clone file/folder GDrive\n" +
-		"📊 Status \\- Pantau progress task\n" +
-		"⚙️ Settings \\- Konfigurasi bot\n\n" +
-		"Gunakan tombol di bawah atau ketik /help untuk bantuan\\."
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📥 Mirror", "dashboard:mirror"),
-			tgbotapi.NewInlineKeyboardButtonData("🔗 Leech", "dashboard:leech"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🎬 YT-DLP", "dashboard:ytdlp"),
-			tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "dashboard:torrent"),
-			tgbotapi.NewInlineKeyboardButtonData("📂 Clone", "dashboard:clone"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Batch", "dashboard:batch"),
-			tgbotapi.NewInlineKeyboardButtonData("🔍 Search", "dashboard:search"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📊 Status", "dashboard:status"),
-			tgbotapi.NewInlineKeyboardButtonData("⚙️ Settings", "dashboard:settings"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🏓 Ping", "dashboard:ping"),
-			tgbotapi.NewInlineKeyboardButtonData("🚀 Speedtest", "dashboard:speed"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel Task", "dashboard:cancel"),
-		),
-	)
+	userName := message.From.FirstName
+	if userName == "" {
+		userName = "User"
+	}
+
+	welcomeText := GetWelcomeMessage(userName)
+	keyboard := GetStartKeyboard()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, welcomeText)
 	msg.ParseMode = MarkdownV2
@@ -64,42 +38,45 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 }
 
 func (s *BotService) HandleHelp(message *tgbotapi.Message) {
-	helpText := "📚 *Panduan Penggunaan Zee\\-Mirror Bot*\n\n" +
-		"*Perintah Utama:*\n\n" +
-		"/start \\- Tampilkan dashboard utama\n" +
-		"/help \\- Tampilkan bantuan ini\n" +
-		"/mirror URL \\- Mirror file ke Google Drive\n" +
-		"/leech URL \\- Leech dari URL\n" +
-		"/ytdlp URL \\- Download video via yt\\-dlp\n" +
-		"/torrent magnet \\- Download torrent\n" +
-		"/clone URL \\- Clone Google Drive file/folder\n" +
-		"/status \\- Lihat status task aktif\n" +
-		"/cancel ID \\- Cancel task tertentu\n" +
-		"/search keyword \\- Cari torrent via Jackett\n" +
-		"/ping \\- Cek latency bot\n" +
-		"/speed \\- Test kecepatan internet server\n" +
-		"/settings \\- Pengaturan bot\n\n" +
-		"*Batch Download:*\n\n" +
-		"/batch \\- Download multiple URLs sekaligus\n" +
-		"\n" +
-		"*Admin Commands:*\n\n" +
-		"/authorize ID \\- Izinkan user baru\n" +
-		"/unauthorize ID \\- Cabut izin user\n" +
-		"/users \\- Lihat daftar user\n\n" +
-		"*Flag Opsional:*\n" +
-		"\\-z : Zip file setelah download\n" +
-		"\\-uz : Unzip/extract setelah download\n" +
-		"\\-p PASSWORD : Password untuk zip\n\n" +
-		"*Tips:*\n" +
-		"\\- Reply ke file/media untuk mirror langsung\n" +
-		"\\- Magnet link otomatis terdeteksi\n" +
-		"\\- Progress diupdate setiap 5 detik\n" +
-		"\\- Cancel task kapan saja dengan /cancel"
+	content := "Silakan pilih kategori bantuan di bawah untuk melihat detail fungsi dan cara penggunaan\\.\n\n" +
+		"💡 *Klik tombol untuk membuka sub\\-menu\\.*"
+
+	helpText := ProfessionalMessage("PANDUAN BANTUAN", content)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📥 DOWNLOAD", "help:download"),
+			tgbotapi.NewInlineKeyboardButtonData("📊 MONITOR", "help:monitor"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📁 FILES", "help:files"),
+			tgbotapi.NewInlineKeyboardButtonData("🎵 MEDIA", "help:media"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📋 TASK", "help:task"),
+			tgbotapi.NewInlineKeyboardButtonData("💾 STORAGE", "help:storage"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("👑 ADMIN", "help:admin"),
+			tgbotapi.NewInlineKeyboardButtonData("🔧 RECOVERY", "help:recovery"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⚙️ SETTINGS", "help:settings"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 HOME", "help:back"),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+		),
+	)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
 	msg.ParseMode = MarkdownV2
+	msg.ReplyMarkup = keyboard
 
-	_, _ = s.Bot.Send(msg)
+	if _, err := s.Bot.Send(msg); err != nil {
+		fmt.Printf("❌ Error sending help message: %v\n", err)
+		msg.ParseMode = ""
+		msg.Text = "📖 Panduan Bantuan\n\nSilakan pilih kategori di bawah:"
+		_, _ = s.Bot.Send(msg)
+	}
 }
 
 func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
@@ -109,118 +86,196 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 	}
 	action := parts[1]
 
-	switch action {
-	case "page":
-		if len(parts) >= 3 {
-			page, _ := strconv.Atoi(parts[2])
-			s.TaskManager.Mu.Lock()
-			s.TaskManager.StatusPages[callback.Message.Chat.ID] = page
-			s.TaskManager.Mu.Unlock()
-			s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
-			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Halaman %d", page+1)))
-		}
+	if parts[0] == "help" {
+		s.handleHelpCallback(callback, action)
 		return
-	case "status":
-		s.HandleStatusFromCallback(callback)
-		return
-	case "settings":
-		s.HandleSettingsFromCallback(callback)
-		return
-	case "ping":
-		s.HandlePing(callback.Message)
-		return
-	case "speed":
-		s.HandleSpeed(callback.Message)
+	}
+
+	if s.handleDashboardAction(callback, action, parts) {
 		return
 	}
 
 	text := s.getDashboardModeText(action)
-	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(msg)
+	keyboard := s.getModeKeyboard(action)
+
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+}
+
+func (s *BotService) handleDashboardAction(callback *tgbotapi.CallbackQuery, action string, parts []string) bool {
+	switch action {
+	case "page":
+		s.handlePagination(callback, parts)
+	case "status":
+		s.HandleStatusFromCallback(callback)
+	case "settings":
+		s.HandleSettingsFromCallback(callback)
+	case "ping":
+		s.HandlePingFromCallback(callback)
+	case "speed":
+		s.HandleSpeedFromCallback(callback)
+	case "stats":
+		s.HandleStatsFromCallback(callback)
+	case "storage":
+		s.HandleStoragesFromCallback(callback)
+	case "files":
+		s.HandleDriveListFromCallback(callback)
+	case "media":
+		s.sendMediaMenu(callback)
+	case "system":
+		s.HandleSystemFromCallback(callback)
+	case ActionBack:
+		content := GetWelcomeMessage(callback.From.FirstName)
+		kb := GetStartKeyboard()
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
+		editMsg.ParseMode = MarkdownV2
+		editMsg.ReplyMarkup = &kb
+		_, _ = s.Bot.Send(editMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+	case CmdClose:
+		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		_, _ = s.Bot.Request(deleteMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
+	default:
+		return false
+	}
+	return true
+}
+
+func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
+	content := "Operasi media untuk video/audio:\\n\\n" +
+		"• `/extractaudio` ─ Ambil audio dari video\\n" +
+		"• `/compress` ─ Kompres ukuran video\\n" +
+		"• `/thumbnail` ─ Generate thumbnail\\n" +
+		"• `/screenshots` ─ Multi screenshot\\n" +
+		"• `/subtitle` ─ Embed subtitle ke video\\n" +
+		"• `/convert` ─ Konversi format file\\n" +
+		"• `/mediainfo` ─ Info detail file\\n\\n" +
+		"💡 *Cara pakai:* Reply ke file video dengan command"
+
+	text := ProfessionalMessage("MEDIA PROCESSING", content)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📤 Extract Audio", "media:extract"),
+			tgbotapi.NewInlineKeyboardButtonData("🗜️ Compress", "media:compress"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🖼️ Thumbnail", "media:thumb"),
+			tgbotapi.NewInlineKeyboardButtonData("📸 Screenshots", "media:screens"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💬 Subtitle", "media:subtitle"),
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Convert", "media:convert"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("ℹ️ Media Info", "media:info"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main"),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+		),
+	)
+
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🎵 Media Menu"))
+}
+
+func (s *BotService) getModeKeyboard(action string) tgbotapi.InlineKeyboardMarkup {
+	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:download")
+
+	switch action {
+	case "mirror", "leech":
+		return tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📊 Status", "dashboard:status"),
+				backBtn,
+			),
+		)
+	case "batch":
+		return tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📋 Batch Status", "batch:status"),
+				backBtn,
+			),
+		)
+	default:
+		return tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				backBtn,
+				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
+			),
+		)
+	}
 }
 
 func (s *BotService) getDashboardModeText(action string) string {
 	switch action {
 	case "mirror":
-		return "📥 *Mirror Mode*\n\n" +
-			"Kirim file/media atau reply ke file dengan /mirror untuk memulai\\.\n\n" +
-			"Atau kirim URL dengan format:\n" +
-			"/mirror URL\n\n" +
-			"*Flags:*\n" +
-			"\\-z : Zip sebelum upload\n" +
-			"\\-uz : Extract setelah download\n" +
-			"\\-p PASSWORD : Password zip"
+		return ProfessionalMessage("MIRROR MODE",
+			"Upload file langsung ke Google Drive\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• Reply ke file dengan `/mirror`\n"+
+				"• Atau kirim: `/mirror URL`\n\n"+
+				"🏷️ *FLAGS*\n"+
+				"• `\\-z` ─ Zip sebelum upload\n"+
+				"• `\\-uz` ─ Unzip setelah download\n"+
+				"• `\\-p PASS` ─ Password zip")
 
 	case "leech":
-		return "🔗 *Leech Mode*\n\n" +
-			"Kirim URL untuk download:\n" +
-			"/leech URL\n\n" +
-			"Support:\n" +
-			"\\- HTTP/HTTPS links\n" +
-			"\\- FTP links\n" +
-			"\\- Magnet links\n" +
-			"\\- Direct download links\n\n" +
-			"*Flags:*\n" +
-			"\\-uz : Extract setelah download\n" +
-			"\\-z : Zip hasil download"
+		return ProfessionalMessage("LEECH MODE",
+			"Download file dari URL ke server\\.\n\n"+
+				"✅ *SUPPORT*\n"+
+				"• HTTP/HTTPS \\| FTP \\| Magnet\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• `/leech <URL>`")
 
 	case "ytdlp":
-		return "🎬 *YouTube\\-DLP Mode*\n\n" +
-			"Download video dari YouTube dan 1000\\+ situs lainnya:\n" +
-			"/ytdlp URL\n\n" +
-			"Support:\n" +
-			"\\- YouTube \\(video \\& playlist\\)\n" +
-			"\\- Twitter/X\n" +
-			"\\- Instagram\n" +
-			"\\- TikTok\n" +
-			"\\- Dan banyak lagi\\!"
+		return ProfessionalMessage("YT-DLP MODE",
+			"Download video dari 1000+ situs\\.\n\n"+
+				"✅ *SUPPORT*\n"+
+				"• YouTube \\| Twitter \\| TikTok \\| etc.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• `/ytdlp <URL>`")
 
 	case "torrent":
-		return "🧲 *Torrent Mode*\n\n" +
-			"Download via magnet atau file torrent:\n" +
-			"/torrent magnet:xt=urn:btih:xxxxx\n\n" +
-			"Atau reply ke file \\.torrent dengan /torrent"
+		return ProfessionalMessage("TORRENT MODE",
+			"Download via magnet atau file torrent\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• `/torrent magnet_link`\n"+
+				"• Reply ke file `.torrent` dengan `/torrent`")
 
 	case "clone":
-		return "📂 *Clone Mode*\n\n" +
-			"Cloning file atau folder Google Drive yang bersifat public\\.\n\n" +
-			"Gunakan perintah:\n" +
-			"/clone URL\\_GDRIVE\n\n" +
-			"*Catatan:*\n" +
-			"\\- Pastikan link bisa diakses publik\n" +
-			"\\- Nama file/folder akan tetap sama"
-
-	case "cancel":
-		return "❌ *Cancel Task*\n\n" +
-			"Gunakan perintah:\n" +
-			"/cancel TaskID\n\n" +
-			"Lihat daftar task aktif dengan /status"
+		return ProfessionalMessage("CLONE MODE",
+			"Clone file/folder Google Drive\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• `/clone <GDRIVE_URL>`")
 
 	case "batch":
-		return "📦 *Batch Download*\n\n" +
-			"Download multiple URLs sekaligus:\n" +
-			"```\n/batch\nURL1\nURL2\nURL3\n```\n\n" +
-			"*Flags:*\n" +
-			"\\-name NAME : Nama batch\n" +
-			"\\-z : Zip semua hasil\n" +
-			"\\-p PASSWORD : Password zip\n" +
-			"\\-priority 1\\-10 : Prioritas\n\n" +
-			"*Commands:*\n" +
-			"/batchstatus \\- Status batch aktif\n" +
-			"/cancelbatch ID \\- Cancel batch"
+		return ProfessionalMessage("BATCH MODE",
+			"Download multiple URLs sekaligus\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"`/batch`\n"+
+				"`URL1`\n"+
+				"`URL2`")
 
 	case "search":
-		return "🔍 *Search Torrent*\n\n" +
-			"Cari torrent dari berbagai sumber:\n" +
-			"/search keyword\n\n" +
-			"*Sources:*\n" +
-			"\\- SolidTorrents\n" +
-			"\\- Nyaa\n" +
-			"\\- PirateBay"
+		return ProfessionalMessage("SEARCH MODE",
+			"Cari torrent dari berbagai sumber\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• `/search <keyword>`")
+
+	case "back":
+		return ""
 
 	default:
-		return "❓ Aksi tidak dikenal"
+		return GetErrorMessage("UNKNOWN", "Aksi tidak dikenal.")
 	}
 }
 
@@ -228,66 +283,242 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 	tasks := s.TaskManager.GetActiveTasks()
 
 	if len(tasks) == 0 {
-		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "📭 *Tidak ada task aktif*")
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
+		content := GetErrorMessage("STATUS", "Tidak ada task aktif.")
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📭 Empty"))
 		return
 	}
 
-	text := StatusHeaderText
+	text := GetStatusHeader()
 	for _, task := range tasks {
 		snapshot := task.GetSnapshot()
-		text += formatTaskLine(snapshot) + "\n\n"
+		text += FormatTaskProfessional(snapshot) + "\n"
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "refresh_status"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 		),
 	)
 
-	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	msg.ReplyMarkup = keyboard
-	_, _ = s.Bot.Send(msg)
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Updated"))
 }
 
 func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery) {
 	text := s.formatSettingsMessage()
 	keyboard := s.getSettingsKeyboard()
 
-	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	msg.ReplyMarkup = keyboard
-	_, _ = s.Bot.Send(msg)
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "⚙️ Settings"))
 }
 
-func formatTaskLine(task TaskSnapshot) string {
-	emoji := utils.StatusEmoji(string(task.Status))
-	bar := utils.ProgressBar(task.Progress, 10)
+func (s *BotService) HandlePingFromCallback(callback *tgbotapi.CallbackQuery) {
+	start := time.Now()
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🏓 *Pinging\\.\\.\\.*")
+	editMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(editMsg)
 
-	processedSize := task.DownloadedSize
-	if task.Status == domain.StatusUploading {
-		processedSize = task.UploadedSize
+	elapsed := time.Since(start)
+	text := fmt.Sprintf("🏓 *Pong\\!* `%v`", elapsed.Round(time.Millisecond))
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Re-Ping", "dashboard:ping"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
+		),
+	)
+
+	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	finalEdit.ParseMode = MarkdownV2
+	finalEdit.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(finalEdit)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏓 Pong!"))
+}
+
+func (s *BotService) HandleSpeedFromCallback(callback *tgbotapi.CallbackQuery) {
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🚀 *Running Speedtest\\.\\.\\.*")
+	editMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+
+	go func() {
+		cmd := exec.Command("speedtest-cli", "--simple")
+		output, err := cmd.CombinedOutput()
+
+		var text string
+		if err != nil {
+			text = fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2(err.Error()))
+		} else {
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			var result strings.Builder
+			result.WriteString("🚀 *Speedtest Result*\n\n")
+			for _, line := range lines {
+				result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2(line)))
+			}
+			text = result.String()
+		}
+
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔄 Retest", "dashboard:speed"),
+				tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
+			),
+		)
+
+		finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		finalEdit.ParseMode = MarkdownV2
+		finalEdit.ReplyMarkup = &keyboard
+		_, _ = s.Bot.Send(finalEdit)
+	}()
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚀 Testing speed..."))
+}
+
+func (s *BotService) HandleStatsFromCallback(callback *tgbotapi.CallbackQuery) {
+	stats, err := s.DB.GetBotStats()
+	if err != nil {
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Error"))
+		return
 	}
 
-	return fmt.Sprintf(
-		"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-			"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
-			"%s\n"+
-			"📄 *File:* %s\n"+
-			"📦 *Processed:* %s / %s\n"+
-			"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
-			"━━━━━━━━━━━━━━━━━━━━━━━━",
-		emoji,
-		task.ID,
-		utils.EscapeMarkdownV2(utils.FormatStatus(string(task.Status))),
-		utils.EscapeMarkdownV2(bar),
-		utils.EscapeMarkdownV2(utils.TruncateString(task.FileName, 40)),
-		utils.EscapeMarkdownV2(utils.FormatBytes(processedSize)),
-		utils.EscapeMarkdownV2(utils.FormatBytes(task.TotalSize)),
-		utils.EscapeMarkdownV2(utils.FormatSpeed(task.Speed)),
-		task.Connections,
-		utils.EscapeMarkdownV2(utils.FormatDuration(task.ETA)),
+	userStats, _ := s.DB.GetUserStats(callback.From.ID)
+	dailyStats, _ := s.DB.GetTodayStats()
+	userDailyStats, _ := s.DB.GetUserTodayStats(callback.From.ID)
+
+	text := s.formatStatsMessage(stats, userStats, dailyStats, userDailyStats)
+	keyboard := s.getStatsKeyboard()
+
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📊 Statistics"))
+}
+
+func (s *BotService) HandleStoragesFromCallback(callback *tgbotapi.CallbackQuery) {
+	providers, err := s.GetAvailableStorages()
+	if err != nil {
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Error"))
+		return
+	}
+
+	var text strings.Builder
+	text.WriteString("💾 *Available Storage Providers*\n")
+	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+	for _, p := range providers {
+		text.WriteString(fmt.Sprintf("%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type)))
+
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%s %s", p.Icon, p.Name),
+				fmt.Sprintf("storage:select:%s", p.Name),
+			),
+		))
+	}
+
+	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	text.WriteString("*Current:* `" + utils.EscapeMarkdownV2(s.TaskManager.RcloneDest) + "`\n\n")
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:storage"),
+		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "storage:close:none"),
+	))
+	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text.String())
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "💾 Storages"))
+}
+
+func (s *BotService) HandleSystemFromCallback(callback *tgbotapi.CallbackQuery) {
+	stats := s.getSystemStats()
+	text := s.formatSystemStats(stats)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "system:refresh"),
+			tgbotapi.NewInlineKeyboardButtonData("📊 Detailed", "system:detailed"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📈 Logs", "system:logs"),
+			tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "system:close"),
+		),
 	)
+
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🖥️ System"))
+}
+
+func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuery) {
+	basePath := strings.TrimSuffix(s.TaskManager.RcloneDest, "/")
+	path := basePath
+
+	// Update status within the same message
+	loadingMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🔍 *Memuat daftar file\\.\\.\\.*")
+	loadingMsg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(loadingMsg)
+
+	files, err := s.listDriveFiles(path)
+	if err != nil {
+		text := fmt.Sprintf("❌ *Gagal memuat daftar file*\n\nError: %s", utils.EscapeMarkdownV2(err.Error()))
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+		return
+	}
+
+	relPath := ""
+	if strings.Contains(path, ":") {
+		parts := strings.SplitN(path, ":", 2)
+		if len(parts) > 1 {
+			relPath = "/"
+		}
+	}
+
+	text := s.formatDriveFileList("/", files)
+	keyboard := s.buildDriveNavigationKeyboard(files, relPath)
+
+	// Add Back button to keyboard
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:files"),
+	))
+
+	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	finalEdit.ParseMode = MarkdownV2
+	finalEdit.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(finalEdit)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📁 Drive List"))
+}
+
+func (s *BotService) handlePagination(callback *tgbotapi.CallbackQuery, parts []string) {
+	if len(parts) >= 3 {
+		page, _ := strconv.Atoi(parts[2])
+		s.TaskManager.Mu.Lock()
+		s.TaskManager.StatusPages[callback.Message.Chat.ID] = page
+		s.TaskManager.Mu.Unlock()
+		s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Halaman %d", page+1)))
+	}
 }

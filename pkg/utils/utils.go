@@ -34,22 +34,29 @@ func ProgressBar(progress float64, width int) string {
 }
 
 func FormatBytes(bytes int64) string {
+	if bytes < 0 {
+		return "0 B"
+	}
+	return FormatBytesUint64(uint64(bytes))
+}
+
+func FormatBytesUint64(bytes uint64) string {
 	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-		TB = GB * 1024
+		KB uint64 = 1024
+		MB        = KB * 1024
+		GB        = MB * 1024
+		TB        = GB * 1024
 	)
 
 	switch {
 	case bytes >= TB:
-		return fmt.Sprintf("%.2f TB", float64(bytes)/TB)
+		return fmt.Sprintf("%.2f TB", float64(bytes)/float64(TB))
 	case bytes >= GB:
-		return fmt.Sprintf("%.2f GB", float64(bytes)/GB)
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
 	case bytes >= MB:
-		return fmt.Sprintf("%.2f MB", float64(bytes)/MB)
+		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
 	case bytes >= KB:
-		return fmt.Sprintf("%.2f KB", float64(bytes)/KB)
+		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
 	default:
 		return fmt.Sprintf("%d B", bytes)
 	}
@@ -99,14 +106,6 @@ func EscapeMarkdownV2(text string) string {
 		"!", "\\!",
 	)
 	return replacer.Replace(text)
-}
-
-func SanitizePath(path string) string {
-	path = filepath.Clean(path)
-	path = strings.ReplaceAll(path, "..", "")
-	reg := regexp.MustCompile(`[^a-zA-Z0-9._\-/\\]`)
-	path = reg.ReplaceAllString(path, "_")
-	return path
 }
 
 func SanitizeFileName(filename string) string {
@@ -179,10 +178,6 @@ func IsValidURL(s string) bool {
 
 func IsMagnetLink(s string) bool {
 	return strings.HasPrefix(s, "magnet:?")
-}
-
-func IsTorrentFile(filename string) bool {
-	return strings.HasSuffix(strings.ToLower(filename), ".torrent")
 }
 
 func GetFileExtension(filename string) string {
@@ -347,10 +342,6 @@ func ParseBytesString(s string) int64 {
 	return int64(val * float64(mult))
 }
 
-func ParseSizeString(s string) int64 {
-	return ParseBytesString(s)
-}
-
 func CalculateDirSize(path string) (int64, error) {
 	var size int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
@@ -363,4 +354,12 @@ func CalculateDirSize(path string) (int64, error) {
 		return err
 	})
 	return size, err
+}
+
+func GetLastLines(s string, n int) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	if len(lines) <= n {
+		return s
+	}
+	return strings.Join(lines[len(lines)-n:], "\n")
 }

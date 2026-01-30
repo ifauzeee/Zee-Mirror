@@ -74,15 +74,3 @@ func (c *Config) Validate() bool {
 	}
 	return true
 }
-
-func (c *Config) IsAuthorized(userID int64) bool {
-	if userID == c.OwnerID {
-		return true
-	}
-	for _, id := range c.AuthorizedUsers {
-		if id == userID {
-			return true
-		}
-	}
-	return false
-}

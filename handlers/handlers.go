@@ -41,6 +41,18 @@ const (
 	MarkdownV2       = "MarkdownV2"
 	StatusHeaderText = "📊 *Status Task Aktif*\n\n"
 	UnknownFile      = "unknown_file"
+
+	ModeLeech  = "leech"
+	CmdRefresh = "refresh"
+	CmdClose   = "close"
+	CmdSystem  = "system"
+	CmdHealth  = "health"
+	CmdLogs    = "logs"
+
+	IconFolder = "📁"
+	IconFile   = "📄"
+	IconOK     = "✅ OK"
+	IconError  = "❌ ERROR"
 )
 
 type Task struct {
@@ -263,19 +275,6 @@ func (tm *TaskManager) GetTaskByGID(gid string) *Task {
 		}
 	}
 	return nil
-}
-
-func (tm *TaskManager) GetActiveTasksByChat(chatID int64) []*Task {
-	tm.Mu.RLock()
-	defer tm.Mu.RUnlock()
-
-	var active []*Task
-	for _, task := range tm.Tasks {
-		if task.ChatID == chatID && task.Status != StatusCompleted && task.Status != StatusFailed && task.Status != StatusCancelled {
-			active = append(active, task)
-		}
-	}
-	return active
 }
 
 func (tm *TaskManager) GetActiveTasks() []*Task {

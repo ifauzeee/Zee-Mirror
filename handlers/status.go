@@ -71,7 +71,7 @@ func calculateTotalPages(totalTasks int) int {
 }
 
 func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTask, page int) string {
-	text := StatusHeaderText
+	text := GetStatusHeader()
 
 	allTasks := make([]interface{}, 0)
 	for _, b := range batches {
@@ -89,7 +89,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	}
 
 	if start >= totalTasks {
-		return "❌ *Halaman tidak ditemukan\\.*"
+		return GetErrorMessage("PAGING ERROR", "Halaman tidak ditemukan.")
 	}
 
 	visibleItems := allTasks[start:end]
@@ -107,60 +107,29 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	for _, batch := range visibleBatches {
 		batch.Mu.RLock()
 		emoji := utils.StatusEmoji(string(batch.Status))
-		text += fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-			"%s *Batch:* `%s` \\| *%s\\.\\.\\.*\n"+
-			"📈 *Progres:* %.1f%% \\(%d/%d\\)\n"+
-			"🚫 *Action:* /cancel\\_%s\n",
-			emoji,
+		text += fmt.Sprintf("📦 *Batch:* `%s` \\| %s *%s*\n"+
+			"📈 *Progres:* `%.1f%%` \\(%d/%d\\)\n"+
+			"🚫 *Cancel:* /cancel\\_%s\n\n",
 			batch.ID,
+			emoji,
 			utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),
 			batch.Progress,
 			batch.Completed,
 			len(batch.SubTasks),
 			batch.ID,
 		)
-		text += fmt.Sprintf("_Total: %d task dalam batch `%s`_\n\n", len(batch.SubTasks), batch.ID)
 		batch.Mu.RUnlock()
 	}
 
-	totalPages := calculateTotalPages(totalTasks)
-	if totalPages > 1 {
-		text += fmt.Sprintf("📄 *Halaman:* %d/%d\n\n", page+1, totalPages)
+	for _, task := range visibleTasks {
+		snapshot := task.GetSnapshot()
+		text += FormatTaskProfessional(snapshot) + "\n"
 	}
 
-	for i, task := range visibleTasks {
-		snapshot := task.GetSnapshot()
-		emoji := utils.StatusEmoji(string(snapshot.Status))
-		bar := utils.ProgressBar(snapshot.Progress, 10)
-
-		processedSize := snapshot.DownloadedSize
-		if snapshot.Status == StatusUploading {
-			processedSize = snapshot.UploadedSize
-		}
-
-		text += fmt.Sprintf(
-			"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-				"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
-				"%s\n"+
-				"📄 *File:* %s\n"+
-				"📦 *Processed:* %s / %s\n"+
-				"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
-				"🚫 *Action:* /cancel\\_%s\n",
-			emoji,
-			snapshot.ID,
-			utils.EscapeMarkdownV2(utils.FormatStatus(string(snapshot.Status))),
-			utils.EscapeMarkdownV2(bar),
-			utils.EscapeMarkdownV2(utils.TruncateString(snapshot.FileName, 40)),
-			utils.EscapeMarkdownV2(utils.FormatBytes(processedSize)),
-			utils.EscapeMarkdownV2(utils.FormatBytes(snapshot.TotalSize)),
-			utils.EscapeMarkdownV2(utils.FormatSpeed(snapshot.Speed)),
-			snapshot.Connections,
-			utils.EscapeMarkdownV2(utils.FormatDuration(snapshot.ETA)),
-			utils.EscapeMarkdownV2(snapshot.ID),
-		)
-		if i == len(visibleTasks)-1 {
-			text += "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-		}
+	totalPages := calculateTotalPages(totalTasks)
+	text += CompactSeparator + "\n"
+	if totalPages > 1 {
+		text += fmt.Sprintf("📄 *Halaman:* %d/%d \\| ", page+1, totalPages)
 	}
 
 	if len(batches) > 0 {
@@ -184,6 +153,9 @@ func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup
 		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("dashboard:page:%d", page+1)))
 	}
 	rows = append(rows, navRow)
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
+	))
 
 	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
@@ -232,7 +204,7 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 
 func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	if args == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nGunakan: `/cancel <TaskID>`\n\nLihat daftar task dengan /status")
+		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID>\n\nLihat daftar task dengan /status"))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
@@ -241,7 +213,7 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	taskID := args
 
 	if s.TaskManager.CancelTask(taskID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Task `%s` dibatalkan*", taskID))
+		msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf("Task `%s` telah dibatalkan.", taskID)))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		s.UpdateSharedDashboard(message.Chat.ID, false)
@@ -296,14 +268,14 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 
 func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
 	if !s.IsAdmin(message.From.ID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nFitur ini hanya untuk Admin/Owner\\.")
+		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("PERMISSION DENIED", "Fitur ini hanya untuk Admin/Owner."))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
 	}
 
 	count := s.TaskManager.CancelAllTasks()
-	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *%d tugas aktif telah dibatalkan*", count))
+	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf("%d tugas aktif telah dibatalkan.", count)))
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
 	s.UpdateSharedDashboard(message.Chat.ID, false)

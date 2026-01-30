@@ -3,6 +3,10 @@
 # Binary
 /zee-mirror
 /zee-mirror.exe
+/zee-mirror-bot
+
+# Task
+.task/
 
 # Environment files
 .env

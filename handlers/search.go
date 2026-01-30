@@ -54,6 +54,7 @@ func (s *BotService) HandleSearch(message *tgbotapi.Message, query string) {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🌸 Nyaa (Anime)", fmt.Sprintf("t_search:nyaa:%s", query)),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", "t_close:none"),
 		),
 	)
 
@@ -217,15 +218,12 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 			),
 		)
 
-		delMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
-		_, _ = s.Bot.Request(delMsg)
-
 		textRaw := fmt.Sprintf("🔍 Pencarian: %s\n\nPilih provider pencarian yang lebih stabil:", query)
-		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, textRaw)
-		msg.ReplyMarkup = keyboard
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, textRaw)
+		editMsg.ReplyMarkup = &keyboard
 
-		if _, err := s.Bot.Send(msg); err != nil {
-			log.Printf("[Callback] t_back Send error: %v", err)
+		if _, err := s.Bot.Send(editMsg); err != nil {
+			log.Printf("[Callback] t_back Edit error: %v", err)
 		}
 
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
@@ -297,6 +295,7 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_page:%d:%s", session.Page, sessionID)),
+				tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", fmt.Sprintf("t_close:%s", sessionID)),
 			),
 		)
 

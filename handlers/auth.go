@@ -13,6 +13,12 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+const (
+	RoleAdmin      = "admin"
+	RoleAuthorized = "authorized"
+	RoleOwner      = "owner"
+)
+
 func (s *BotService) IsAuthorized(userID int64) bool {
 	if userID == s.Config.OwnerID {
 		return true
@@ -23,7 +29,7 @@ func (s *BotService) IsAuthorized(userID int64) bool {
 		return false
 	}
 
-	return role == "admin" || role == "authorized" || role == "owner"
+	return role == RoleAdmin || role == RoleAuthorized || role == RoleOwner
 }
 
 func (s *BotService) IsAdmin(userID int64) bool {
@@ -36,54 +42,51 @@ func (s *BotService) IsAdmin(userID int64) bool {
 		return false
 	}
 
-	return role == "admin" || role == "owner"
+	return role == RoleAdmin || role == RoleOwner
 }
 
 func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 	if message.From.ID != s.Config.OwnerID {
-		s.reply(message, "❌ *Akses Ditolak*\nHanya Owner yang bisa menggunakan perintah ini.")
+		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Owner yang bisa menggunakan perintah ini\\."))
 		return
 	}
 
 	targetID, username := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, "⚠️ *Format Salah*\nGunakan: `/authorize ID` atau reply ke user.")
+		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /authorize ID atau reply ke user\\."))
 		return
 	}
 
 	err := s.DB.UpsertUser(targetID, username, "authorized")
 	if err != nil {
-		s.reply(message, fmt.Sprintf("❌ *Gagal:* %v", err))
+		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan user: %v", err)))
 		return
 	}
 
-	text := fmt.Sprintf("✅ *Akses Diberikan*\n\n"+
-		"👤 *User:* %s\n"+
-		"🆔 *ID:* `%d`\n"+
-		"🔰 *Role:* `Authorized`",
+	content := fmt.Sprintf("👤 *User:* %s\n🆔 *ID:* `%d`\n🔰 *Role:* `Authorized`",
 		utils.EscapeMarkdownV2(username), targetID)
-	s.reply(message, text)
+	s.reply(message, GetSuccessMessage("ACCESS GRANTED", content))
 }
 
 func (s *BotService) HandleUnauthorize(message *tgbotapi.Message, args string) {
 	if message.From.ID != s.Config.OwnerID {
-		s.reply(message, "❌ *Akses Ditolak*\nHanya Owner yang bisa menggunakan perintah ini.")
+		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Owner yang bisa menggunakan perintah ini."))
 		return
 	}
 
 	targetID, _ := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, "⚠️ *Format Salah*\nGunakan: `/unauthorize ID` atau reply ke user.")
+		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /unauthorize ID atau reply ke user\\."))
 		return
 	}
 
 	err := s.DB.SetUserRole(targetID, "user")
 	if err != nil {
-		s.reply(message, fmt.Sprintf("❌ *Gagal:* %v", err))
+		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal merubah role user: %v", err)))
 		return
 	}
 
-	s.reply(message, fmt.Sprintf("✅ *Akses Dicabut*\nUser `%d` telah dikembalikan ke status user biasa.", targetID))
+	s.reply(message, GetSuccessMessage("ACCESS REVOKED", fmt.Sprintf("User `%d` telah dikembalikan ke status user biasa\\.", targetID)))
 }
 
 func (s *BotService) HandleUsers(message *tgbotapi.Message) {
@@ -93,23 +96,20 @@ func (s *BotService) HandleUsers(message *tgbotapi.Message) {
 
 	users, err := s.DB.GetAllUsers()
 	if err != nil {
-		s.reply(message, "❌ *Gagal mengambil daftar user.*")
+		s.reply(message, GetErrorMessage("DATABASE ERROR", "Gagal mengambil daftar user\\."))
 		return
 	}
 
-	var text strings.Builder
-	text.WriteString("👥 *Daftar Pengguna Zee\\-Mirror*\n")
-	text.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+	var content strings.Builder
 	for _, u := range users {
 		id := u["id"].(int64)
 		username := u["username"].(string)
 		role := u["role"].(string)
-		text.WriteString(fmt.Sprintf("• `%d` \\| %s \\(*%s*\\)\n",
+		content.WriteString(fmt.Sprintf("• `%d` \\| %s \\(*%s*\\)\n",
 			id, utils.EscapeMarkdownV2(username), strings.ToUpper(role)))
 	}
-	text.WriteString("━━━━━━━━━━━━━━━━━━━━")
 
-	s.reply(message, text.String())
+	s.reply(message, ProfessionalMessage("DAFTAR PENGGUNA", content.String()))
 }
 
 func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int64, string) {
@@ -143,7 +143,10 @@ func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int6
 func (s *BotService) reply(message *tgbotapi.Message, text string) {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	_, _ = s.Bot.Send(msg)
+	_, err := s.Bot.Send(msg)
+	if err != nil {
+		log.Printf("[Reply] Failed to send message: %v", err)
+	}
 }
 
 func (s *BotService) startDiskCleanupWorker() {
