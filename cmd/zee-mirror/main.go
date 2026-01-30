@@ -108,7 +108,7 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 	switch command {
 	case "start", "help", cmdSettings:
 		handleBasicCommands(s, msg, command)
-	case "mirror", "leech", "ytdlp", "torrent":
+	case "mirror", "leech", "ytdlp", "torrent", "clone":
 		handleDownloadCommands(s, msg, command, args)
 	case "status", "cancel", "search":
 		handleTaskCommands(s, msg, command, args)
@@ -140,6 +140,8 @@ func handleDownloadCommands(s *handlers.BotService, msg *tgbotapi.Message, comma
 		s.HandleYTDLP(msg, args)
 	case "torrent":
 		s.HandleTorrent(msg, args)
+	case "clone":
+		s.HandleClone(msg, args)
 	}
 }
 

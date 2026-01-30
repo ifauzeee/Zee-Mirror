@@ -19,6 +19,7 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 		"🔗 Leech \\- Download dari URL\n" +
 		"🎬 YT\\-DLP \\- Download video streaming\n" +
 		"🧲 Torrent \\- Download via magnet/torrent\n" +
+		"📂 Clone \\- Clone file/folder GDrive\n" +
 		"📊 Status \\- Pantau progress task\n" +
 		"⚙️ Settings \\- Konfigurasi bot\n\n" +
 		"Gunakan tombol di bawah atau ketik /help untuk bantuan\\."
@@ -31,6 +32,7 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🎬 YT-DLP", "dashboard:ytdlp"),
 			tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "dashboard:torrent"),
+			tgbotapi.NewInlineKeyboardButtonData("📂 Clone", "dashboard:clone"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📦 Batch", "dashboard:batch"),
@@ -65,6 +67,7 @@ func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 		"/leech URL \\- Leech dari URL\n" +
 		"/ytdlp URL \\- Download video via yt\\-dlp\n" +
 		"/torrent magnet \\- Download torrent\n" +
+		"/clone URL \\- Clone Google Drive file/folder\n" +
 		"/status \\- Lihat status task aktif\n" +
 		"/cancel ID \\- Cancel task tertentu\n" +
 		"/search keyword \\- Cari torrent via Jackett\n" +
@@ -159,6 +162,15 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 	case "settings":
 		s.HandleSettingsFromCallback(callback)
 		return
+
+	case "clone":
+		text = "📂 *Clone Mode*\n\n" +
+			"Cloning file atau folder Google Drive yang bersifat public\\.\n\n" +
+			"Gunakan perintah:\n" +
+			"/clone URL\\_GDRIVE\n\n" +
+			"*Catatan:*\n" +
+			"\\- Pastikan link bisa diakses publik\n" +
+			"\\- Nama file/folder akan tetap sama"
 
 	case "cancel":
 		text = "❌ *Cancel Task*\n\n" +

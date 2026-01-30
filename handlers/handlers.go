@@ -32,6 +32,7 @@ const (
 	TypeLeech   TaskType = "leech"
 	TypeYTDLP   TaskType = "ytdlp"
 	TypeTorrent TaskType = "torrent"
+	TypeClone   TaskType = "clone"
 )
 
 const (

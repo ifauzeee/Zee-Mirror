@@ -100,17 +100,17 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 		return fmt.Errorf("task cancelled")
 	}
 
-	s.generateRcloneLink(ctx, task, configPath, uploadPath)
+	isDir := false
+	if info, err := os.Stat(uploadPath); err == nil {
+		isDir = info.IsDir()
+	}
+	s.generateRcloneLink(ctx, task, configPath, isDir)
 
 	task.Progress = 100
 	return nil
 }
 
-func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configPath, uploadPath string) {
-	isDirUpload := false
-	if info, err := os.Stat(uploadPath); err == nil {
-		isDirUpload = info.IsDir()
-	}
+func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configPath string, isDirUpload bool) {
 
 	linkArgs := []string{
 		"link",

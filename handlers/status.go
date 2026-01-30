@@ -49,7 +49,7 @@ func (s *BotService) handleEmptyTasks(chatID int64, forceNew bool) {
 	s.TaskManager.Mu.Unlock()
 
 	if forceNew {
-		msg := tgbotapi.NewMessage(chatID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, atau /torrent untuk memulai\\.")
+		msg := tgbotapi.NewMessage(chatID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, /torrent, atau /clone untuk memulai\\.")
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 	}

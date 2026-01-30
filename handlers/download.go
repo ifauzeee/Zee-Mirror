@@ -974,5 +974,7 @@ func (s *BotService) processTask(task *Task) {
 		s.downloadWithAria2(task)
 	case TypeYTDLP:
 		s.downloadWithYTDLP(task)
+	case TypeClone:
+		s.cloneWithRclone(task)
 	}
 }
