@@ -178,33 +178,13 @@ https://example.com/file3.rar
 
 ```
 zee-mirror/
-├── main.go              # Entry point
+├── cmd/
+│   └── zee-mirror/
+│       └── main.go      # Entry point utama
 ├── handlers/
 │   ├── archive.go       # Zip/unzip handler (7zz)
-│   ├── batch.go         # Batch download handler
-│   ├── download.go      # Download handlers (aria2, yt-dlp)
-│   ├── handlers.go      # Core task management
-│   ├── search.go        # Torrent search handler
-│   ├── settings.go      # Settings handler
-│   ├── start.go         # /start dan /help handler
-│   ├── status.go        # Status dan cancel handler
-│   ├── upload.go        # Upload handler (rclone)
-│   └── utils.go         # Utility functions
-├── config/
-│   └── rclone.conf.example
-├── downloads/           # Temporary download files
-├── scripts/
-│   └── (shell scripts)
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── go.mod
-├── go.sum
-├── LICENSE
-├── Makefile
-├── Taskfile.yml
-└── README.md
-```
+... (sisanya tetap sama)
+
 
 ## 🐛 Troubleshooting
 
