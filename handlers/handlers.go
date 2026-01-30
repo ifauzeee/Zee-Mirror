@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
+	"log"
 	"sync"
 	"time"
+	"zee-mirror/internal/database"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -71,6 +74,7 @@ type Task struct {
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
 	Mu         sync.RWMutex
+	DB         *database.DB
 }
 
 type TaskSnapshot struct {
@@ -124,13 +128,14 @@ type TaskManager struct {
 	Wg                   sync.WaitGroup
 	ShutdownChan         chan struct{}
 	Bot                  *tgbotapi.BotAPI
+	DB                   *database.DB
 	LastStatusMsg        map[int64]int
 	StatusPages          map[int64]int
 	ProcessTaskFunc      func(*Task)
 	RefreshDashboardFunc func(int64, bool)
 }
 
-func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool)) *TaskManager {
+func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db *database.DB) *TaskManager {
 	tm := &TaskManager{
 		Tasks:                make(map[string]*Task),
 		Queue:                make(chan *Task, 100),
@@ -141,10 +146,50 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		YTDLPSessions:        make(map[string]*YTDLPSession),
 		ShutdownChan:         make(chan struct{}),
 		Bot:                  bot,
+		DB:                   db,
 		LastStatusMsg:        make(map[int64]int),
 		StatusPages:          make(map[int64]int),
 		ProcessTaskFunc:      processTaskFunc,
 		RefreshDashboardFunc: refreshDashboardFunc,
+	}
+
+	if db != nil {
+		activeTasks, err := db.GetActiveTasks()
+		if err == nil {
+			for _, rt := range activeTasks {
+				ctx, cancel := context.WithCancel(context.Background())
+				task := &Task{
+					ID:             rt.ID,
+					GID:            rt.GID,
+					Type:           TaskType(rt.Type),
+					Status:         TaskStatus(rt.Status),
+					URL:            rt.URL,
+					FileName:       rt.FileName,
+					LocalPath:      rt.LocalPath,
+					RemotePath:     rt.RemotePath,
+					RemoteURL:      rt.RemoteURL,
+					TotalSize:      rt.TotalSize,
+					DownloadedSize: rt.DownloadedSize,
+					UploadedSize:   rt.UploadedSize,
+					ChatID:         rt.ChatID,
+					UserID:         rt.UserID,
+					CreatedAt:      rt.CreatedAt,
+					Zip:            rt.Zip,
+					Unzip:          rt.Unzip,
+					Password:       rt.Password,
+					Error:          rt.Error,
+					Ctx:            ctx,
+					CancelFunc:     cancel,
+					DB:             db,
+				}
+				if rt.CompletedAt.Valid {
+					task.CompletedAt = rt.CompletedAt.Time
+				}
+				tm.Tasks[task.ID] = task
+				tm.Queue <- task
+			}
+			log.Printf("📦 Loaded %d active tasks from database", len(activeTasks))
+		}
 	}
 
 	for i := 0; i < maxConcurrent; i++ {
@@ -205,15 +250,55 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		CreatedAt:    time.Now(),
 		Ctx:          ctx,
 		CancelFunc:   cancel,
+		DB:           tm.DB,
 	}
 
 	tm.Mu.Lock()
 	tm.Tasks[task.ID] = task
 	tm.Mu.Unlock()
 
+	_ = task.SaveToDB()
+
 	tm.Queue <- task
 
 	return task
+}
+
+func (t *Task) SaveToDB() error {
+	if t.DB == nil {
+		return nil
+	}
+
+	t.Mu.RLock()
+	defer t.Mu.RUnlock()
+
+	record := database.TaskRecord{
+		ID:             t.ID,
+		GID:            t.GID,
+		Type:           string(t.Type),
+		Status:         string(t.Status),
+		URL:            t.URL,
+		FileName:       t.FileName,
+		LocalPath:      t.LocalPath,
+		RemotePath:     t.RemotePath,
+		RemoteURL:      t.RemoteURL,
+		TotalSize:      t.TotalSize,
+		DownloadedSize: t.DownloadedSize,
+		UploadedSize:   t.UploadedSize,
+		ChatID:         t.ChatID,
+		UserID:         t.UserID,
+		CreatedAt:      t.CreatedAt,
+		Zip:            t.Zip,
+		Unzip:          t.Unzip,
+		Password:       t.Password,
+		Error:          t.Error,
+	}
+
+	if !t.CompletedAt.IsZero() {
+		record.CompletedAt = sql.NullTime{Time: t.CompletedAt, Valid: true}
+	}
+
+	return t.DB.SaveTask(record)
 }
 
 func (tm *TaskManager) GetTask(taskID string) *Task {
@@ -324,18 +409,20 @@ func (t *Task) SetStatus(status TaskStatus) {
 			t.Connections = 16
 		}
 	}
-	if status == StatusCompleted || status == StatusFailed {
+	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
 		t.CompletedAt = time.Now()
 	}
 	t.Mu.Unlock()
+	_ = t.SaveToDB()
 }
 
 func (t *Task) SetError(err string) {
 	t.Mu.Lock()
-	defer t.Mu.Unlock()
 	t.Error = err
 	t.Status = StatusFailed
 	t.CompletedAt = time.Now()
+	t.Mu.Unlock()
+	_ = t.SaveToDB()
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {

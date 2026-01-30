@@ -9,8 +9,14 @@ import (
 
 	"zee-mirror/handlers"
 	"zee-mirror/internal/config"
+	"zee-mirror/internal/database"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+const (
+	cmdBatch    = "batch"
+	cmdSettings = "settings"
 )
 
 func main() {
@@ -21,8 +27,12 @@ func main() {
 		log.Fatal("❌ Invalid configuration")
 	}
 
+	db, err := database.NewDB(cfg.ConfigDir)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize database: %v", err)
+	}
+
 	var bot *tgbotapi.BotAPI
-	var err error
 
 	if cfg.TelegramAPI != "" {
 		bot, err = tgbotapi.NewBotAPIWithAPIEndpoint(cfg.BotToken, cfg.TelegramAPI)
@@ -40,7 +50,7 @@ func main() {
 	bot.Debug = false
 	log.Printf("✅ Authorized on account %s", bot.Self.UserName)
 
-	service := handlers.NewBotService(bot, cfg)
+	service := handlers.NewBotService(bot, cfg, db)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -58,18 +68,20 @@ func main() {
 
 	for update := range updates {
 		if update.Message != nil {
-			handleMessage(service, update.Message, cfg)
+			handleMessage(service, update.Message)
 		} else if update.CallbackQuery != nil {
 			handleCallback(service, update.CallbackQuery)
 		}
 	}
 }
 
-func handleMessage(s *handlers.BotService, msg *tgbotapi.Message, cfg *config.Config) {
-	if !cfg.IsAuthorized(msg.From.ID) {
+func handleMessage(s *handlers.BotService, msg *tgbotapi.Message) {
+	if !s.IsAuthorized(msg.From.ID) {
 		log.Printf("[Auth] Unauthorized access from %d (%s)", msg.From.ID, msg.From.UserName)
 		return
 	}
+
+	_ = s.DB.UpsertUser(msg.From.ID, msg.From.UserName, "user")
 
 	if msg.IsCommand() {
 		handleCommand(s, msg)
@@ -94,10 +106,32 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 	args := msg.CommandArguments()
 
 	switch command {
+	case "start", "help", cmdSettings:
+		handleBasicCommands(s, msg, command)
+	case "mirror", "leech", "ytdlp", "torrent":
+		handleDownloadCommands(s, msg, command, args)
+	case "status", "cancel", "search":
+		handleTaskCommands(s, msg, command, args)
+	case cmdBatch, "batchstatus", "cancelbatch":
+		handleBatchCommands(s, msg, command, args)
+	case "authorize", "unauthorize", "users":
+		handleAdminCommands(s, msg, command, args)
+	}
+}
+
+func handleBasicCommands(s *handlers.BotService, msg *tgbotapi.Message, command string) {
+	switch command {
 	case "start":
 		s.HandleStart(msg)
 	case "help":
 		s.HandleHelp(msg)
+	case cmdSettings:
+		s.HandleSettings(msg)
+	}
+}
+
+func handleDownloadCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
 	case "mirror":
 		s.HandleMirror(msg, args)
 	case "leech":
@@ -106,20 +140,39 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 		s.HandleYTDLP(msg, args)
 	case "torrent":
 		s.HandleTorrent(msg, args)
+	}
+}
+
+func handleTaskCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
 	case "status":
 		s.HandleStatus(msg)
 	case "cancel":
 		s.HandleCancel(msg, args)
 	case "search":
 		s.HandleSearch(msg, args)
-	case "settings":
-		s.HandleSettings(msg)
-	case "batch":
+	}
+}
+
+func handleBatchCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
+	case cmdBatch:
 		s.HandleBatch(msg, args)
 	case "batchstatus":
 		s.HandleBatchStatus(msg)
 	case "cancelbatch":
 		s.HandleCancelBatch(msg, args)
+	}
+}
+
+func handleAdminCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
+	switch command {
+	case "authorize":
+		s.HandleAuthorize(msg, args)
+	case "unauthorize":
+		s.HandleUnauthorize(msg, args)
+	case "users":
+		s.HandleUsers(msg)
 	}
 }
 

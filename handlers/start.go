@@ -73,7 +73,11 @@ func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 		"/batch \\- Download multiple URLs sekaligus\n" +
 		"/batchstatus \\- Status batch aktif\n" +
 		"/cancelbatch ID \\- Cancel batch download\n\n" +
-		"*Flag Opsional:*\n\n" +
+		"*Admin Commands:*\n\n" +
+		"/authorize ID \\- Izinkan user baru\n" +
+		"/unauthorize ID \\- Cabut izin user\n" +
+		"/users \\- Lihat daftar user\n\n" +
+		"*Flag Opsional:*\n" +
 		"\\-z : Zip file setelah download\n" +
 		"\\-uz : Unzip/extract setelah download\n" +
 		"\\-p PASSWORD : Password untuk zip\n\n" +

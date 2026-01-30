@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"zee-mirror/internal/config"
+	"zee-mirror/internal/database"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -12,12 +13,14 @@ type BotService struct {
 	BatchManager *BatchManager
 	Settings     *Settings
 	Config       *config.Config
+	DB           *database.DB
 }
 
-func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config) *BotService {
+func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db *database.DB) *BotService {
 	s := &BotService{
 		Bot:          bot,
 		Config:       cfg,
+		DB:           db,
 		Settings:     NewSettings(),
 		BatchManager: NewBatchManager(),
 	}
@@ -30,8 +33,15 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config) *BotService {
 		s.UpdateSharedDashboard(chatID, forceNew)
 	}
 
-	tm := NewTaskManager(bot, cfg.MaxConcurrentDownloads, cfg.DownloadDir, cfg.RcloneDest, cfg.ConfigDir, processFunc, refreshFunc)
+	tm := NewTaskManager(bot, cfg.MaxConcurrentDownloads, cfg.DownloadDir, cfg.RcloneDest, cfg.ConfigDir, processFunc, refreshFunc, db)
 	s.TaskManager = tm
+
+	_ = db.UpsertUser(cfg.OwnerID, "Owner", "owner")
+	for _, id := range cfg.AuthorizedUsers {
+		_ = db.UpsertUser(id, "Authorized User", "authorized")
+	}
+
+	go s.startDiskCleanupWorker()
 
 	return s
 }
