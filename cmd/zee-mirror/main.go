@@ -110,12 +110,17 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 		handleBasicCommands(s, msg, command)
 	case "mirror", "leech", "ytdlp", "torrent", "clone":
 		handleDownloadCommands(s, msg, command, args)
-	case "status", "cancel", "search":
+	case "status", "cancel", "cancelall", "search":
 		handleTaskCommands(s, msg, command, args)
 	case cmdBatch, "batchstatus", "cancelbatch":
 		handleBatchCommands(s, msg, command, args)
 	case "authorize", "unauthorize", "users":
 		handleAdminCommands(s, msg, command, args)
+	default:
+		if strings.HasPrefix(command, "cancel_") {
+			taskID := strings.TrimPrefix(command, "cancel_")
+			s.HandleCancel(msg, taskID)
+		}
 	}
 }
 
@@ -151,6 +156,8 @@ func handleTaskCommands(s *handlers.BotService, msg *tgbotapi.Message, command, 
 		s.HandleStatus(msg)
 	case "cancel":
 		s.HandleCancel(msg, args)
+	case "cancelall":
+		s.HandleCancelAll(msg)
 	case "search":
 		s.HandleSearch(msg, args)
 	}

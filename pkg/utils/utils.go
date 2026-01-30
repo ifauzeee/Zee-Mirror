@@ -302,30 +302,39 @@ func ParseBytesString(s string) int64 {
 
 	mult := int64(1)
 	suffixes := map[string]int64{
-		"k":   1000,
-		"m":   1000 * 1000,
-		"g":   1000 * 1000 * 1000,
-		"t":   1000 * 1000 * 1000 * 1000,
-		"kb":  1000,
-		"mb":  1000 * 1000,
-		"gb":  1000 * 1000 * 1000,
-		"tb":  1000 * 1000 * 1000 * 1000,
 		"kib": 1024,
 		"mib": 1024 * 1024,
 		"gib": 1024 * 1024 * 1024,
 		"tib": 1024 * 1024 * 1024 * 1024,
+		"kb":  1000,
+		"mb":  1000 * 1000,
+		"gb":  1000 * 1000 * 1000,
+		"tb":  1000 * 1000 * 1000 * 1000,
+		"k":   1000,
+		"m":   1000 * 1000,
+		"g":   1000 * 1000 * 1000,
+		"t":   1000 * 1000 * 1000 * 1000,
+		"b":   1,
 	}
 
 	lowerS := strings.ToLower(s)
 	lowerS = strings.TrimSuffix(lowerS, "/s")
-	lowerS = strings.TrimSuffix(lowerS, "b/s")
 	lowerS = strings.TrimSuffix(lowerS, "/sec")
+	if strings.HasSuffix(lowerS, "b/s") {
+		lowerS = strings.TrimSuffix(lowerS, "b/s")
+		lowerS += "b"
+	} else if strings.HasSuffix(lowerS, "bps") {
+		lowerS = strings.TrimSuffix(lowerS, "bps")
+	}
 	lowerS = strings.TrimSpace(lowerS)
 
-	for suffix, m := range suffixes {
+	suffixList := []string{"kib", "mib", "gib", "tib", "kb", "mb", "gb", "tb", "k", "m", "g", "t", "b"}
+
+	for _, suffix := range suffixList {
 		if strings.HasSuffix(lowerS, suffix) {
-			mult = m
-			s = s[:len(s)-len(suffix)]
+			mult = suffixes[suffix]
+			lowerS = strings.TrimSuffix(lowerS, suffix)
+			s = lowerS
 			break
 		}
 	}

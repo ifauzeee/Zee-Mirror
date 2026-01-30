@@ -20,7 +20,9 @@ import (
 
 func (s *BotService) UploadWithRclone(task *Task) error {
 	task.SetStatus(StatusUploading)
+	task.Mu.Lock()
 	task.Progress = 0
+	task.Mu.Unlock()
 	s.updateTaskStatus(task)
 
 	uploadPath := task.LocalPath
@@ -182,23 +184,9 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 
 func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
-	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		for i := 0; i < len(data); i++ {
-			if data[i] == '\n' || data[i] == '\r' {
-				return i + 1, data[0:i], nil
-			}
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		return 0, nil, nil
-	})
-
-	progressRegex := regexp.MustCompile(`Transferred:.*?(\d+)%`)
-	speedRegex := regexp.MustCompile(`,\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+/s)`)
+	progressRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
+	speedRegex := regexp.MustCompile(`,\s*(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B/s)`)
+	etaRegex := regexp.MustCompile(`ETA\s+(\S+)`)
 
 	lastUpdate := time.Now()
 
@@ -208,24 +196,45 @@ func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 			continue
 		}
 
-		if strings.Contains(line, "Transferred:") {
-			log.Printf("[Rclone %s] %s", task.ID, line)
-		}
+		var progress float64
+		var speed int64
+		var eta time.Duration
+		found := false
 
 		if matches := progressRegex.FindStringSubmatch(line); len(matches) >= 2 {
 			if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
-				task.Progress = pct
+				progress = pct
+				found = true
 			}
 		}
 
-		if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 3 {
-			speedStr := matches[1] + matches[2]
+		if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 2 {
+			speed = utils.ParseBytesString(matches[1])
+			found = true
+		}
+
+		if matches := etaRegex.FindStringSubmatch(line); len(matches) >= 2 {
+			if d, err := time.ParseDuration(matches[1]); err == nil {
+				eta = d
+				found = true
+			}
+		}
+
+		if found {
 			task.Mu.Lock()
-			task.Speed = utils.ParseBytesString(speedStr)
+			if progress > 0 {
+				task.Progress = progress
+			}
+			if speed > 0 {
+				task.Speed = speed
+			}
+			if eta > 0 {
+				task.ETA = eta
+			}
 			task.Mu.Unlock()
 		}
 
-		if time.Since(lastUpdate) >= 2*time.Second {
+		if time.Since(lastUpdate) >= 3*time.Second {
 			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
 		}

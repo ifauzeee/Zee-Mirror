@@ -26,6 +26,19 @@ func (s *BotService) IsAuthorized(userID int64) bool {
 	return role == "admin" || role == "authorized" || role == "owner"
 }
 
+func (s *BotService) IsAdmin(userID int64) bool {
+	if userID == s.Config.OwnerID {
+		return true
+	}
+
+	_, role, err := s.DB.GetUser(userID)
+	if err != nil {
+		return false
+	}
+
+	return role == "admin" || role == "owner"
+}
+
 func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 	if message.From.ID != s.Config.OwnerID {
 		s.reply(message, "❌ *Akses Ditolak*\nHanya Owner yang bisa menggunakan perintah ini.")

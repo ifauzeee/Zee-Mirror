@@ -316,6 +316,21 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	_, _ = s.Bot.Send(msg)
 }
 
+func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
+	if !s.IsAdmin(message.From.ID) {
+		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nFitur ini hanya untuk Admin/Owner\\.")
+		msg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(msg)
+		return
+	}
+
+	count := s.TaskManager.CancelAllTasks()
+	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *%d tugas aktif telah dibatalkan*", count))
+	msg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(msg)
+	s.UpdateSharedDashboard(message.Chat.ID, false)
+}
+
 func (s *BotService) HandleCancelCallback(callback *tgbotapi.CallbackQuery, taskID string) {
 	success := false
 

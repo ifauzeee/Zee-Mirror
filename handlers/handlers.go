@@ -7,32 +7,34 @@ import (
 	"sync"
 	"time"
 	"zee-mirror/internal/database"
+	"zee-mirror/internal/domain"
+	"zee-mirror/internal/downloader"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
 )
 
-type TaskStatus string
+type TaskStatus = domain.TaskStatus
 
 const (
-	StatusQueued      TaskStatus = "queued"
-	StatusDownloading TaskStatus = "downloading"
-	StatusExtracting  TaskStatus = "extracting"
-	StatusZipping     TaskStatus = "zipping"
-	StatusUploading   TaskStatus = "uploading"
-	StatusCompleted   TaskStatus = "completed"
-	StatusFailed      TaskStatus = "failed"
-	StatusCancelled   TaskStatus = "cancelled"
+	StatusQueued      = domain.StatusQueued
+	StatusDownloading = domain.StatusDownloading
+	StatusExtracting  = domain.StatusExtracting
+	StatusZipping     = domain.StatusZipping
+	StatusUploading   = domain.StatusUploading
+	StatusCompleted   = domain.StatusCompleted
+	StatusFailed      = domain.StatusFailed
+	StatusCancelled   = domain.StatusCancelled
 )
 
-type TaskType string
+type TaskType = domain.TaskType
 
 const (
-	TypeMirror  TaskType = "mirror"
-	TypeLeech   TaskType = "leech"
-	TypeYTDLP   TaskType = "ytdlp"
-	TypeTorrent TaskType = "torrent"
-	TypeClone   TaskType = "clone"
+	TypeMirror  = domain.TypeMirror
+	TypeLeech   = domain.TypeLeech
+	TypeYTDLP   = domain.TypeYTDLP
+	TypeTorrent = domain.TypeTorrent
+	TypeClone   = domain.TypeClone
 )
 
 const (
@@ -42,78 +44,13 @@ const (
 )
 
 type Task struct {
-	ID             string
-	GID            string
-	Type           TaskType
-	Status         TaskStatus
-	URL            string
-	FileName       string
-	LocalPath      string
-	RemotePath     string
-	RemoteURL      string
-	TotalSize      int64
-	DownloadedSize int64
-	UploadedSize   int64
-	Speed          int64
-	Connections    int
-	ETA            time.Duration
-	Progress       float64
-	Error          string
-	ChatID         int64
-	MessageID      int
-	UserID         int64
-	CreatedAt      time.Time
-	StartedAt      time.Time
-	CompletedAt    time.Time
-
-	Zip          bool
-	Unzip        bool
-	Password     string
-	Quality      string
-	OrigFileName string
-
-	Ctx        context.Context
-	CancelFunc context.CancelFunc
-	Mu         sync.RWMutex
-	DB         *database.DB
+	domain.Task
+	DB *database.DB
 }
 
-type TaskSnapshot struct {
-	ID             string
-	GID            string
-	Type           TaskType
-	Status         TaskStatus
-	URL            string
-	FileName       string
-	LocalPath      string
-	RemotePath     string
-	RemoteURL      string
-	TotalSize      int64
-	DownloadedSize int64
-	UploadedSize   int64
-	Speed          int64
-	Connections    int
-	ETA            time.Duration
-	Progress       float64
-	Error          string
-	ChatID         int64
-	MessageID      int
-	UserID         int64
-	CreatedAt      time.Time
-	StartedAt      time.Time
-	CompletedAt    time.Time
-	Zip            bool
-	Unzip          bool
-	Password       string
-	Quality        string
-	OrigFileName   string
-}
+type TaskSnapshot = domain.TaskSnapshot
 
-type YTDLPSession struct {
-	URL      string
-	Zip      bool
-	Password string
-}
+type YTDLPSession = domain.YTDLPSession
 
 type TaskManager struct {
 	Tasks                map[string]*Task
@@ -134,6 +71,9 @@ type TaskManager struct {
 	StatusPages          map[int64]int
 	ProcessTaskFunc      func(*Task)
 	RefreshDashboardFunc func(int64, bool)
+
+	Aria2Engine downloader.DownloadEngine
+	YTDLPEngine downloader.DownloadEngine
 }
 
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db *database.DB) *TaskManager {
@@ -152,6 +92,8 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		StatusPages:          make(map[int64]int),
 		ProcessTaskFunc:      processTaskFunc,
 		RefreshDashboardFunc: refreshDashboardFunc,
+		Aria2Engine:          downloader.NewAria2Engine(configDir),
+		YTDLPEngine:          downloader.NewYTDLPEngine(configDir),
 	}
 
 	if db != nil {
@@ -160,28 +102,30 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 			for _, rt := range activeTasks {
 				ctx, cancel := context.WithCancel(context.Background())
 				task := &Task{
-					ID:             rt.ID,
-					GID:            rt.GID,
-					Type:           TaskType(rt.Type),
-					Status:         TaskStatus(rt.Status),
-					URL:            rt.URL,
-					FileName:       rt.FileName,
-					LocalPath:      rt.LocalPath,
-					RemotePath:     rt.RemotePath,
-					RemoteURL:      rt.RemoteURL,
-					TotalSize:      rt.TotalSize,
-					DownloadedSize: rt.DownloadedSize,
-					UploadedSize:   rt.UploadedSize,
-					ChatID:         rt.ChatID,
-					UserID:         rt.UserID,
-					CreatedAt:      rt.CreatedAt,
-					Zip:            rt.Zip,
-					Unzip:          rt.Unzip,
-					Password:       rt.Password,
-					Error:          rt.Error,
-					Ctx:            ctx,
-					CancelFunc:     cancel,
-					DB:             db,
+					Task: domain.Task{
+						ID:             rt.ID,
+						GID:            rt.GID,
+						Type:           domain.TaskType(rt.Type),
+						Status:         domain.TaskStatus(rt.Status),
+						URL:            rt.URL,
+						FileName:       rt.FileName,
+						LocalPath:      rt.LocalPath,
+						RemotePath:     rt.RemotePath,
+						RemoteURL:      rt.RemoteURL,
+						TotalSize:      rt.TotalSize,
+						DownloadedSize: rt.DownloadedSize,
+						UploadedSize:   rt.UploadedSize,
+						ChatID:         rt.ChatID,
+						UserID:         rt.UserID,
+						CreatedAt:      rt.CreatedAt,
+						Zip:            rt.Zip,
+						Unzip:          rt.Unzip,
+						Password:       rt.Password,
+						Error:          rt.Error,
+						Ctx:            ctx,
+						CancelFunc:     cancel,
+					},
+					DB: db,
 				}
 				if rt.CompletedAt.Valid {
 					task.CompletedAt = rt.CompletedAt.Time
@@ -235,23 +179,25 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
-		ID:           uuid.New().String()[:8],
-		Type:         taskType,
-		Status:       StatusQueued,
-		URL:          url,
-		FileName:     fileName,
-		OrigFileName: fileName,
-		ChatID:       chatID,
-		MessageID:    msgID,
-		UserID:       userID,
-		Zip:          zip,
-		Unzip:        unzip,
-		Password:     password,
-		Quality:      quality,
-		CreatedAt:    time.Now(),
-		Ctx:          ctx,
-		CancelFunc:   cancel,
-		DB:           tm.DB,
+		Task: domain.Task{
+			ID:           uuid.New().String()[:8],
+			Type:         taskType,
+			Status:       StatusQueued,
+			URL:          url,
+			FileName:     fileName,
+			OrigFileName: fileName,
+			ChatID:       chatID,
+			MessageID:    msgID,
+			UserID:       userID,
+			Zip:          zip,
+			Unzip:        unzip,
+			Password:     password,
+			Quality:      quality,
+			CreatedAt:    time.Now(),
+			Ctx:          ctx,
+			CancelFunc:   cancel,
+		},
+		DB: tm.DB,
 	}
 
 	tm.Mu.Lock()
@@ -355,9 +301,8 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 	}
 
 	task.Mu.Lock()
-	defer task.Mu.Unlock()
-
 	if task.Status == StatusCompleted || task.Status == StatusCancelled {
+		task.Mu.Unlock()
 		return false
 	}
 
@@ -365,8 +310,27 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 	if task.CancelFunc != nil {
 		task.CancelFunc()
 	}
+	task.Mu.Unlock()
 
+	_ = task.SaveToDB()
 	return true
+}
+
+func (tm *TaskManager) CancelAllTasks() int {
+	tm.Mu.RLock()
+	var taskIDs []string
+	for id := range tm.Tasks {
+		taskIDs = append(taskIDs, id)
+	}
+	tm.Mu.RUnlock()
+
+	cancelledCount := 0
+	for _, id := range taskIDs {
+		if tm.CancelTask(id) {
+			cancelledCount++
+		}
+	}
+	return cancelledCount
 }
 
 func (tm *TaskManager) worker(_ int) {
@@ -404,6 +368,10 @@ func (t *Task) UpdateProgress(downloaded, total int64, speed int64) {
 
 func (t *Task) SetStatus(status TaskStatus) {
 	t.Mu.Lock()
+	if t.Status == StatusCancelled && status != StatusCancelled {
+		t.Mu.Unlock()
+		return
+	}
 	t.Status = status
 	if status == StatusDownloading {
 		if t.Type == TypeYTDLP || t.Type == TypeMirror || t.Type == TypeLeech || t.Type == TypeTorrent {
@@ -426,36 +394,6 @@ func (t *Task) SetError(err string) {
 	_ = t.SaveToDB()
 }
 
-func (t *Task) GetSnapshot() TaskSnapshot {
-	t.Mu.RLock()
-	defer t.Mu.RUnlock()
-	return TaskSnapshot{
-		ID:             t.ID,
-		GID:            t.GID,
-		Type:           t.Type,
-		Status:         t.Status,
-		URL:            t.URL,
-		FileName:       t.FileName,
-		LocalPath:      t.LocalPath,
-		RemotePath:     t.RemotePath,
-		RemoteURL:      t.RemoteURL,
-		TotalSize:      t.TotalSize,
-		DownloadedSize: t.DownloadedSize,
-		UploadedSize:   t.UploadedSize,
-		Speed:          t.Speed,
-		Connections:    t.Connections,
-		ETA:            t.ETA,
-		Progress:       t.Progress,
-		Error:          t.Error,
-		ChatID:         t.ChatID,
-		MessageID:      t.MessageID,
-		UserID:         t.UserID,
-		CreatedAt:      t.CreatedAt,
-		StartedAt:      t.StartedAt,
-		CompletedAt:    t.CompletedAt,
-		Zip:            t.Zip,
-		Unzip:          t.Unzip,
-		Password:       t.Password,
-		Quality:        t.Quality,
-	}
+func (t *Task) GetSnapshot() domain.TaskSnapshot {
+	return t.Task.GetSnapshot()
 }

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -373,17 +374,20 @@ func (s *BotService) createBatchSubTask(batch *BatchTask, url string, index int)
 	}
 
 	task := &Task{
-		ID:         fmt.Sprintf("%s_%d", batch.ID, index+1),
-		Type:       TypeLeech,
-		Status:     StatusQueued,
-		URL:        url,
-		FileName:   fileName,
-		ChatID:     batch.ChatID,
-		MessageID:  batch.MessageID,
-		UserID:     batch.UserID,
-		CreatedAt:  time.Now(),
-		Ctx:        ctx,
-		CancelFunc: cancel,
+		Task: domain.Task{
+			ID:         fmt.Sprintf("%s_%d", batch.ID, index+1),
+			Type:       TypeLeech,
+			Status:     StatusQueued,
+			URL:        url,
+			FileName:   fileName,
+			ChatID:     batch.ChatID,
+			MessageID:  batch.MessageID,
+			UserID:     batch.UserID,
+			CreatedAt:  time.Now(),
+			Ctx:        ctx,
+			CancelFunc: cancel,
+		},
+		DB: s.TaskManager.DB,
 	}
 
 	return task

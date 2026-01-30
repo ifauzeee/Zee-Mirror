@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,12 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
+	"zee-mirror/internal/downloader"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -433,77 +430,43 @@ func (s *BotService) downloadWithAria2(task *Task) {
 		return
 	}
 
-	args := s.buildAria2Args(task, outputDir)
+	lastUpdate := time.Now()
+	err := s.TaskManager.Aria2Engine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
+		task.Mu.Lock()
+		if up.Downloaded != 0 {
+			task.DownloadedSize = up.Downloaded
+		}
+		if up.Total != 0 {
+			task.TotalSize = up.Total
+		}
+		if up.Speed != 0 {
+			task.Speed = up.Speed
+		}
+		if up.Progress != 0 {
+			task.Progress = up.Progress
+		}
+		if up.Connections != 0 {
+			task.Connections = up.Connections
+		}
+		if up.ETA != 0 {
+			task.ETA = up.ETA
+		}
+		task.Mu.Unlock()
 
-	ctx, cancel := context.WithCancel(task.Ctx)
-	defer cancel()
+		if time.Since(lastUpdate) >= 3*time.Second {
+			s.updateTaskStatus(task)
+			lastUpdate = time.Now()
+		}
+	})
 
-	cmd := exec.CommandContext(ctx, "aria2c", args...)
-	stdout, _ := cmd.StdoutPipe()
-
-	if err := cmd.Start(); err != nil {
-		task.SetError(fmt.Sprintf("aria2c failed: %v", err))
-		s.updateTaskStatus(task)
-		return
-	}
-
-	go s.parseAria2Progress(task, stdout)
-	err := cmd.Wait()
 	if err != nil && task.Status != StatusCancelled {
-		task.SetError(fmt.Sprintf("aria2c execution failed: %v", err))
+		task.SetError(err.Error())
 		s.updateTaskStatus(task)
 		s.cleanupTask(task)
 		return
 	}
 
 	s.handlePostDownload(task, outputDir)
-}
-
-func (s *BotService) buildAria2Args(task *Task, outputDir string) []string {
-	args := []string{
-		"--dir=" + outputDir,
-		"--allow-overwrite=true",
-		"--max-connection-per-server=16",
-		"--split=32",
-		"--min-split-size=1M",
-		"--max-overall-download-limit=0",
-		"--max-resume-failure-tries=0",
-		"--retry-wait=1",
-		"--connect-timeout=30",
-		"--timeout=30",
-		"--console-log-level=notice",
-		"--summary-interval=1",
-		"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-		"--header=Accept-Encoding: gzip, deflate",
-		"--async-dns=true",
-		"--file-allocation=none",
-		"--disk-cache=128M",
-		"--enable-mmap=true",
-		"--check-certificate=false",
-		"--optimize-concurrent-downloads=true",
-		"--max-file-not-found=2",
-		"--disable-ipv6=true",
-		"--enable-http-pipelining=true",
-		"--peer-id-prefix=-AZ2060-",
-		"--peer-agent=Transmission/2.94",
-	}
-
-	cookiesPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
-	if _, err := os.Stat(cookiesPath); err == nil {
-		args = append(args, "--load-cookies="+cookiesPath)
-	}
-
-	if task.FileName != "" && task.FileName != UnknownFile {
-		args = append(args, "--out="+task.FileName)
-	}
-
-	args = append(args, task.URL)
-
-	if utils.IsMagnetLink(task.URL) {
-		args = append(args, "--seed-time=0")
-	}
-
-	return args
 }
 
 func (s *BotService) handlePostDownload(task *Task, outputDir string) {
@@ -566,68 +529,42 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 		return
 	}
 
-	args := []string{
-		"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
-		"--newline", "--no-playlist",
-		"--continue",
-		"--merge-output-format", "mp4",
-		"--no-check-certificate",
-		"--format-sort", "res,fps,codec:vp9,vcodec,br",
-		"--extractor-args", "youtube:player-client=web,web_embedded,ios,mweb,tv",
-		"--socket-timeout", "60",
-		"--concurrent-fragments", "16",
-		"--buffer-size", "1M",
-		"--add-header", "Accept-Language: en-US,en;q=0.9",
-		"--add-header", "Referer: https://www.youtube.com/",
-		"--remote-components", "ejs:github",
-		"--js-runtime", "node",
-		"--cache-dir", "/home/botuser/.cache/yt-dlp-final",
-	}
+	lastUpdate := time.Now()
+	err := s.TaskManager.YTDLPEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
+		task.Mu.Lock()
+		if up.FileName != "" {
+			task.FileName = up.FileName
+		}
+		if up.Progress != 0 {
+			task.Progress = up.Progress
+		}
+		if up.Total != 0 {
+			task.TotalSize = up.Total
+		}
+		if up.Speed != 0 {
+			task.Speed = up.Speed
+		}
+		if up.ETA != 0 {
+			task.ETA = up.ETA
+		}
+		if up.Error != "" {
+			task.Error = up.Error
+		}
+		task.Mu.Unlock()
 
-	cookiesPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
-	if _, err := os.Stat(cookiesPath); err == nil {
-		args = append(args, "--cookies", cookiesPath)
-		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-	}
+		if time.Since(lastUpdate) >= 5*time.Second {
+			s.updateTaskStatus(task)
+			lastUpdate = time.Now()
+		}
+	})
 
-	if task.Quality != "" {
-		format := fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", task.Quality, task.Quality)
-		args = append(args, "-f", format)
-	}
-
-	args = append(args, task.URL)
-
-	ctx, cancel := context.WithCancel(task.Ctx)
-	defer cancel()
-
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
-	stdout, _ := cmd.StdoutPipe()
-	cmd.Stderr = cmd.Stdout
-
-	if err := cmd.Start(); err != nil {
-		task.SetError(fmt.Sprintf("yt-dlp failed to start: %v", err))
-		s.updateTaskStatus(task)
-		return
-	}
-	go s.parseYTDLPProgress(task, stdout)
-
-	if err := cmd.Wait(); err != nil {
+	if err != nil {
 		if task.Status == StatusCancelled {
 			s.cleanupTask(task)
 			return
 		}
 
-		task.Mu.RLock()
-		capturedErr := task.Error
-		task.Mu.RUnlock()
-
-		errMsg := fmt.Sprintf("yt-dlp error: %v", err)
-		if capturedErr != "" {
-			errMsg = capturedErr
-		}
-
-		task.SetError(errMsg)
+		task.SetError(err.Error())
 		s.updateTaskStatus(task)
 		s.cleanupTask(task)
 		return
@@ -659,159 +596,6 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 	}
 	s.updateTaskStatus(task)
 	s.cleanupTask(task)
-}
-
-func (s *BotService) parseAria2Progress(task *Task, reader io.ReadCloser) {
-	scanner := bufio.NewScanner(reader)
-	statusRegex := regexp.MustCompile(`\[#\w+\s+(\S+)/(\S+)\((\d+)%\)(?:\s+CN:(\d+))?.*DL:(\S+)(?:\s+ETA:(\S+))?\]`)
-	lastUpdate := time.Now()
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if len(line) < 200 {
-			log.Printf("[Aria2 Output] %s", line)
-		}
-
-		matches := statusRegex.FindStringSubmatch(line)
-		if len(matches) >= 5 {
-			downloadedStr := matches[1]
-			totalStr := matches[2]
-			pctStr := matches[3]
-			cnStr := matches[4]
-			speedStr := matches[5]
-			etaStr := ""
-			if len(matches) >= 7 {
-				etaStr = matches[6]
-			}
-
-			downloaded := utils.ParseBytesString(downloadedStr)
-			total := utils.ParseBytesString(totalStr)
-			speed := utils.ParseBytesString(speedStr)
-
-			task.Mu.Lock()
-			task.DownloadedSize = downloaded
-			task.TotalSize = total
-			task.Speed = speed
-			if cn, err := strconv.Atoi(cnStr); err == nil {
-				task.Connections = cn
-			}
-			if pct, err := strconv.ParseFloat(pctStr, 64); err == nil {
-				task.Progress = pct
-			}
-			if total > 0 && downloaded > 0 && task.Progress == 0 {
-				task.Progress = float64(downloaded) / float64(total) * 100
-			}
-			if etaStr != "" {
-				etaStr = strings.TrimRight(etaStr, "]")
-				if d, err := time.ParseDuration(etaStr); err == nil {
-					task.ETA = d
-				}
-			}
-			task.Mu.Unlock()
-		}
-
-		if time.Since(lastUpdate) >= 3*time.Second {
-			s.updateTaskStatus(task)
-			lastUpdate = time.Now()
-		}
-	}
-}
-
-func (s *BotService) parseYTDLPProgress(task *Task, reader io.ReadCloser) {
-	scanner := bufio.NewScanner(reader)
-	progressRegex := regexp.MustCompile(`\[download\]\s+([\d\.]+)%\s+of\s+(?:~)?(\S+)\s+at\s+(\S+)\s+ETA\s+(\S+)`)
-	lastUpdate := time.Now()
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		log.Printf("[YT-DLP %s] %s", task.ID, line)
-
-		if strings.Contains(line, "ERROR:") {
-			task.Mu.Lock()
-			task.Error = line
-			task.Mu.Unlock()
-		}
-
-		if strings.HasPrefix(line, "[download] Destination:") {
-			title := strings.TrimPrefix(line, "[download] Destination:")
-			title = filepath.Base(strings.TrimSpace(title))
-			task.Mu.Lock()
-			task.FileName = title
-			task.Mu.Unlock()
-		} else if strings.HasPrefix(line, "[download]") && strings.Contains(line, "has already been downloaded") {
-			title := strings.TrimPrefix(line, "[download]")
-			title = strings.TrimSuffix(title, " has already been downloaded")
-			title = filepath.Base(strings.TrimSpace(title))
-			task.Mu.Lock()
-			task.FileName = title
-			task.Mu.Unlock()
-		}
-
-		matches := progressRegex.FindStringSubmatch(line)
-		if len(matches) >= 5 {
-			pctStr := matches[1]
-			totalStr := matches[2]
-			speedStr := matches[3]
-			etaStr := matches[4]
-
-			task.Mu.Lock()
-			if pct, err := strconv.ParseFloat(pctStr, 64); err == nil {
-				task.Progress = pct
-			}
-			task.TotalSize = utils.ParseBytesString(totalStr)
-			task.Speed = utils.ParseBytesString(speedStr)
-			task.Connections = 16
-			if d, err := parseYTDLPDuration(etaStr); err == nil {
-				task.ETA = d
-			}
-			task.Mu.Unlock()
-		}
-
-		if time.Since(lastUpdate) >= 5*time.Second {
-			s.updateTaskStatus(task)
-			lastUpdate = time.Now()
-		}
-	}
-}
-
-func parseYTDLPDuration(s string) (time.Duration, error) {
-	parts := strings.Split(s, ":")
-	var h, m, s_ int
-	var err error
-
-	switch len(parts) {
-	case 3:
-		h, err = strconv.Atoi(parts[0])
-		if err != nil {
-			return 0, err
-		}
-		m, err = strconv.Atoi(parts[1])
-		if err != nil {
-			return 0, err
-		}
-		s_, err = strconv.Atoi(parts[2])
-		if err != nil {
-			return 0, err
-		}
-	case 2:
-		m, err = strconv.Atoi(parts[0])
-		if err != nil {
-			return 0, err
-		}
-		s_, err = strconv.Atoi(parts[1])
-		if err != nil {
-			return 0, err
-		}
-	default:
-		s_, err = strconv.Atoi(parts[0])
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s_)*time.Second, nil
 }
 
 func findDownloadedFile(dir string) string {
@@ -967,6 +751,15 @@ func (s *BotService) editStatusMessage(chatID int64, msgID int, text string) {
 }
 
 func (s *BotService) processTask(task *Task) {
+	task.Mu.RLock()
+	status := task.Status
+	task.Mu.RUnlock()
+
+	if status == StatusCancelled {
+		log.Printf("[Task %s] Skipping cancelled task", task.ID)
+		return
+	}
+
 	log.Printf("[Task %s] Starting processing type: %s", task.ID, task.Type)
 
 	switch task.Type {
