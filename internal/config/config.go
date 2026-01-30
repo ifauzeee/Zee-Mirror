@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	BotToken               string
+	TelegramAPI            string
 	OwnerID                int64
 	AuthorizedUsers        []int64
 	RcloneDest             string
@@ -20,6 +21,7 @@ type Config struct {
 func LoadConfig() *Config {
 	cfg := &Config{
 		BotToken:               os.Getenv("BOT_TOKEN"),
+		TelegramAPI:            os.Getenv("TELEGRAM_API"),
 		RcloneDest:             os.Getenv("RCLONE_DEST"),
 		DownloadDir:            "/app/downloads",
 		ConfigDir:              "/app/config",

@@ -28,16 +28,43 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 
 	if message.ReplyToMessage != nil {
 		reply := message.ReplyToMessage
+		var fileID, fileName string
+
 		if reply.Document != nil {
+			fileID = reply.Document.FileID
 			fileName = reply.Document.FileName
-			go s.handleTelegramFileDownload(message, reply.Document.FileID, fileName, zip, unzip, password, quality)
-			return
 		} else if reply.Video != nil {
+			fileID = reply.Video.FileID
 			fileName = reply.Video.FileName
 			if fileName == "" {
 				fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
 			}
-			go s.handleTelegramFileDownload(message, reply.Video.FileID, fileName, zip, unzip, password, quality)
+		} else if reply.Audio != nil {
+			fileID = reply.Audio.FileID
+			fileName = reply.Audio.FileName
+			if fileName == "" {
+				fileName = fmt.Sprintf("audio_%d.mp3", time.Now().Unix())
+			}
+		} else if reply.Voice != nil {
+			fileID = reply.Voice.FileID
+			fileName = fmt.Sprintf("voice_%d.ogg", time.Now().Unix())
+		} else if reply.VideoNote != nil {
+			fileID = reply.VideoNote.FileID
+			fileName = fmt.Sprintf("video_note_%d.mp4", time.Now().Unix())
+		} else if reply.Animation != nil {
+			fileID = reply.Animation.FileID
+			fileName = reply.Animation.FileName
+			if fileName == "" {
+				fileName = fmt.Sprintf("animation_%d.mp4", time.Now().Unix())
+			}
+		} else if reply.Photo != nil && len(reply.Photo) > 0 {
+			photo := reply.Photo[len(reply.Photo)-1]
+			fileID = photo.FileID
+			fileName = fmt.Sprintf("photo_%d.jpg", time.Now().Unix())
+		}
+
+		if fileID != "" {
+			go s.handleTelegramFileDownload(message, fileID, fileName, zip, unzip, password, quality)
 			return
 		}
 	}
@@ -291,7 +318,14 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password, quality string) {
 	tgFile, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
 	if err != nil {
-		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("❌ *Error:* %s", utils.EscapeMarkdownV2(err.Error())))
+		errText := err.Error()
+		msgText := fmt.Sprintf("❌ *Error:* %s", utils.EscapeMarkdownV2(errText))
+
+		if strings.Contains(errText, "file is too big") {
+			msgText += "\n\n⚠️ *Limitasi Telegram:* Bot hanya dapat mengunduh file hingga 20MB melalui server resmi\\. Gunakan *Local Bot API Server* untuk mengunduh file hingga 2GB\\."
+		}
+
+		msg := tgbotapi.NewMessage(message.Chat.ID, msgText)
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return

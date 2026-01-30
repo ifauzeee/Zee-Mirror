@@ -21,7 +21,18 @@ func main() {
 		log.Fatal("❌ Invalid configuration")
 	}
 
-	bot, err := tgbotapi.NewBotAPI(cfg.BotToken)
+	var bot *tgbotapi.BotAPI
+	var err error
+
+	if cfg.TelegramAPI != "" {
+		bot, err = tgbotapi.NewBotAPIWithAPIEndpoint(cfg.BotToken, cfg.TelegramAPI)
+		if err == nil {
+			log.Printf("🌐 Using custom API endpoint: %s", cfg.TelegramAPI)
+		}
+	} else {
+		bot, err = tgbotapi.NewBotAPI(cfg.BotToken)
+	}
+
 	if err != nil {
 		log.Fatalf("❌ Failed to create bot: %v", err)
 	}
