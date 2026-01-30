@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -251,12 +252,17 @@ func formatTaskLine(task TaskSnapshot) string {
 	emoji := utils.StatusEmoji(string(task.Status))
 	bar := utils.ProgressBar(task.Progress, 10)
 
+	processedSize := task.DownloadedSize
+	if task.Status == domain.StatusUploading {
+		processedSize = task.UploadedSize
+	}
+
 	return fmt.Sprintf(
 		"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
 			"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
 			"%s\n"+
 			"📄 *File:* %s\n"+
-			"📦 *Size:* %s\n"+
+			"📦 *Processed:* %s / %s\n"+
 			"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
 			"━━━━━━━━━━━━━━━━━━━━━━━━",
 		emoji,
@@ -264,6 +270,7 @@ func formatTaskLine(task TaskSnapshot) string {
 		utils.EscapeMarkdownV2(utils.FormatStatus(string(task.Status))),
 		utils.EscapeMarkdownV2(bar),
 		utils.EscapeMarkdownV2(utils.TruncateString(task.FileName, 40)),
+		utils.EscapeMarkdownV2(utils.FormatBytes(processedSize)),
 		utils.EscapeMarkdownV2(utils.FormatBytes(task.TotalSize)),
 		utils.EscapeMarkdownV2(utils.FormatSpeed(task.Speed)),
 		task.Connections,

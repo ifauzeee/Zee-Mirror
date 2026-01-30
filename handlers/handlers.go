@@ -316,6 +316,23 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 	return true
 }
 
+func (t *Task) Cancel(status TaskStatus) bool {
+	t.Mu.Lock()
+	if t.Status == StatusCompleted || t.Status == StatusFailed || t.Status == StatusCancelled {
+		t.Mu.Unlock()
+		return false
+	}
+
+	t.Status = status
+	if t.CancelFunc != nil {
+		t.CancelFunc()
+	}
+	t.Mu.Unlock()
+
+	_ = t.SaveToDB()
+	return true
+}
+
 func (tm *TaskManager) CancelAllTasks() int {
 	tm.Mu.RLock()
 	var taskIDs []string
@@ -396,4 +413,25 @@ func (t *Task) SetError(err string) {
 
 func (t *Task) GetSnapshot() domain.TaskSnapshot {
 	return t.Task.GetSnapshot()
+}
+
+func (s *BotService) HandleConfirmCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+	if len(parts) < 2 {
+		return
+	}
+
+	action := parts[1]
+	switch action {
+	case "yes":
+		text := "✅ *Dikonfirmasi*"
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+	case "no":
+		text := "❌ *Dibatalkan*"
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		editMsg.ParseMode = MarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+	}
 }

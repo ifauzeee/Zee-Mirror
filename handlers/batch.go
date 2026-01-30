@@ -721,3 +721,21 @@ func (b *BatchTask) SetError(err string) {
 	b.Status = StatusFailed
 	b.CompletedAt = time.Now()
 }
+
+func (s *BotService) checkBatchSubTaskCancellation(taskID string) bool {
+	s.BatchManager.Mu.RLock()
+	defer s.BatchManager.Mu.RUnlock()
+
+	for _, batch := range s.BatchManager.Batches {
+		batch.Mu.RLock()
+		for _, sub := range batch.SubTasks {
+			if sub.ID == taskID {
+				sub.Cancel(StatusCancelled)
+				batch.Mu.RUnlock()
+				return true
+			}
+		}
+		batch.Mu.RUnlock()
+	}
+	return false
+}

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"zee-mirror/pkg/utils"
@@ -20,133 +19,106 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 	s.TaskManager.StatusMu.Lock()
 	defer s.TaskManager.StatusMu.Unlock()
 
-	tasks := s.TaskManager.GetActiveTasksByChat(chatID)
-	activeBatches := s.getActiveBatchesByChat(chatID)
+	tm := s.TaskManager
+	tm.Mu.RLock()
+	page := tm.StatusPages[chatID]
+	tasks := tm.GetActiveTasks()
+	tm.Mu.RUnlock()
 
-	if len(tasks) == 0 && len(activeBatches) == 0 {
-		s.handleEmptyTasks(chatID, forceNew)
+	bm := s.BatchManager
+	bm.Mu.RLock()
+	var batches []*BatchTask
+	for _, b := range bm.Batches {
+		if b.Status != StatusCompleted && b.Status != StatusFailed && b.Status != StatusCancelled {
+			batches = append(batches, b)
+		}
+	}
+	bm.Mu.RUnlock()
+
+	totalTasks := len(tasks) + len(batches)
+	if totalTasks == 0 {
+		tm.Mu.Lock()
+		lastMsgID, exists := tm.LastStatusMsg[chatID]
+		if exists {
+			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
+			delete(tm.LastStatusMsg, chatID)
+			delete(lastStatusText, chatID)
+		}
+		tm.Mu.Unlock()
+		if forceNew {
+			msg := tgbotapi.NewMessage(chatID, "❌ *Tidak ada task aktif\\.*")
+			msg.ParseMode = MarkdownV2
+			_, _ = s.Bot.Send(msg)
+		}
 		return
 	}
 
-	sortedTasks := sortTasksByCreationTime(tasks)
-	page := s.getCurrentPage(chatID)
-	processedTasks := s.processPagination(sortedTasks, &page, chatID)
-
-	text := s.buildDashboardStatusText(processedTasks, activeBatches, page, len(sortedTasks))
-	keyboard := buildNavigationKeyboard(page, calculateTotalPages(len(sortedTasks)))
+	text := s.buildStatusDashboardText(tasks, batches, page)
+	totalPages := (totalTasks + 4) / 5
+	keyboard := buildNavigationKeyboard(page, totalPages)
 
 	s.sendStatusMessage(chatID, text, keyboard, forceNew)
 }
 
-func (s *BotService) handleEmptyTasks(chatID int64, forceNew bool) {
-	s.TaskManager.Mu.Lock()
-	lastMsgID, exists := s.TaskManager.LastStatusMsg[chatID]
-	if exists {
-		_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
-		delete(s.TaskManager.LastStatusMsg, chatID)
-		delete(lastStatusText, chatID)
-	}
-	s.TaskManager.Mu.Unlock()
-
-	if forceNew {
-		msg := tgbotapi.NewMessage(chatID, "📭 *Tidak ada task aktif*\n\nGunakan /mirror, /leech, /ytdlp, /torrent, atau /clone untuk memulai\\.")
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
-	}
+func (s *BotService) HandleRefreshStatusCallback(callback *tgbotapi.CallbackQuery) {
+	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
+	callbackConfig := tgbotapi.NewCallback(callback.ID, "🔄 Dashboard direfresh")
+	_, _ = s.Bot.Request(callbackConfig)
 }
 
-func sortTasksByCreationTime(tasks []*Task) []*Task {
-	sortedTasks := make([]*Task, len(tasks))
-	copy(sortedTasks, tasks)
-	sort.Slice(sortedTasks, func(i, j int) bool {
-		return sortedTasks[i].CreatedAt.Before(sortedTasks[j].CreatedAt)
-	})
-	return sortedTasks
+func calculateTotalPages(totalTasks int) int {
+	return (totalTasks + 4) / 5
 }
 
-func (s *BotService) getCurrentPage(chatID int64) int {
-	s.TaskManager.Mu.RLock()
-	page := s.TaskManager.StatusPages[chatID]
-	s.TaskManager.Mu.RUnlock()
-	return page
-}
+func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTask, page int) string {
+	text := StatusHeaderText
 
-func (s *BotService) processPagination(tasks []*Task, page *int, chatID int64) []*Task {
-	perPage := 5
-	totalTasks := len(tasks)
-	totalPages := (totalTasks + perPage - 1) / perPage
-
-	if *page >= totalPages && totalPages > 0 {
-		*page = totalPages - 1
-		s.TaskManager.Mu.Lock()
-		s.TaskManager.StatusPages[chatID] = *page
-		s.TaskManager.Mu.Unlock()
+	allTasks := make([]interface{}, 0)
+	for _, b := range batches {
+		allTasks = append(allTasks, b)
+	}
+	for _, t := range tasks {
+		allTasks = append(allTasks, t)
 	}
 
-	start := *page * perPage
-	end := start + perPage
+	totalTasks := len(allTasks)
+	start := page * 5
+	end := start + 5
 	if end > totalTasks {
 		end = totalTasks
 	}
 
-	return tasks[start:end]
-}
+	if start >= totalTasks {
+		return "❌ *Halaman tidak ditemukan\\.*"
+	}
 
-func calculateTotalPages(totalTasks int) int {
-	perPage := 5
-	return (totalTasks + perPage - 1) / perPage
-}
+	visibleItems := allTasks[start:end]
+	var visibleTasks []*Task
+	var visibleBatches []*BatchTask
 
-func (s *BotService) buildDashboardStatusText(visibleTasks []*Task, batches []*BatchTask, page, totalTasks int) string {
-	text := StatusHeaderText
+	for _, item := range visibleItems {
+		if t, ok := item.(*Task); ok {
+			visibleTasks = append(visibleTasks, t)
+		} else if b, ok := item.(*BatchTask); ok {
+			visibleBatches = append(visibleBatches, b)
+		}
+	}
 
-	for _, batch := range batches {
+	for _, batch := range visibleBatches {
 		batch.Mu.RLock()
-		text += fmt.Sprintf("📦 *Batch:* %s \\| 📊 %d/%d selesai\n\n",
-			utils.EscapeMarkdownV2(batch.Name),
+		emoji := utils.StatusEmoji(string(batch.Status))
+		text += fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━\n"+
+			"%s *Batch:* `%s` \\| *%s\\.\\.\\.*\n"+
+			"📈 *Progres:* %.1f%% \\(%d/%d\\)\n"+
+			"🚫 *Action:* /cancelbatch\\_%s\n",
+			emoji,
+			batch.ID,
+			utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),
+			batch.Progress,
 			batch.Completed,
-			len(batch.URLs),
+			len(batch.SubTasks),
+			batch.ID,
 		)
-
-		visibleBatchTasks := 5
-		if len(batch.SubTasks) < visibleBatchTasks {
-			visibleBatchTasks = len(batch.SubTasks)
-		}
-
-		for i := 0; i < visibleBatchTasks; i++ {
-			task := batch.SubTasks[i]
-			snapshot := task.GetSnapshot()
-			emoji := utils.StatusEmoji(string(snapshot.Status))
-			bar := utils.ProgressBar(snapshot.Progress, 10)
-
-			text += fmt.Sprintf(
-				"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
-					"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
-					"%s\n"+
-					"📄 *File:* %s\n"+
-					"📦 *Size:* %s\n"+
-					"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
-					"🚫 *Action:* /cancel\\_%s\n",
-				emoji,
-				snapshot.ID,
-				utils.EscapeMarkdownV2(utils.FormatStatus(string(snapshot.Status))),
-				utils.EscapeMarkdownV2(bar),
-				utils.EscapeMarkdownV2(utils.TruncateString(snapshot.FileName, 40)),
-				utils.EscapeMarkdownV2(utils.FormatBytes(snapshot.TotalSize)),
-				utils.EscapeMarkdownV2(utils.FormatSpeed(snapshot.Speed)),
-				snapshot.Connections,
-				utils.EscapeMarkdownV2(utils.FormatDuration(snapshot.ETA)),
-				utils.EscapeMarkdownV2(snapshot.ID),
-			)
-		}
-
-		if len(batch.SubTasks) > visibleBatchTasks {
-			text += fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━\n_\\.\\.\\. dan %d task lainnya_\n", len(batch.SubTasks)-visibleBatchTasks)
-		}
-
-		if len(batch.SubTasks) > 0 {
-			text += "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-		}
 		text += fmt.Sprintf("_Total: %d task dalam batch `%s`_\n\n", len(batch.SubTasks), batch.ID)
 		batch.Mu.RUnlock()
 	}
@@ -161,12 +133,17 @@ func (s *BotService) buildDashboardStatusText(visibleTasks []*Task, batches []*B
 		emoji := utils.StatusEmoji(string(snapshot.Status))
 		bar := utils.ProgressBar(snapshot.Progress, 10)
 
+		processedSize := snapshot.DownloadedSize
+		if snapshot.Status == StatusUploading {
+			processedSize = snapshot.UploadedSize
+		}
+
 		text += fmt.Sprintf(
 			"━━━━━━━━━━━━━━━━━━━━━━━━\n"+
 				"%s *ID:* `%s` \\| *%s\\.\\.\\.*\n"+
 				"%s\n"+
 				"📄 *File:* %s\n"+
-				"📦 *Size:* %s\n"+
+				"📦 *Processed:* %s / %s\n"+
 				"⚡ *Speed:* %s \\| *CN:* %d \\| ⏱️ *ETA:* %s\n"+
 				"🚫 *Action:* /cancel\\_%s\n",
 			emoji,
@@ -174,6 +151,7 @@ func (s *BotService) buildDashboardStatusText(visibleTasks []*Task, batches []*B
 			utils.EscapeMarkdownV2(utils.FormatStatus(string(snapshot.Status))),
 			utils.EscapeMarkdownV2(bar),
 			utils.EscapeMarkdownV2(utils.TruncateString(snapshot.FileName, 40)),
+			utils.EscapeMarkdownV2(utils.FormatBytes(processedSize)),
 			utils.EscapeMarkdownV2(utils.FormatBytes(snapshot.TotalSize)),
 			utils.EscapeMarkdownV2(utils.FormatSpeed(snapshot.Speed)),
 			snapshot.Connections,
@@ -337,88 +315,20 @@ func (s *BotService) HandleCancelCallback(callback *tgbotapi.CallbackQuery, task
 	if s.TaskManager.CancelTask(taskID) {
 		success = true
 	} else {
-		bm := s.BatchManager
-		bm.Mu.RLock()
-		if batch, ok := bm.Batches[taskID]; ok {
-			batch.CancelFunc()
-			batch.SetStatus(StatusCancelled)
-			success = true
-		}
-		bm.Mu.RUnlock()
-
-		if !success {
-			if s.checkBatchSubTaskCancellation(taskID) {
+		task := s.TaskManager.GetTaskByGID(taskID)
+		if task != nil {
+			if s.TaskManager.CancelTask(task.ID) {
 				success = true
 			}
 		}
 	}
 
 	if success {
-		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Dibatalkan"))
+		callbackConfig := tgbotapi.NewCallback(callback.ID, fmt.Sprintf("✅ Task %s dibatalkan", taskID))
+		_, _ = s.Bot.Request(callbackConfig)
 		s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	} else {
-		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Gagal membatalkan / Id tidak ditemukan"))
+		callbackConfig := tgbotapi.NewCallback(callback.ID, "❌ Gagal membatalkan task")
+		_, _ = s.Bot.Request(callbackConfig)
 	}
-}
-
-func (s *BotService) checkBatchSubTaskCancellation(taskID string) bool {
-	bm := s.BatchManager
-	bm.Mu.RLock()
-	defer bm.Mu.RUnlock()
-
-	for _, batch := range bm.Batches {
-		for _, sub := range batch.SubTasks {
-			if sub.ID == taskID {
-				sub.CancelFunc()
-				sub.SetStatus(StatusCancelled)
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (s *BotService) HandleRefreshStatusCallback(callback *tgbotapi.CallbackQuery) {
-	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
-	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
-}
-
-func (s *BotService) HandleConfirmCallback(callback *tgbotapi.CallbackQuery, parts []string) {
-	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
-
-	if len(parts) < 2 {
-		return
-	}
-
-	action := parts[1]
-	switch action {
-	case "yes":
-		text := "✅ *Dikonfirmasi*"
-		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(editMsg)
-
-	case "no":
-		text := "❌ *Dibatalkan*"
-		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(editMsg)
-	}
-}
-
-func (s *BotService) getActiveBatchesByChat(chatID int64) []*BatchTask {
-	bm := s.BatchManager
-	bm.Mu.RLock()
-	defer bm.Mu.RUnlock()
-
-	var active []*BatchTask
-	for _, batch := range bm.Batches {
-		if batch.ChatID == chatID &&
-			batch.Status != StatusCompleted &&
-			batch.Status != StatusFailed &&
-			batch.Status != StatusCancelled {
-			active = append(active, batch)
-		}
-	}
-	return active
 }
