@@ -36,7 +36,6 @@ func main() {
 
 	updates := bot.GetUpdatesChan(u)
 
-	// Graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -62,43 +61,10 @@ func handleMessage(s *handlers.BotService, msg *tgbotapi.Message, cfg *config.Co
 	}
 
 	if msg.IsCommand() {
-		command := msg.Command()
-		args := msg.CommandArguments()
-
-		switch command {
-		case "start":
-			s.HandleStart(msg)
-		case "help":
-			s.HandleHelp(msg)
-		case "mirror":
-			s.HandleMirror(msg, args)
-		case "leech":
-			s.HandleLeech(msg, args)
-		case "ytdlp":
-			s.HandleYTDLP(msg, args)
-		case "torrent":
-			s.HandleTorrent(msg, args)
-		case "status":
-			s.HandleStatus(msg)
-		case "cancel":
-			s.HandleCancel(msg, args)
-		case "search":
-			s.HandleSearch(msg, args)
-		case "settings":
-			s.HandleSettings(msg)
-		case "batch":
-			s.HandleBatch(msg, args)
-		case "batchstatus":
-			s.HandleBatchStatus(msg)
-		case "cancelbatch":
-			s.HandleCancelBatch(msg, args)
-		default:
-			// Unknown command
-		}
+		handleCommand(s, msg)
 		return
 	}
 
-	// Handle non-command messages (e.g. magnet links, file replies)
 	text := msg.Text
 	if text == "" && msg.Caption != "" {
 		text = msg.Caption
@@ -109,21 +75,47 @@ func handleMessage(s *handlers.BotService, msg *tgbotapi.Message, cfg *config.Co
 			s.HandleTorrent(msg, text)
 			return
 		}
-		if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") {
-			// Auto mirror/leech based on default setting? 
-			// For now, let's not auto-start tasks on just URLs to avoid spam
-		}
 	}
+}
 
-	if msg.ReplyToMessage != nil && (msg.Document != nil || msg.Video != nil) {
-		// This is handled in HandleMirror/HandleLeech when command is used
+func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
+	command := msg.Command()
+	args := msg.CommandArguments()
+
+	switch command {
+	case "start":
+		s.HandleStart(msg)
+	case "help":
+		s.HandleHelp(msg)
+	case "mirror":
+		s.HandleMirror(msg, args)
+	case "leech":
+		s.HandleLeech(msg, args)
+	case "ytdlp":
+		s.HandleYTDLP(msg, args)
+	case "torrent":
+		s.HandleTorrent(msg, args)
+	case "status":
+		s.HandleStatus(msg)
+	case "cancel":
+		s.HandleCancel(msg, args)
+	case "search":
+		s.HandleSearch(msg, args)
+	case "settings":
+		s.HandleSettings(msg)
+	case "batch":
+		s.HandleBatch(msg, args)
+	case "batchstatus":
+		s.HandleBatchStatus(msg)
+	case "cancelbatch":
+		s.HandleCancelBatch(msg, args)
 	}
 }
 
 func handleCallback(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
 	data := cb.Data
 	parts := strings.Split(data, ":")
-	
+
 	if len(parts) == 0 {
 		return
 	}
