@@ -90,8 +90,6 @@ docker-compose logs -f
 | Perintah | Deskripsi |
 |----------|-----------|
 | `/batch` | Mengunduh banyak URL sekaligus dalam satu antrean. |
-| `/batchstatus` | Menampilkan status tugas batch yang aktif. |
-| `/cancelbatch <ID>` | Membatalkan tugas batch tertentu. |
 
 ### Flags (Opsi Tambahan)
 Gunakan flag berikut di akhir perintah (misal: `/mirror URL -z`):

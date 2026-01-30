@@ -164,13 +164,8 @@ func handleTaskCommands(s *handlers.BotService, msg *tgbotapi.Message, command, 
 }
 
 func handleBatchCommands(s *handlers.BotService, msg *tgbotapi.Message, command, args string) {
-	switch command {
-	case cmdBatch:
+	if command == cmdBatch {
 		s.HandleBatch(msg, args)
-	case "batchstatus":
-		s.HandleBatchStatus(msg)
-	case "cancelbatch":
-		s.HandleCancelBatch(msg, args)
 	}
 }
 

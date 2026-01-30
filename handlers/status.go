@@ -110,7 +110,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 		text += fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━\n"+
 			"%s *Batch:* `%s` \\| *%s\\.\\.\\.*\n"+
 			"📈 *Progres:* %.1f%% \\(%d/%d\\)\n"+
-			"🚫 *Action:* /cancelbatch\\_%s\n",
+			"🚫 *Action:* /cancel\\_%s\n",
 			emoji,
 			batch.ID,
 			utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),

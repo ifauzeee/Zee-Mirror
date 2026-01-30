@@ -196,9 +196,7 @@ URL3
 ✅ Download multiple URL sekaligus
 ✅ Zip semua hasil dalam satu archive
 ✅ Queue management dengan prioritas
-✅ Progress tracking per\\-file dan total
-✅ Cancel seluruh batch atau per\\-file`
-
+✅ Progress tracking per\\-file dan total`
 	msg := tgbotapi.NewMessage(chatID, helpText)
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
@@ -651,58 +649,6 @@ func (s *BotService) HandleBatchCallback(callback *tgbotapi.CallbackQuery, parts
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚫 Batch cancelled"))
 		s.updateBatchStatus(batch)
 	}
-}
-
-func (s *BotService) HandleBatchStatus(message *tgbotapi.Message) {
-	s.BatchManager.Mu.RLock()
-	defer s.BatchManager.Mu.RUnlock()
-
-	if len(s.BatchManager.Batches) == 0 {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "📭 *Tidak ada batch aktif*")
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
-		return
-	}
-
-	text := "📦 *Active Batches:*\n\n"
-	for _, batch := range s.BatchManager.Batches {
-		if batch.Status == StatusCompleted || batch.Status == StatusCancelled || batch.Status == StatusFailed {
-			continue
-		}
-		emoji := utils.StatusEmoji(string(batch.Status))
-		text += fmt.Sprintf("%s `%s` \\- %s \\(%d/%d\\)\n",
-			emoji,
-			batch.ID,
-			utils.EscapeMarkdownV2(batch.Name),
-			batch.Completed,
-			len(batch.URLs),
-		)
-	}
-
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(msg)
-}
-
-func (s *BotService) HandleCancelBatch(message *tgbotapi.Message, batchID string) {
-	s.BatchManager.Mu.RLock()
-	batch, exists := s.BatchManager.Batches[batchID]
-	s.BatchManager.Mu.RUnlock()
-
-	if !exists {
-		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("❌ *Batch `%s` tidak ditemukan*", batchID))
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
-		return
-	}
-
-	batch.CancelFunc()
-	batch.SetStatus(StatusCancelled)
-	s.updateBatchStatus(batch)
-
-	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Batch `%s` dibatalkan*", batchID))
-	msg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(msg)
 }
 
 func (b *BatchTask) SetStatus(status TaskStatus) {
