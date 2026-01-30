@@ -1,10 +1,25 @@
 services:
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: telegram-bot-api
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_LOCAL=1
+    volumes:
+      - downloads:/var/lib/telegram-bot-api
+    networks:
+      - zee-network
+
   zee-mirror:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: zee-mirror-bot
     restart: unless-stopped
+    depends_on:
+      - telegram-bot-api
     
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
@@ -13,6 +28,7 @@ services:
       - RCLONE_DEST=${RCLONE_DEST:-gdrive:/MirrorBot}
       - MAX_CONCURRENT_DOWNLOADS=${MAX_CONCURRENT_DOWNLOADS:-3}
       - TZ=${TZ:-Asia/Jakarta}
+      - TELEGRAM_API=http://telegram-bot-api:8081/bot%s/%s
     
     volumes:
       - downloads:/app/downloads

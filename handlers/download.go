@@ -30,34 +30,35 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		reply := message.ReplyToMessage
 		var fileID, fileName string
 
-		if reply.Document != nil {
+		switch {
+		case reply.Document != nil:
 			fileID = reply.Document.FileID
 			fileName = reply.Document.FileName
-		} else if reply.Video != nil {
+		case reply.Video != nil:
 			fileID = reply.Video.FileID
 			fileName = reply.Video.FileName
 			if fileName == "" {
 				fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
 			}
-		} else if reply.Audio != nil {
+		case reply.Audio != nil:
 			fileID = reply.Audio.FileID
 			fileName = reply.Audio.FileName
 			if fileName == "" {
 				fileName = fmt.Sprintf("audio_%d.mp3", time.Now().Unix())
 			}
-		} else if reply.Voice != nil {
+		case reply.Voice != nil:
 			fileID = reply.Voice.FileID
 			fileName = fmt.Sprintf("voice_%d.ogg", time.Now().Unix())
-		} else if reply.VideoNote != nil {
+		case reply.VideoNote != nil:
 			fileID = reply.VideoNote.FileID
 			fileName = fmt.Sprintf("video_note_%d.mp4", time.Now().Unix())
-		} else if reply.Animation != nil {
+		case reply.Animation != nil:
 			fileID = reply.Animation.FileID
 			fileName = reply.Animation.FileName
 			if fileName == "" {
 				fileName = fmt.Sprintf("animation_%d.mp4", time.Now().Unix())
 			}
-		} else if reply.Photo != nil && len(reply.Photo) > 0 {
+		case len(reply.Photo) > 0:
 			photo := reply.Photo[len(reply.Photo)-1]
 			fileID = photo.FileID
 			fileName = fmt.Sprintf("photo_%d.jpg", time.Now().Unix())
@@ -331,10 +332,85 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 		return
 	}
 
-	fileURL := tgFile.Link(s.Bot.Token)
+	var fileURL string
+	if filepath.IsAbs(tgFile.FilePath) {
+		translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
+		if _, err := os.Stat(translatedPath); err == nil {
+			log.Printf("[TGDownload] Local file detected: %s", translatedPath)
+			fileURL = "file://" + translatedPath
+		}
+	}
+
+	if fileURL == "" {
+		if s.Config.TelegramAPI != "" {
+			fileEndpoint := strings.Replace(s.Config.TelegramAPI, "/bot%s/%s", "/file/bot%s/%s", 1)
+			fileURL = fmt.Sprintf(fileEndpoint, s.Bot.Token, tgFile.FilePath)
+		} else {
+			fileURL = tgFile.Link(s.Bot.Token)
+		}
+	}
+
+	log.Printf("[TGDownload] FileID: %s, FilePath: %s, FinalURL: %s", fileID, tgFile.FilePath, fileURL)
 	task := s.TaskManager.CreateTask(TypeMirror, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	log.Printf("[TGDownload] Task created: %s", task.ID)
+}
+
+func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
+	sourcePath := strings.TrimPrefix(task.URL, "file://")
+
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		task.SetError(fmt.Sprintf("Local file not found: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	fileName := task.FileName
+	if fileName == "" || fileName == UnknownFile {
+		fileName = filepath.Base(sourcePath)
+	}
+	destPath := filepath.Join(outputDir, fileName)
+
+	task.Mu.Lock()
+	task.TotalSize = info.Size()
+	task.DownloadedSize = 0
+	task.Progress = 0
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	//nolint:gosec
+	source, err := os.Open(sourcePath)
+	if err != nil {
+		task.SetError(fmt.Sprintf("Failed to open source file: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+	defer func() { _ = source.Close() }()
+
+	//nolint:gosec
+	dest, err := os.Create(destPath)
+	if err != nil {
+		task.SetError(fmt.Sprintf("Failed to create destination file: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+	defer func() { _ = dest.Close() }()
+
+	_, err = io.Copy(dest, source)
+	if err != nil {
+		task.SetError(fmt.Sprintf("Failed to copy file: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	task.Mu.Lock()
+	task.DownloadedSize = task.TotalSize
+	task.Progress = 100
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	s.handlePostDownload(task, outputDir)
 }
 
 func (s *BotService) downloadWithAria2(task *Task) {
@@ -349,6 +425,11 @@ func (s *BotService) downloadWithAria2(task *Task) {
 	if err := os.MkdirAll(outputDir, 0777); err != nil {
 		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
 		s.updateTaskStatus(task)
+		return
+	}
+
+	if strings.HasPrefix(task.URL, "file://") {
+		s.handleLocalFileDownload(task, outputDir)
 		return
 	}
 
@@ -412,7 +493,7 @@ func (s *BotService) buildAria2Args(task *Task, outputDir string) []string {
 		args = append(args, "--load-cookies="+cookiesPath)
 	}
 
-	if task.FileName != "" && task.FileName != "unknown_file" {
+	if task.FileName != "" && task.FileName != UnknownFile {
 		args = append(args, "--out="+task.FileName)
 	}
 
@@ -485,9 +566,9 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 		return
 	}
 
-		args := []string{
-			"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
-			"--newline",		"--no-playlist",
+	args := []string{
+		"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
+		"--newline", "--no-playlist",
 		"--continue",
 		"--merge-output-format", "mp4",
 		"--no-check-certificate",

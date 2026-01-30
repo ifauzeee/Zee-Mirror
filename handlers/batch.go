@@ -368,7 +368,7 @@ func (s *BotService) createBatchSubTask(batch *BatchTask, url string, index int)
 	ctx, cancel := context.WithCancel(batch.Ctx)
 
 	fileName := utils.GetFileNameFromURL(url)
-	if fileName == "unknown_file" {
+	if fileName == UnknownFile {
 		fileName = fmt.Sprintf("file_%d", index+1)
 	}
 
