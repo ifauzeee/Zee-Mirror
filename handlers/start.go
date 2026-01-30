@@ -44,6 +44,10 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 			tgbotapi.NewInlineKeyboardButtonData("⚙️ Settings", "dashboard:settings"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🏓 Ping", "dashboard:ping"),
+			tgbotapi.NewInlineKeyboardButtonData("🚀 Speedtest", "dashboard:speed"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel Task", "dashboard:cancel"),
 		),
 	)
@@ -72,11 +76,12 @@ func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 		"/status \\- Lihat status task aktif\n" +
 		"/cancel ID \\- Cancel task tertentu\n" +
 		"/search keyword \\- Cari torrent via Jackett\n" +
+		"/ping \\- Cek latency bot\n" +
+		"/speed \\- Test kecepatan internet server\n" +
 		"/settings \\- Pengaturan bot\n\n" +
 		"*Batch Download:*\n\n" +
 		"/batch \\- Download multiple URLs sekaligus\n" +
-		"/batchstatus \\- Status batch aktif\n" +
-		"/cancelbatch ID \\- Cancel batch download\n\n" +
+		"\n" +
 		"*Admin Commands:*\n\n" +
 		"/authorize ID \\- Izinkan user baru\n" +
 		"/unauthorize ID \\- Cabut izin user\n" +
@@ -104,7 +109,6 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 	}
 	action := parts[1]
 
-	var text string
 	switch action {
 	case "page":
 		if len(parts) >= 3 {
@@ -116,8 +120,30 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Halaman %d", page+1)))
 		}
 		return
+	case "status":
+		s.HandleStatusFromCallback(callback)
+		return
+	case "settings":
+		s.HandleSettingsFromCallback(callback)
+		return
+	case "ping":
+		s.HandlePing(callback.Message)
+		return
+	case "speed":
+		s.HandleSpeed(callback.Message)
+		return
+	}
+
+	text := s.getDashboardModeText(action)
+	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
+	msg.ParseMode = MarkdownV2
+	_, _ = s.Bot.Send(msg)
+}
+
+func (s *BotService) getDashboardModeText(action string) string {
+	switch action {
 	case "mirror":
-		text = "📥 *Mirror Mode*\n\n" +
+		return "📥 *Mirror Mode*\n\n" +
 			"Kirim file/media atau reply ke file dengan /mirror untuk memulai\\.\n\n" +
 			"Atau kirim URL dengan format:\n" +
 			"/mirror URL\n\n" +
@@ -127,7 +153,7 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			"\\-p PASSWORD : Password zip"
 
 	case "leech":
-		text = "🔗 *Leech Mode*\n\n" +
+		return "🔗 *Leech Mode*\n\n" +
 			"Kirim URL untuk download:\n" +
 			"/leech URL\n\n" +
 			"Support:\n" +
@@ -140,7 +166,7 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			"\\-z : Zip hasil download"
 
 	case "ytdlp":
-		text = "🎬 *YouTube\\-DLP Mode*\n\n" +
+		return "🎬 *YouTube\\-DLP Mode*\n\n" +
 			"Download video dari YouTube dan 1000\\+ situs lainnya:\n" +
 			"/ytdlp URL\n\n" +
 			"Support:\n" +
@@ -151,21 +177,13 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			"\\- Dan banyak lagi\\!"
 
 	case "torrent":
-		text = "🧲 *Torrent Mode*\n\n" +
+		return "🧲 *Torrent Mode*\n\n" +
 			"Download via magnet atau file torrent:\n" +
 			"/torrent magnet:xt=urn:btih:xxxxx\n\n" +
 			"Atau reply ke file \\.torrent dengan /torrent"
 
-	case "status":
-		s.HandleStatusFromCallback(callback)
-		return
-
-	case "settings":
-		s.HandleSettingsFromCallback(callback)
-		return
-
 	case "clone":
-		text = "📂 *Clone Mode*\n\n" +
+		return "📂 *Clone Mode*\n\n" +
 			"Cloning file atau folder Google Drive yang bersifat public\\.\n\n" +
 			"Gunakan perintah:\n" +
 			"/clone URL\\_GDRIVE\n\n" +
@@ -174,13 +192,13 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			"\\- Nama file/folder akan tetap sama"
 
 	case "cancel":
-		text = "❌ *Cancel Task*\n\n" +
+		return "❌ *Cancel Task*\n\n" +
 			"Gunakan perintah:\n" +
 			"/cancel TaskID\n\n" +
 			"Lihat daftar task aktif dengan /status"
 
 	case "batch":
-		text = "📦 *Batch Download*\n\n" +
+		return "📦 *Batch Download*\n\n" +
 			"Download multiple URLs sekaligus:\n" +
 			"```\n/batch\nURL1\nURL2\nURL3\n```\n\n" +
 			"*Flags:*\n" +
@@ -193,7 +211,7 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			"/cancelbatch ID \\- Cancel batch"
 
 	case "search":
-		text = "🔍 *Search Torrent*\n\n" +
+		return "🔍 *Search Torrent*\n\n" +
 			"Cari torrent dari berbagai sumber:\n" +
 			"/search keyword\n\n" +
 			"*Sources:*\n" +
@@ -202,12 +220,8 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 			"\\- PirateBay"
 
 	default:
-		text = "❓ Aksi tidak dikenal"
+		return "❓ Aksi tidak dikenal"
 	}
-
-	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(msg)
 }
 
 func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) {

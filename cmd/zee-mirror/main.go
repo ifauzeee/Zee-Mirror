@@ -105,8 +105,10 @@ func handleCommand(s *handlers.BotService, msg *tgbotapi.Message) {
 	command := msg.Command()
 	args := msg.CommandArguments()
 
+	log.Printf("[Command] Received: /%s from %d", command, msg.From.ID)
+
 	switch command {
-	case "start", "help", cmdSettings:
+	case "start", "help", cmdSettings, "ping", "speed":
 		handleBasicCommands(s, msg, command)
 	case "mirror", "leech", "ytdlp", "torrent", "clone":
 		handleDownloadCommands(s, msg, command, args)
@@ -132,6 +134,10 @@ func handleBasicCommands(s *handlers.BotService, msg *tgbotapi.Message, command 
 		s.HandleHelp(msg)
 	case cmdSettings:
 		s.HandleSettings(msg)
+	case "ping":
+		s.HandlePing(msg)
+	case "speed":
+		s.HandleSpeed(msg)
 	}
 }
 

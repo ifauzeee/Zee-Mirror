@@ -35,7 +35,7 @@ RUN apk add --no-cache \
     musl-dev \
     python3-dev
 
-RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp
+RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli
 
 # Import rclone from official image
 COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
