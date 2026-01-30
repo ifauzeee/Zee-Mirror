@@ -1,8 +1,8 @@
 # .gitignore untuk Zee-Mirror Bot
 
 # Binary
-zee-mirror
-zee-mirror.exe
+/zee-mirror
+/zee-mirror.exe
 
 # Environment files
 .env
