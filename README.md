@@ -1,215 +1,145 @@
 # 🚀 Zee-Mirror Telegram Bot
 
-Bot Telegram untuk mirror/leech file ke Google Drive dengan performa tinggi, ditulis dalam **Go**.
+Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, ditulis menggunakan bahasa **Go**.
 
 ![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
-## ✨ Fitur
+## ✨ Fitur Utama
 
-- 📥 **Mirror** - Download file dari Telegram dan upload ke Google Drive
-- 🔗 **Leech** - Download dari URL (HTTP/HTTPS/FTP/Magnet)
-- 🎬 **YT-DLP** - Download video dari YouTube dan 1000+ situs
-- 🧲 **Torrent** - Download via magnet link atau file .torrent
-- 📊 **Real-time Progress** - Update status setiap 5 detik
-- 🗜️ **Archive Support** - Zip/Unzip dengan password
-- ⚡ **Super Fast** - Concurrency optimal dengan goroutine
-- 🐳 **Dockerized** - Siap deploy dalam hitungan menit
+- 📥 **Mirror** - Download file dari Telegram dan upload langsung ke Google Drive.
+- 🔗 **Leech** - Download file dari berbagai protokol (HTTP/HTTPS/FTP/Magnet).
+- 🎬 **YT-DLP Support** - Download video dari YouTube dan lebih dari 1000+ situs lainnya.
+- 🧲 **Torrent Support** - Download file melalui magnet link atau file `.torrent`.
+- 📊 **Real-time Progress** - Pembaruan status tugas secara *real-time* setiap 5 detik.
+- 🗜️ **Manajemen Arsip** - Mendukung kompresi (Zip) dan ekstraksi (Unzip) dengan proteksi password.
+- ⚡ **Performa Tinggi** - Menggunakan optimasi goroutine untuk menangani banyak tugas sekaligus.
+- 🐳 **Dockerized** - Memudahkan proses deployment hanya dengan beberapa langkah.
 
-## 🛠️ Tools yang Digunakan
+## 🛠️ Teknologi & Tools
 
-| Tool | Fungsi |
-|------|--------|
-| **aria2c** | Download HTTP/Torrent dengan multi-connection |
-| **yt-dlp** | Download video streaming |
-| **rclone** | Upload ke cloud storage |
-| **7zz** | Compress/extract archive |
+| Tool | Fungsi Utama |
+|------|--------------|
+| **aria2c** | Engine download untuk protokol HTTP, FTP, dan BitTorrent. |
+| **yt-dlp** | Engine khusus untuk mengunduh video streaming. |
+| **rclone** | Alat transfer file untuk mengunggah hasil ke cloud storage. |
+| **7zz** | Alat kompresi dan ekstraksi arsip dengan performa tinggi. |
 
-## 📋 Prerequisites
+## 📋 Persyaratan Sistem
 
-- Docker & Docker Compose
-- Telegram Bot Token (dari [@BotFather](https://t.me/BotFather))
-- Google Drive dengan rclone sudah dikonfigurasi
+- Docker & Docker Compose terinstal.
+- Telegram Bot Token (Dapatkan dari [@BotFather](https://t.me/BotFather)).
+- Akun Google Drive yang sudah dikonfigurasi melalui Rclone.
 
-## 🚀 Quick Start
+## 🚀 Panduan Instalasi Cepat
 
-### 1. Clone Repository
-
+### 1. Klon Repositori
 ```bash
 git clone https://github.com/ifauzeee/Zee-Mirror
-cd zee-mirror
+cd Zee-Mirror
 ```
 
 ### 2. Konfigurasi Environment
-
+Salin file template `.env.example` menjadi `.env` dan sesuaikan nilainya:
 ```bash
-# Copy template environment
 cp .env.example .env
-
-# Edit file .env dengan editor favorit
 nano .env
 ```
-
-Isi nilai berikut:
+Lengkapi data berikut:
 ```env
 BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
 OWNER_ID=123456789
 RCLONE_DEST=gdrive:/MirrorBot
 ```
 
-### 3. Setup Rclone
-
+### 3. Konfigurasi Rclone
+Buat direktori konfigurasi dan masukkan file `rclone.conf` Anda:
 ```bash
-# Buat folder config
 mkdir -p config
-
-# Copy rclone.conf dari komputer Anda
-# Windows: %APPDATA%\rclone\rclone.conf
-# Linux/Mac: ~/.config/rclone/rclone.conf
+# Salin rclone.conf yang sudah ada ke folder config/
 cp ~/.config/rclone/rclone.conf config/rclone.conf
 ```
 
-Atau setup rclone baru:
+### 4. Jalankan Aplikasi
 ```bash
-docker run --rm -it -v $(pwd)/config:/config rclone/rclone config --config /config/rclone.conf
-```
-
-Opsional: Jika Anda perlu login ke situs tertentu untuk download (misalnya cookie authentication), tambahkan file `cookies.txt` ke folder config:
-```bash
-# Contoh struktur cookies.txt (format Netscape)
-# .site.com	TRUE	/	FALSE	9999999999	cookie_name	cookie_value
-echo ".example.com	TRUE	/	FALSE	9999999999	session_id	abc123" > config/cookies.txt
-```
-
-### 4. Build & Run
-
-```bash
-# Build dan jalankan
+# Build dan jalankan container
 docker-compose up -d --build
 
-# Lihat logs
+# Pantau log aktivitas
 docker-compose logs -f
 ```
 
-## 📱 Penggunaan
+## 📱 Panduan Penggunaan
 
 ### Perintah Dasar
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/start` | Membuka dashboard utama bot. |
+| `/help` | Menampilkan panduan bantuan lengkap. |
+| `/mirror <URL>` | Mengunduh file dan mengunggahnya ke Drive. |
+| `/leech <URL>` | Mengunduh file dari URL ke server. |
+| `/ytdlp <URL>` | Mengunduh video menggunakan yt-dlp. |
+| `/torrent <magnet>` | Mengunduh file melalui torrent/magnet. |
+| `/search <keyword>` | Mencari file torrent berdasarkan kata kunci. |
+| `/status` | Menampilkan daftar tugas yang sedang berjalan. |
+| `/cancel <ID>` | Membatalkan tugas yang sedang diproses. |
+| `/settings` | Membuka menu pengaturan bot. |
 
-| Command | Deskripsi |
-|---------|-----------|
-| `/start` | Dashboard utama |
-| `/help` | Bantuan lengkap |
-| `/mirror <URL>` | Mirror ke Drive |
-| `/leech <URL>` | Download dari URL |
-| `/ytdlp <URL>` | Download video |
-| `/torrent <magnet>` | Download torrent |
-| `/search <keyword>` | Cari torrent |
-| `/status` | Status task aktif |
-| `/cancel <ID>` | Batalkan task |
-| `/settings` | Pengaturan bot |
+### Fitur Batch
+| Perintah | Deskripsi |
+|----------|-----------|
+| `/batch` | Mengunduh banyak URL sekaligus dalam satu antrean. |
+| `/batchstatus` | Menampilkan status tugas batch yang aktif. |
+| `/cancelbatch <ID>` | Membatalkan tugas batch tertentu. |
 
-### Batch Download
-
-| Command | Deskripsi |
-|---------|-----------|
-| `/batch` | Download multiple URLs sekaligus |
-| `/batchstatus` | Status batch aktif |
-| `/cancelbatch <ID>` | Batalkan batch download |
-
-### Flags Opsional
-
-| Flag | Deskripsi |
-|------|-----------|
-| `-z` | Zip file sebelum upload |
-| `-uz` | Extract archive setelah download |
-| `-p PASSWORD` | Password untuk zip |
-| `-name NAME` | Nama batch (untuk /batch) |
-| `-priority 1-10` | Prioritas batch (default: 5) |
-
-### Contoh Penggunaan
-
-```
-# Download dan upload ke Drive
-/mirror https://example.com/file.zip
-
-# Download dan extract
-/leech https://example.com/archive.rar -uz
-
-# Download, zip dengan password, upload
-/mirror -z -p rahasia123
-(reply ke file di Telegram)
-
-# Download video YouTube
-/ytdlp https://youtube.com/watch?v=xxxxx
-
-# Download torrent
-/torrent magnet:?xt=urn:btih:xxxxx
-
-# Batch download (multiple URLs)
-/batch -name MyDownloads -z
-https://example.com/file1.zip
-https://example.com/file2.mp4
-https://example.com/file3.rar
-```
-
+### Flags (Opsi Tambahan)
+Gunakan flag berikut di akhir perintah (misal: `/mirror URL -z`):
+- `-z` : Kompres hasil download ke format Zip sebelum diunggah.
+- `-uz` : Ekstrak file arsip setelah proses download selesai.
+- `-p PASSWORD` : Memberikan password pada file Zip.
+- `-name NAMA` : Memberikan nama khusus pada tugas batch.
 
 ## 🔧 Konfigurasi Lanjutan
 
-### Environment Variables
-
-| Variable | Deskripsi | Default |
+### Variabel Lingkungan (.env)
+| Variabel | Deskripsi | Default |
 |----------|-----------|---------|
-| `BOT_TOKEN` | Token dari BotFather | **Required** |
-| `OWNER_ID` | Telegram User ID owner | **Required** |
-| `AUTHORIZED_USERS` | User ID yang diizinkan (comma-separated) | - |
-| `RCLONE_DEST` | Destinasi rclone | `gdrive:/MirrorBot` |
-| `MAX_CONCURRENT_DOWNLOADS` | Maks download bersamaan | `3` |
-| `TZ` | Timezone | `Asia/Jakarta` |
+| `BOT_TOKEN` | Token API Bot Telegram. | **Wajib Diisi** |
+| `OWNER_ID` | User ID Telegram pemilik bot. | **Wajib Diisi** |
+| `AUTHORIZED_USERS` | Daftar User ID yang diizinkan (pisahkan dengan koma). | - |
+| `RCLONE_DEST` | Destinasi penyimpanan di Rclone. | `gdrive:/MirrorBot` |
+| `MAX_CONCURRENT_DOWNLOADS` | Jumlah maksimal download bersamaan. | `3` |
+| `TZ` | Zona waktu aplikasi. | `Asia/Jakarta` |
 
-### Volume Mounts
+## 📁 Struktur Proyek
 
-| Path | Deskripsi |
-|------|-----------|
-| `/app/downloads` | Temporary download files |
-| `/app/config` | Config files (rclone.conf, cookies.txt) |
-
-## 📁 Struktur Project
-
-```
-zee-mirror/
+```text
+Zee-Mirror/
 ├── cmd/
 │   └── zee-mirror/
-│       └── main.go      # Entry point utama
-├── handlers/
-│   ├── archive.go       # Zip/unzip handler (7zz)
-... (sisanya tetap sama)
-
+│       └── main.go      # Titik masuk utama aplikasi (Entry Point)
+├── handlers/            # Logika penanganan perintah Telegram
+│   ├── archive.go       # Operasi Zip/Unzip
+│   ├── batch.go         # Logika Batch Download
+│   ├── download.go      # Integrasi aria2 & yt-dlp
+│   ├── search.go        # Pencarian Torrent
+│   ├── upload.go        # Integrasi Rclone
+│   └── ...
+├── internal/
+│   └── config/          # Manajemen konfigurasi aplikasi
+├── pkg/
+│   └── utils/           # Fungsi pembantu (Helper functions)
+├── config/              # Tempat penyimpanan rclone.conf & cookies
+├── Dockerfile           # Konfigurasi build Docker
+└── docker-compose.yml   # Konfigurasi deployment Docker Compose
+```
 
 ## 🐛 Troubleshooting
 
-### Bot tidak merespon
-1. Cek apakah `BOT_TOKEN` sudah benar
-2. Pastikan `OWNER_ID` sesuai dengan Telegram ID Anda
-3. Lihat logs: `docker-compose logs -f`
-
-### Upload gagal
-1. Pastikan `rclone.conf` sudah di-copy ke `config/`
-2. Cek nama remote di `RCLONE_DEST` sesuai dengan rclone.conf
-3. Test rclone manual: `docker exec zee-mirror-bot rclone lsd gdrive:`
-
-### Download lambat
-1. Tingkatkan `MAX_CONCURRENT_DOWNLOADS`
-2. Pastikan server memiliki bandwidth yang cukup
-
-## 🤝 Contributing
-
-Pull requests welcome! Untuk perubahan besar, silakan buka issue terlebih dahulu.
-
-## 📄 License
-
-MIT License - lihat [LICENSE](LICENSE) untuk detail.
+- **Bot Tidak Merespons**: Pastikan `BOT_TOKEN` benar dan bot sudah di-*start* di Telegram. Periksa log dengan `docker-compose logs -f`.
+- **Upload Gagal**: Pastikan file `config/rclone.conf` sudah tersedia dan `RCLONE_DEST` sesuai dengan nama remote di konfigurasi.
+- **Download Lambat**: Cek koneksi server atau coba tingkatkan nilai `MAX_CONCURRENT_DOWNLOADS`.
 
 ---
-
-Made with ❤️ by Zee-Mirror Team
+Dibuat dengan ❤️ oleh **Zee-Mirror Team**. Lisensi [MIT](LICENSE).
