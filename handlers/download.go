@@ -485,10 +485,9 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 		return
 	}
 
-	args := []string{
-		"-o", filepath.Join(outputDir, "% (title)s.%(ext)s"),
-		"--newline",
-		"--no-playlist",
+		args := []string{
+			"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
+			"--newline",		"--no-playlist",
 		"--continue",
 		"--merge-output-format", "mp4",
 		"--no-check-certificate",
