@@ -590,7 +590,7 @@ func (s *BotService) sendBatchCompletionMessage(batch *BatchTask) {
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonURL("📥 Download", batch.RemoteURL),
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "batch:close:none"),
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "batch:close:none"),
 			),
 		)
 		msg.ReplyMarkup = keyboard

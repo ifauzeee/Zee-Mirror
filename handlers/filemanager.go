@@ -297,7 +297,7 @@ func (s *BotService) buildDriveNavigationKeyboard(files []DriveFile, currentRelP
 	}
 	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", refreshData))
 	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🏠 Home", "dr:h"))
-	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dr:x"))
+	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"))
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(navButtons...))
 
@@ -700,10 +700,10 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Folder", backData),
-		tgbotapi.NewInlineKeyboardButtonData("❌ Delete", deleteData),
+		tgbotapi.NewInlineKeyboardButtonData("🗑️ Delete", deleteData),
 	))
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dr:x"),
+		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"),
 	))
 
 	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}

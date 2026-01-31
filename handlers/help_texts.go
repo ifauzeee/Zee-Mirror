@@ -22,7 +22,7 @@ func getHelpLeech() string {
 
 func getHelpYTDLP() string {
 	return HelpDetailMessage(
-		"🎬 YT-DLP",
+		"🎬 YT\\-DLP",
 		"Download video/audio dari 1000\\+ situs\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
 		"• `/ytdlp <URL>` ─ Download dengan pilihan kualitas\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Download audio only \\(MP3\\)\n• Subtitle otomatis",
 		"`/ytdlp https://youtube\\.com/watch?v=xxxxx`\n`/ytdlp https://tiktok\\.com/@user/video/123`",
@@ -33,10 +33,10 @@ func getHelpYTDLP() string {
 func getHelpTorrent() string {
 	return HelpDetailMessage(
 		"🧲 TORRENT",
-		"Download file via magnet link atau file torrent \\(\\.torrent\\)\\.",
-		"• `/torrent <magnet>` ─ Download dari magnet\n• Reply ke \\.torrent dengan `/torrent`\n• Kirim magnet link langsung \\(auto detect\\)\n\n✨ *FITUR*\n• Support magnet link \\& file \\.torrent\n• Multi\\-connection download\n• Resume download",
+		"Download file via magnet link atau file torrent \\(\\.torrent\\)\\.\nBot akan otomatis mendeteksi jika Anda mengirim magnet link tanpa command\\.",
+		"• `/torrent <magnet>` ─ Download dari magnet\n• Reply ke \\.torrent dengan `/torrent`\n• Kirim magnet link langsung \\(Auto\\-Detect\\)\n\n✨ *FITUR*\n• Support magnet link \\& file \\.torrent\n• Multi\\-connection download\n• Resume download",
 		"`/torrent magnet:?xt=urn:btih:xxxxx`",
-		"",
+		"💡 *AUTO\\-DETECT:* Anda bisa langsung mengirim magnet link, bot akan otomatis memprosesnya\\.",
 	)
 }
 
@@ -142,11 +142,11 @@ func getHelpSpeed() string {
 
 func getHelpLs() string {
 	return HelpDetailMessage(
-		"📂 LIST (LS)",
-		"Melihat isi folder di cloud storage\\.",
-		"• `/ls` ─ Lihat root folder\n• `/ls <path>` ─ Lihat folder tertentu",
+		"📂 LIST (LS / DIR)",
+		"Melihat isi folder di cloud storage\\.\nPerintah ini mendukung navigasi interaktif melalui tombol\\.",
+		"• `/ls` ─ Lihat root folder\n• `/dir` ─ Alias dari /ls\n• `/ls <path>` ─ Lihat folder tertentu",
 		"`/ls` ─ Root folder\n`/ls Movies` ─ Folder Movies\n`/ls Movies/2024` ─ Subfolder",
-		"",
+		"💡 *TIP:* Anda bisa klik nama folder di tombol untuk masuk ke dalam folder tersebut\\.",
 	)
 }
 
@@ -374,8 +374,73 @@ func getHelpSettings() string {
 	return HelpDetailMessage(
 		"⚙️ SETTINGS",
 		"Mengatur preferensi dan konfigurasi bot\\.",
-		"• `/settings` ─ Buka menu pengaturan\n\n📋 *PENGATURAN TERSEDIA*\n• Default storage\n• Notification preferences\n• Upload settings\n• Download settings",
+		"• `/settings` ─ Buka menu pengaturan\n\n📋 *PENGATURAN TERSEDIA*\n• **Auto Delete Messages**\n  Hapus otomatis pesan perintah dan bot setelah 60s\\.\n• **Default Mode**\n  Pilih antara Mirror atau Leech sebagai mode default\\.",
 		"`/settings`",
-		"",
+		"💡 Pengaturan ini bersifat global dan mempengaruhi cara bot berinteraksi dengan Anda\\.",
 	)
+}
+
+func getHelpSetLogChannel() string {
+	return HelpDetailMessage(
+		"📜 SET LOG CHANNEL",
+		"Mengatur channel khusus untuk menerima log real-time aktivitas bot\\.",
+		"• `/setlogchannel <channel_id>` ─ Set channel log",
+		"`/setlogchannel -1001234567890`",
+		"⚠️ Pastikan bot sudah menjadi admin di channel tersebut\\.",
+	)
+}
+
+func getHelpAllCommands() string {
+	content := "📋 *DAFTAR SELURUH PERINTAH BOT*\n\n" +
+		"📥 *DOWNLOAD*\n" +
+		"• `/mirror` ─ Mirror ke Drive\n" +
+		"• `/leech` ─ Leech ke Telegram\n" +
+		"• `/ytdlp` ─ YT\\-DLP Download\n" +
+		"• `/torrent` ─ Torrent Download\n" +
+		"• `/clone` ─ Clone GDrive\n" +
+		"• `/batch` ─ Batch Download\n" +
+		"• `/batchstatus` ─ Status Batch\n" +
+		"• `/cancelbatch` ─ Batal Batch\n" +
+		"• `/search` ─ Cari Torrent\n\n" +
+		"📊 *MONITOR & SYSTEM*\n" +
+		"• `/status` ─ Status Aktif\n" +
+		"• `/stats` ─ Statistik Bot\n" +
+		"• `/system` ─ Info System\n" +
+		"• `/health` ─ Cek Kesehatan\n" +
+		"• `/logs` ─ Lihat Log Bot\n" +
+		"• `/ping` ─ Cek Latency\n" +
+		"• `/speed` ─ Test Kecepatan\n\n" +
+		"📁 *STORAGE & FILES*\n" +
+		"• `/ls` / `/dir` ─ List File \\(Drive\\)\n" +
+		"• `/mkdir` ─ Buat Folder\n" +
+		"• `/rm` ─ Hapus File/Folder\n" +
+		"• `/mv` ─ Pindah/Rename\n" +
+		"• `/share` ─ Share Link\n" +
+		"• `/find` ─ Cari File Drive\n" +
+		"• `/storages` ─ Daftar Storage\n" +
+		"• `/setstorage` ─ Aktifkan Storage\n\n" +
+		"🎞️ *MEDIA TOOLS*\n" +
+		"• `/extractaudio` ─ Ambil Audio\n" +
+		"• `/compress` ─ Kompres Video\n" +
+		"• `/thumbnail` ─ Buat Thumb\n" +
+		"• `/screenshots` ─ Screenshot\n" +
+		"• `/subtitle` ─ Embed Sub\n" +
+		"• `/convert` ─ Ganti Format\n" +
+		"• `/mediainfo` ─ Detail Media\n\n" +
+		"👑 *ADMINISTRATION*\n" +
+		"• `/authorize` ─ Beri Akses\n" +
+		"• `/unauthorize` ─ Cabut Akses\n" +
+		"• `/users` ─ Daftar User\n" +
+		"• `/setlogchannel` ─ Set Log\n" +
+		"• `/setalertchannel` ─ Set Alert\n\n" +
+		"🛠️ *SETTINGS & GENERAL*\n" +
+		"• `/settings` ─ Menu Pengaturan\n" +
+		"• `/start` ─ Pesan Awal\n" +
+		"• `/help` ─ Menu Bantuan\n" +
+		"• `/recover` ─ Pulihkan Task\n" +
+		"• `/recoverystatus` ─ Status Recovery\n" +
+		"• `/cancel` ─ Batal Task ID\n" +
+		"• `/cancelall` ─ Batal Semua"
+
+	return ProfessionalMessage("ALL COMMANDS", content)
 }

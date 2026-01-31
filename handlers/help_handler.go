@@ -37,34 +37,8 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 
 	switch action {
 	case "main":
-		content := "Silakan pilih kategori bantuan di bawah untuk melihat detail fungsi dan cara penggunaan\\.\\n\\n" +
-			"💡 *Klik tombol untuk membuka sub\\-menu\\.*"
-		text = ProfessionalMessage("PANDUAN BANTUAN", content)
-		keyboard = tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📥 DOWNLOAD", "help:download"),
-				tgbotapi.NewInlineKeyboardButtonData("📊 MONITOR", "help:monitor"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📁 FILES", "help:files"),
-				tgbotapi.NewInlineKeyboardButtonData("🎵 MEDIA", "help:media"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📋 TASK", "help:task"),
-				tgbotapi.NewInlineKeyboardButtonData("💾 STORAGE", "help:storage"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("👑 ADMIN", "help:admin"),
-				tgbotapi.NewInlineKeyboardButtonData("🔧 RECOVERY", "help:recovery"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⚙️ SETTINGS", "help:settings"),
-				tgbotapi.NewInlineKeyboardButtonData("🔙 HOME", "help:back"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
-			),
-		)
+		text = GetHelpMainText()
+		keyboard = GetHelpKeyboard()
 
 	case "settings":
 		text = getHelpSettings()
@@ -75,7 +49,17 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				backBtn,
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+			),
+		)
+
+	case "all":
+		text = getHelpAllCommands()
+		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				backBtn,
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 			),
 		)
 
@@ -142,50 +126,50 @@ func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				backBtn,
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 			),
 		)
 	case "cmd_mirror":
 		text = getHelpMirror()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_leech":
 		text = getHelpLeech()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_ytdlp":
 		text = getHelpYTDLP()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_torrent":
 		text = getHelpTorrent()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_clone":
 		text = getHelpClone()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_batch":
 		text = getHelpBatch()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_search":
 		text = getHelpSearch()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -225,43 +209,43 @@ func (s *BotService) handleMonitorHelp(callback *tgbotapi.CallbackQuery, action 
 		text = getHelpStatus()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_stats":
 		text = getHelpStats()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_system":
 		text = getHelpSystem()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_health":
 		text = getHelpHealth()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_logs":
 		text = getHelpLogs()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_ping":
 		text = getHelpPing()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_speed":
 		text = getHelpSpeed()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -298,37 +282,37 @@ func (s *BotService) handleFilesHelp(callback *tgbotapi.CallbackQuery, action st
 		text = getHelpLs()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_mkdir":
 		text = getHelpMkdir()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_rm":
 		text = getHelpRm()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_mv":
 		text = getHelpMv()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_share":
 		text = getHelpShare()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_find":
 		text = getHelpFind()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -368,43 +352,43 @@ func (s *BotService) handleMediaHelp(callback *tgbotapi.CallbackQuery, action st
 		text = getHelpExtractAudio()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_compress":
 		text = getHelpCompress()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_thumbnail":
 		text = getHelpThumbnail()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_screenshots":
 		text = getHelpScreenshots()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_subtitle":
 		text = getHelpSubtitle()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_convert":
 		text = getHelpConvert()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_mediainfo":
 		text = getHelpMediaInfo()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -436,13 +420,13 @@ func (s *BotService) handleTaskHelp(callback *tgbotapi.CallbackQuery, action str
 		text = getHelpCancel()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_cancelall":
 		text = getHelpCancelAll()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -471,13 +455,13 @@ func (s *BotService) handleStorageHelp(callback *tgbotapi.CallbackQuery, action 
 		text = getHelpStorages()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_setstorage":
 		text = getHelpSetStorage()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -502,6 +486,7 @@ func (s *BotService) handleAdminHelp(callback *tgbotapi.CallbackQuery, action st
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("👥 Users", "help:cmd_users"),
+				tgbotapi.NewInlineKeyboardButtonData("📜 Log Channel", "help:cmd_setlogchannel"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🚨 Alert Channel", "help:cmd_setalertchannel"),
@@ -512,25 +497,31 @@ func (s *BotService) handleAdminHelp(callback *tgbotapi.CallbackQuery, action st
 		text = getHelpAuthorize()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_unauthorize":
 		text = getHelpUnauthorize()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_users":
 		text = getHelpUsers()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_setalertchannel":
 		text = getHelpSetAlertChannel()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+		))
+	case "cmd_setlogchannel":
+		text = getHelpSetLogChannel()
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+			backToCat,
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false
@@ -559,13 +550,13 @@ func (s *BotService) handleRecoveryHelp(callback *tgbotapi.CallbackQuery, action
 		text = getHelpRecover()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	case "cmd_recoverystatus":
 		text = getHelpRecoveryStatus()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		))
 	default:
 		return false

@@ -40,34 +40,8 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
-	content := "Silakan pilih kategori bantuan di bawah untuk melihat detail fungsi dan cara penggunaan\\.\n\n" +
-		"💡 *Klik tombol untuk membuka sub\\-menu\\.*"
-
-	helpText := ProfessionalMessage("PANDUAN BANTUAN", content)
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📥 DOWNLOAD", "help:download"),
-			tgbotapi.NewInlineKeyboardButtonData("📊 MONITOR", "help:monitor"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📁 FILES", "help:files"),
-			tgbotapi.NewInlineKeyboardButtonData("🎵 MEDIA", "help:media"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📋 TASK", "help:task"),
-			tgbotapi.NewInlineKeyboardButtonData("💾 STORAGE", "help:storage"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("👑 ADMIN", "help:admin"),
-			tgbotapi.NewInlineKeyboardButtonData("🔧 RECOVERY", "help:recovery"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⚙️ SETTINGS", "help:settings"),
-			tgbotapi.NewInlineKeyboardButtonData("🔙 HOME", "help:back"),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
-		),
-	)
+	helpText := GetHelpMainText()
+	keyboard := GetHelpKeyboard()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
 	msg.ParseMode = MarkdownV2
@@ -180,7 +154,7 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main"),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
 		),
 	)
 
@@ -213,7 +187,7 @@ func (s *BotService) getModeKeyboard(action string) tgbotapi.InlineKeyboardMarku
 		return tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				backBtn,
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dashboard:close"),
 			),
 		)
 	}
@@ -307,7 +281,7 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dashboard:close"),
 		),
 	)
 
@@ -438,7 +412,7 @@ func (s *BotService) HandleStoragesFromCallback(callback *tgbotapi.CallbackQuery
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:storage"),
-		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "storage:close:none"),
+		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
 	))
 	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 
@@ -464,7 +438,7 @@ func (s *BotService) HandleSystemFromCallback(callback *tgbotapi.CallbackQuery) 
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "system:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
 		),
 	)
 
@@ -479,7 +453,6 @@ func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuer
 	basePath := strings.TrimSuffix(s.TaskManager.RcloneDest, "/")
 	path := basePath
 
-	// Update status within the same message
 	loadingMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🔍 *Memuat daftar file\\.\\.\\.*")
 	loadingMsg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(loadingMsg)
@@ -504,7 +477,6 @@ func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuer
 	text := s.formatDriveFileList("/", files)
 	keyboard := s.buildDriveNavigationKeyboard(files, relPath)
 
-	// Add Back button to keyboard
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:files"),
 	))

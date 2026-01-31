@@ -115,7 +115,7 @@ func (s *BotService) HandleStorages(message *tgbotapi.Message) {
 	text.WriteString("Pilih storage untuk upload\\:")
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "storage:close:none"),
+		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
 	))
 	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 
@@ -159,7 +159,7 @@ func (s *BotService) handleStorageSelect(callback *tgbotapi.CallbackQuery, stora
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "storage:list"),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "storage:close:none"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
 		),
 	)
 
@@ -211,7 +211,7 @@ func (s *BotService) handleStorageBrowse(callback *tgbotapi.CallbackQuery, stora
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", fmt.Sprintf("storage:select:%s", storageName)),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "storage:close:none"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
 		),
 	)
 
@@ -253,7 +253,7 @@ func (s *BotService) handleStorageInfo(callback *tgbotapi.CallbackQuery, storage
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", fmt.Sprintf("storage:select:%s", storageName)),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "storage:close:none"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
 		),
 	)
 

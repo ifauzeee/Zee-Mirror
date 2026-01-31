@@ -50,7 +50,7 @@ func (s *BotService) HandleSystem(message *tgbotapi.Message) {
 			tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "system:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
 		),
 	)
 
@@ -358,7 +358,7 @@ func (s *BotService) HandleSystemCallback(callback *tgbotapi.CallbackQuery, part
 				tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "system:close"),
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
 			),
 		)
 

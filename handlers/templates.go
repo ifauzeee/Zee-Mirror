@@ -109,3 +109,38 @@ func GetStartKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 	)
 }
+
+func GetHelpMainText() string {
+	content := "Silakan pilih kategori bantuan di bawah untuk melihat detail fungsi dan cara penggunaan\\.\n\n" +
+		"💡 *Klik tombol untuk membuka sub\\-menu\\.*"
+	return ProfessionalMessage("PANDUAN BANTUAN", content)
+}
+
+func GetHelpKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📥 DOWNLOAD", "help:download"),
+			tgbotapi.NewInlineKeyboardButtonData("📊 MONITOR", "help:monitor"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📁 FILES", "help:files"),
+			tgbotapi.NewInlineKeyboardButtonData("🎵 MEDIA", "help:media"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📋 TASK", "help:task"),
+			tgbotapi.NewInlineKeyboardButtonData("💾 STORAGE", "help:storage"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("👑 ADMIN", "help:admin"),
+			tgbotapi.NewInlineKeyboardButtonData("🔧 RECOVERY", "help:recovery"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⚙️ SETTINGS", "help:settings"),
+			tgbotapi.NewInlineKeyboardButtonData("📋 ALL COMMANDS", "help:all"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 HOME", "help:back"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+		),
+	)
+}

@@ -60,7 +60,7 @@ func (s *BotService) getStatsKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "stats:refresh"),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "stats:close"),
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "stats:close"),
 		),
 	)
 }
@@ -331,7 +331,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 			keyboard = tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "stats:refresh"),
-					tgbotapi.NewInlineKeyboardButtonData("❌ Close", "stats:close"),
+					tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "stats:close"),
 				),
 			)
 		}
