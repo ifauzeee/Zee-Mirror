@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +16,36 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+type FFProbeOutput struct {
+	Streams []FFStream `json:"streams"`
+	Format  FFFormat   `json:"format"`
+}
+
+type FFStream struct {
+	Index              int               `json:"index"`
+	CodecName          string            `json:"codec_name"`
+	CodecType          string            `json:"codec_type"`
+	Width              int               `json:"width,omitempty"`
+	Height             int               `json:"height,omitempty"`
+	DisplayAspectRatio string            `json:"display_aspect_ratio,omitempty"`
+	PixFmt             string            `json:"pix_fmt,omitempty"`
+	RFrameRate         string            `json:"r_frame_rate,omitempty"`
+	BitRate            string            `json:"bit_rate,omitempty"`
+	Channels           int               `json:"channels,omitempty"`
+	ChannelLayout      string            `json:"channel_layout,omitempty"`
+	SampleRate         string            `json:"sample_rate,omitempty"`
+	Tags               map[string]string `json:"tags,omitempty"`
+}
+
+type FFFormat struct {
+	Filename   string `json:"filename"`
+	NbStreams  int    `json:"nb_streams"`
+	FormatName string `json:"format_name"`
+	Duration   string `json:"duration"`
+	Size       string `json:"size"`
+	BitRate    string `json:"bit_rate"`
+}
 
 func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) {
 	if !s.IsAuthorized(message.From.ID) {
@@ -443,24 +475,70 @@ func (s *BotService) HandleMediaInfo(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	text := s.formatMediaInfo(filepath.Base(inputPath), string(output))
+	var probe FFProbeOutput
+	if err := json.Unmarshal(output, &probe); err != nil {
+		log.Printf("[MediaInfo] JSON unmarshal error: %v | Output: %s", err, string(output))
+		s.reply(message, "❌ *Gagal menguraikan metadata file*")
+		return
+	}
+
+	text := s.formatMediaInfo(filepath.Base(inputPath), probe)
 	s.reply(message, text)
 }
 
-func (s *BotService) formatMediaInfo(filename, jsonOutput string) string {
+func (s *BotService) formatMediaInfo(filename string, info FFProbeOutput) string {
 	var content strings.Builder
 
-	content.WriteString(fmt.Sprintf("📄 *File:* `%s`\n\n", utils.EscapeMarkdownV2(filename)))
+	content.WriteString(fmt.Sprintf("📄 *File:* `%s`\n", utils.EscapeMarkdownV2(filename)))
+	size, _ := strconv.ParseInt(info.Format.Size, 10, 64)
+	content.WriteString(fmt.Sprintf("⚖️ *Size:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(size))))
 
-	if strings.Contains(jsonOutput, "video") {
-		content.WriteString("🎬 *Type:* `Video`\n")
-	} else if strings.Contains(jsonOutput, "audio") {
-		content.WriteString("🎵 *Type:* `Audio`\n")
+	durationSec, _ := strconv.ParseFloat(info.Format.Duration, 64)
+	duration := time.Duration(durationSec * float64(time.Second))
+	content.WriteString(fmt.Sprintf("🕒 *Duration:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatDuration(duration))))
+
+	bitrate, _ := strconv.ParseInt(info.Format.BitRate, 10, 64)
+	content.WriteString(fmt.Sprintf("📊 *Overall Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(bitrate/8))))
+	content.WriteString(fmt.Sprintf("📦 *Format:* `%s`\n", utils.EscapeMarkdownV2(info.Format.FormatName)))
+
+	videoCount := 0
+	audioCount := 0
+	for _, st := range info.Streams {
+		switch st.CodecType {
+		case "video":
+			videoCount++
+			content.WriteString(fmt.Sprintf("\n🎬 *VIDEO STREAM \\#%d*\n", videoCount))
+			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2(st.CodecName)))
+			content.WriteString(fmt.Sprintf(" • *Resolution:* `%dx%d`\n", st.Width, st.Height))
+			if st.DisplayAspectRatio != "" {
+				content.WriteString(fmt.Sprintf(" • *Aspect Ratio:* `%s`\n", utils.EscapeMarkdownV2(st.DisplayAspectRatio)))
+			}
+			content.WriteString(fmt.Sprintf(" • *Pixel Format:* `%s`\n", utils.EscapeMarkdownV2(st.PixFmt)))
+			fpsParts := strings.Split(st.RFrameRate, "/")
+			if len(fpsParts) == 2 {
+				f1, _ := strconv.ParseFloat(fpsParts[0], 64)
+				f2, _ := strconv.ParseFloat(fpsParts[1], 64)
+				if f2 > 0 {
+					content.WriteString(fmt.Sprintf(" • *Frame Rate:* `%.2f fps`\n", f1/f2))
+				}
+			}
+		case "audio":
+			audioCount++
+			content.WriteString(fmt.Sprintf("\n🎵 *AUDIO STREAM \\#%d*\n", audioCount))
+			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2(st.CodecName)))
+			content.WriteString(fmt.Sprintf(" • *Channels:* `%d` \\(%s\\)\n", st.Channels, utils.EscapeMarkdownV2(st.ChannelLayout)))
+			sampleRate, _ := strconv.ParseInt(st.SampleRate, 10, 64)
+			content.WriteString(fmt.Sprintf(" • *Sample Rate:* `%.1f kHz`\n", float64(sampleRate)/1000.0))
+			if st.BitRate != "" {
+				abr, _ := strconv.ParseInt(st.BitRate, 10, 64)
+				content.WriteString(fmt.Sprintf(" • *Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(abr/8))))
+			}
+		}
 	}
 
-	content.WriteString("\n_Gunakan ffprobe untuk detail lengkap_")
+	content.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
 
-	return ProfessionalMessage("MEDIA INFORMATION", content.String())
+	return ProfessionalMessage("✨ MEDIA INFORMATION ✨", content.String())
 }
 
 func (s *BotService) editMessage(chatID int64, msgID int, text string) {
