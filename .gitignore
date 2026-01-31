@@ -5,12 +5,16 @@
 /zee-mirror.exe
 /zee-mirror-bot
 
-# Task
-.task/
-
 # Environment files
 .env
 *.env.local
+
+# Web Dashboard
+/dist/
+dashboard/node_modules/
+dashboard/dist/
+.eslintcache
+.stylelintcache
 
 # Config files dengan credentials
 config/rclone.conf
@@ -28,6 +32,7 @@ downloads/
 *.swp
 *.swo
 *~
+.task/
 
 # OS files
 .DS_Store
@@ -42,23 +47,23 @@ vendor/
 *.dylib
 *.test
 *.out
-# go.sum - should be tracked
 
 # Logs
 *.log
 logs/
-
-# Docker
-.docker/
-
-# Temp
-view_file
-tmp/
-temp/
-*.tmp
 
 # Database
 config/*.db
 config/*.db-journal
 config/*.db-shm
 config/*.db-wal
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Temp
+view_file
+tmp/
+temp/
+*.tmp

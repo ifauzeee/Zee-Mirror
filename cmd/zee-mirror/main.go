@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"zee-mirror/handlers"
+	"zee-mirror/internal/api"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
 
@@ -29,7 +30,7 @@ func main() {
 
 	_ = os.MkdirAll(cfg.ConfigDir, 0750)
 	logPath := filepath.Join(cfg.ConfigDir, "zee-mirror.log")
-	logFile, err := os.OpenFile(filepath.Clean(logPath), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(filepath.Clean(logPath), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 
 	var multi io.Writer = os.Stdout
 	if err == nil {
@@ -38,19 +39,12 @@ func main() {
 	}
 
 	banner := `
-███████╗███████╗███████╗                       
-╚══███╔╝██╔════╝██╔════╝                       
-  ███╔╝ █████╗  █████╗                         
- ███╔╝  ██╔══╝  ██╔══╝                         
-███████╗███████╗███████╗                       
-╚══════╝╚══════╝╚══════╝                       
-                                               
-███╗   ███╗██╗██████╗ ██████╗  ██████╗ ██████╗ 
-████╗ ████║██║██╔══██╗██╔══██╗██╔═══██╗██╔══██╗
-██╔████╔██║██║██████╔╝██████╔╝██║   ██║██████╔╝
-██║╚██╔╝██║██║██╔══██╗██╔══██╗██║   ██║██╔══██╗
-██║ ╚═╝ ██║██║██║  ██║██║  ██║╚██████╔╝██║  ██║
-╚═╝     ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`
+  ______ ______ ______     __  __ _____ _____  _____   ____  _____  
+ |___  /|  ____|  ____|   |  \/  |_   _|  __ \|  __ \ / __ \|  __ \ 
+    / / | |__  | |__      | \  / | | | | |__) | |__) | |  | | |__) |
+   / /  |  __| |  __|     | |\/| | | | |  _  /|  _  /| |  | |  _  / 
+  / /__ | |____| |____    | |  | |_| |_| | \ \| | \ \| |__| | | \ \ 
+ /_____||______|______|   |_|  |_|_____|_|  \_\_|  \_\\____/|_|  \_\`
 
 	_, _ = fmt.Fprintln(multi, banner)
 
@@ -90,6 +84,10 @@ func main() {
 	log.Printf("✅ Authorized on account %s", bot.Self.UserName)
 
 	service := handlers.NewBotService(bot, cfg, db)
+
+	// Start Web Dashboard API (Default port 8080)
+	apiServer := api.NewAPIServer(service, 8080)
+	apiServer.Start()
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60

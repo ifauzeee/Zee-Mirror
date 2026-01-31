@@ -26,6 +26,7 @@ Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, dit
 - 🔄 **Task Recovery** - Otomatis recover task yang terinterupsi saat restart.
 - 🖥️ **Resource Monitor** - Monitoring CPU, RAM, Disk dengan custom alerts.
 - 📢 **Channel Logging** - Log aktivitas ke channel Telegram khusus.
+- 🌐 **Web Dashboard** - Panel kontrol berbasis web untuk memantau performa, mengelola task, dan eksplorasi file.
 
 ## 🛠️ Teknologi & Tools
 
@@ -98,6 +99,16 @@ docker-compose logs -f
 | `/ls [path]` | List file/folder di Google Drive. |
 | `/mkdir <name>` | Buat folder baru. |
 | `/rm <file>` | Hapus file/folder. |
+
+## 🌐 Web Dashboard
+Zee-Mirror kini dilengkapi dengan dashboard web modern untuk monitoring sistem.
+- **URL**: `http://localhost:8080` (Default Docker) atau port yang dikonfigurasi.
+- **Akses**: Memerlukan `WEB_DASHBOARD_TOKEN` untuk login.
+- **Fitur**:
+  - Grafik utilisasi CPU, RAM, Disk.
+  - List task aktif dengan progress bar real-time.
+  - Explorer file server (Unduh/Hapus file).
+  - Update konfigurasi bot secara langsung.
 | `/mv <src> <dst>` | Pindahkan/rename file. |
 | `/share <file>` | Generate share link. |
 | `/find <keyword>` | Cari file di Drive. |

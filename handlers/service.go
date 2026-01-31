@@ -96,9 +96,9 @@ func (s *BotService) AutoDeleteMessage(chatID int64, messageID int, delay time.D
 		return
 	}
 
-	s.Settings.mu.RLock()
+	s.Settings.Mu.RLock()
 	active := s.Settings.AutoDeleteMessages
-	s.Settings.mu.RUnlock()
+	s.Settings.Mu.RUnlock()
 
 	if !active || messageID == 0 {
 		return
@@ -118,9 +118,9 @@ func (s *BotService) handleAutoDelete(task *Task) {
 		return
 	}
 
-	s.Settings.mu.RLock()
+	s.Settings.Mu.RLock()
 	active := s.Settings.AutoDeleteMessages
-	s.Settings.mu.RUnlock()
+	s.Settings.Mu.RUnlock()
 
 	if !active {
 		return

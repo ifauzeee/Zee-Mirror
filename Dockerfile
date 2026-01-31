@@ -1,20 +1,24 @@
-# Build Stage
+# Dashboard Build Stage
+FROM node:18-alpine AS dashboard-builder
+WORKDIR /dashboard
+COPY dashboard/package*.json ./
+RUN npm install
+COPY dashboard/ ./
+RUN npm run build
+
+# Go Build Stage
 FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
 COPY go.mod go.sum* ./
 RUN go mod download
-
 COPY . .
-
-# Build with cache mounts for improved performance
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zee-mirror ./cmd/zee-mirror
 
 # Runtime Stage
 FROM alpine:3.19
-
 LABEL maintainer="Zee-Mirror Bot"
 LABEL description="Telegram Mirror/Leech Bot"
 
@@ -42,13 +46,12 @@ COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
 RUN chmod 755 /usr/bin/rclone
 
 RUN addgroup -S botgroup && adduser -D -G botgroup botuser
-
 RUN mkdir -p /app/downloads /app/config /home/botuser/.cache/yt-dlp && \
     chown -R botuser:botgroup /app /home/botuser
 
 WORKDIR /app
-
 COPY --from=builder /build/zee-mirror /app/zee-mirror
+COPY --from=dashboard-builder /dist /app/dist
 RUN chmod +x /app/zee-mirror
 
 USER root
@@ -61,7 +64,10 @@ ENV BOT_TOKEN="" \
     DOWNLOAD_DIR="/app/downloads" \
     CONFIG_DIR="/app/config" \
     HOME="/home/botuser" \
-    PATH="/usr/local/bin:/usr/bin:/bin:/home/botuser/.local/bin"
+    PATH="/usr/local/bin:/usr/bin:/bin:/home/botuser/.local/bin" \
+    WEB_DASHBOARD_TOKEN="zee-mirror-secret"
+
+EXPOSE 8080
 
 VOLUME ["/app/downloads", "/app/config"]
 

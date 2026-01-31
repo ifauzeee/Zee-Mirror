@@ -13,7 +13,7 @@ import (
 type Settings struct {
 	AutoDeleteMessages bool
 	DefaultMode        string
-	mu                 sync.RWMutex
+	Mu                 sync.RWMutex
 }
 
 func NewSettings() *Settings {
@@ -45,21 +45,21 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 	}
 
 	action := parts[1]
-	s.Settings.mu.Lock()
+	s.Settings.Mu.Lock()
 	if val, err := s.DB.GetSetting("auto_delete_messages"); err == nil {
 		s.Settings.AutoDeleteMessages = (val == "true")
 	}
 	if val, err := s.DB.GetSetting("default_mode"); err == nil {
 		s.Settings.DefaultMode = val
 	}
-	s.Settings.mu.Unlock()
+	s.Settings.Mu.Unlock()
 
 	switch action {
 	case "auto_delete":
-		s.Settings.mu.Lock()
+		s.Settings.Mu.Lock()
 		s.Settings.AutoDeleteMessages = !s.Settings.AutoDeleteMessages
 		status := s.Settings.AutoDeleteMessages
-		s.Settings.mu.Unlock()
+		s.Settings.Mu.Unlock()
 
 		_ = s.DB.SetSetting("auto_delete_messages", fmt.Sprintf("%v", status))
 
@@ -70,16 +70,16 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		}
 
 	case "default_mirror":
-		s.Settings.mu.Lock()
+		s.Settings.Mu.Lock()
 		s.Settings.DefaultMode = string(TypeMirror)
-		s.Settings.mu.Unlock()
+		s.Settings.Mu.Unlock()
 		_ = s.DB.SetSetting("default_mode", string(TypeMirror))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
 
 	case "default_leech":
-		s.Settings.mu.Lock()
+		s.Settings.Mu.Lock()
 		s.Settings.DefaultMode = string(TypeLeech)
-		s.Settings.mu.Unlock()
+		s.Settings.Mu.Unlock()
 		_ = s.DB.SetSetting("default_mode", string(TypeLeech))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
@@ -97,8 +97,8 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 }
 
 func (s *BotService) formatSettingsMessage() string {
-	s.Settings.mu.RLock()
-	defer s.Settings.mu.RUnlock()
+	s.Settings.Mu.RLock()
+	defer s.Settings.Mu.RUnlock()
 
 	autoDeleteStatus := "❌ OFF"
 	if s.Settings.AutoDeleteMessages {
@@ -126,8 +126,8 @@ Klik tombol di bawah untuk mengubah pengaturan\.`,
 }
 
 func (s *BotService) getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
-	s.Settings.mu.RLock()
-	defer s.Settings.mu.RUnlock()
+	s.Settings.Mu.RLock()
+	defer s.Settings.Mu.RUnlock()
 
 	autoDeleteLabel := "🔕 Auto Delete: OFF"
 	if s.Settings.AutoDeleteMessages {

@@ -233,6 +233,24 @@ type UserStats struct {
 	LastActive      time.Time
 }
 
+func (db *DB) GetTask(id string) (*TaskRecord, error) {
+	tr := &TaskRecord{}
+	err := db.QueryRow(`
+		SELECT id, gid, type, status, url, file_name, local_path, remote_path, remote_url, 
+		       total_size, downloaded_size, uploaded_size, chat_id, user_id, 
+		       created_at, completed_at, zip, unzip, password, error
+		FROM tasks WHERE id = ?
+	`, id).Scan(
+		&tr.ID, &tr.GID, &tr.Type, &tr.Status, &tr.URL, &tr.FileName, &tr.LocalPath, &tr.RemotePath, &tr.RemoteURL,
+		&tr.TotalSize, &tr.DownloadedSize, &tr.UploadedSize, &tr.ChatID, &tr.UserID,
+		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tr, nil
+}
+
 func (db *DB) GetUserStats(userID int64) (*UserStats, error) {
 	stats := &UserStats{UserID: userID}
 
@@ -260,10 +278,10 @@ func (db *DB) GetTodayStats() (*DailyStats, error) {
 	stats := &DailyStats{Date: time.Now()}
 	today := time.Now().Format("2006-01-02")
 
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ?", today).Scan(&stats.TotalTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ? AND status = 'completed'", today).Scan(&stats.CompletedTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ? AND status = 'failed'", today).Scan(&stats.FailedTasks)
-	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE date(created_at) = ? AND status = 'completed'", today).Scan(&stats.TotalBandwidth)
+	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", today+"%").Scan(&stats.TotalTasks)
+	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", today+"%").Scan(&stats.CompletedTasks)
+	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'failed'", today+"%").Scan(&stats.FailedTasks)
+	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", today+"%").Scan(&stats.TotalBandwidth)
 
 	return stats, nil
 }
@@ -272,10 +290,10 @@ func (db *DB) GetUserTodayStats(userID int64) (*DailyStats, error) {
 	stats := &DailyStats{Date: time.Now()}
 	today := time.Now().Format("2006-01-02")
 
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND date(created_at) = ?", userID, today).Scan(&stats.TotalTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND date(created_at) = ? AND status = 'completed'", userID, today).Scan(&stats.CompletedTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND date(created_at) = ? AND status = 'failed'", userID, today).Scan(&stats.FailedTasks)
-	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND date(created_at) = ? AND status = 'completed'", userID, today).Scan(&stats.TotalBandwidth)
+	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ?", userID, today+"%").Scan(&stats.TotalTasks)
+	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'completed'", userID, today+"%").Scan(&stats.CompletedTasks)
+	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'failed'", userID, today+"%").Scan(&stats.FailedTasks)
+	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'completed'", userID, today+"%").Scan(&stats.TotalBandwidth)
 
 	return stats, nil
 }
@@ -288,10 +306,10 @@ func (db *DB) GetWeeklyStats() ([]DailyStats, error) {
 		dateStr := date.Format("2006-01-02")
 
 		ds := DailyStats{Date: date}
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ?", dateStr).Scan(&ds.TotalTasks)
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ? AND status = 'completed'", dateStr).Scan(&ds.CompletedTasks)
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ? AND status = 'failed'", dateStr).Scan(&ds.FailedTasks)
-		_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE date(created_at) = ? AND status = 'completed'", dateStr).Scan(&ds.TotalBandwidth)
+		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", dateStr+"%").Scan(&ds.TotalTasks)
+		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.CompletedTasks)
+		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'failed'", dateStr+"%").Scan(&ds.FailedTasks)
+		_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.TotalBandwidth)
 
 		stats = append(stats, ds)
 	}
@@ -307,9 +325,9 @@ func (db *DB) GetMonthlyStats() ([]DailyStats, error) {
 		dateStr := date.Format("2006-01-02")
 
 		ds := DailyStats{Date: date}
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ?", dateStr).Scan(&ds.TotalTasks)
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE date(created_at) = ? AND status = 'completed'", dateStr).Scan(&ds.CompletedTasks)
-		_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE date(created_at) = ? AND status = 'completed'", dateStr).Scan(&ds.TotalBandwidth)
+		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", dateStr+"%").Scan(&ds.TotalTasks)
+		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.CompletedTasks)
+		_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.TotalBandwidth)
 
 		stats = append(stats, ds)
 	}
@@ -413,4 +431,9 @@ func (db *DB) GetRecentLogs(limit int) ([]map[string]interface{}, error) {
 		})
 	}
 	return logs, nil
+}
+func (db *DB) GetUsersCount() (int, error) {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	return count, err
 }

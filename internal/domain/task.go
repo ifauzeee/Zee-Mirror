@@ -67,35 +67,35 @@ type Task struct {
 }
 
 type TaskSnapshot struct {
-	ID              string
-	GID             string
-	Type            TaskType
-	Status          TaskStatus
-	URL             string
-	FileName        string
-	LocalPath       string
-	RemotePath      string
-	RemoteURL       string
-	TotalSize       int64
-	DownloadedSize  int64
-	UploadedSize    int64
-	Speed           int64
-	Connections     int
-	ETA             time.Duration
-	Progress        float64
-	Error           string
-	ChatID          int64
-	MessageID       int
-	UserID          int64
-	CreatedAt       time.Time
-	StartedAt       time.Time
-	CompletedAt     time.Time
-	Zip             bool
-	Unzip           bool
-	Password        string
-	Quality         string
-	OrigFileName    string
-	ResultMessageID int
+	ID              string        `json:"id"`
+	GID             string        `json:"gid"`
+	Type            TaskType      `json:"type"`
+	Status          TaskStatus    `json:"status"`
+	URL             string        `json:"url"`
+	FileName        string        `json:"fileName"`
+	LocalPath       string        `json:"localPath"`
+	RemotePath      string        `json:"remotePath"`
+	RemoteURL       string        `json:"remoteURL"`
+	TotalSize       int64         `json:"totalSize"`
+	DownloadedSize  int64         `json:"downloadedSize"`
+	UploadedSize    int64         `json:"uploadedSize"`
+	Speed           int64         `json:"speed"`
+	Connections     int           `json:"connections"`
+	ETA             time.Duration `json:"eta"`
+	Progress        float64       `json:"progress"`
+	Error           string        `json:"error"`
+	ChatID          int64         `json:"chatID"`
+	MessageID       int           `json:"messageID"`
+	UserID          int64         `json:"userID"`
+	CreatedAt       time.Time     `json:"createdAt"`
+	StartedAt       time.Time     `json:"startedAt"`
+	CompletedAt     time.Time     `json:"completedAt"`
+	Zip             bool          `json:"zip"`
+	Unzip           bool          `json:"unzip"`
+	Password        string        `json:"password"`
+	Quality         string        `json:"quality"`
+	OrigFileName    string        `json:"origFileName"`
+	ResultMessageID int           `json:"resultMessageID"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {
