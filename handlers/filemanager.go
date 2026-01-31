@@ -304,6 +304,57 @@ func (s *BotService) buildDriveNavigationKeyboard(files []DriveFile, currentRelP
 	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
+func (s *BotService) buildSearchNavigationKeyboard(files []DriveFile) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	maxShow := 20
+	count := 0
+	for i, f := range files {
+		if count >= maxShow {
+			break
+		}
+		count++
+
+		path := f.Path
+		if path == "" {
+			path = f.Name
+		}
+
+		action := "i"
+		if f.IsDir {
+			action = "c"
+		}
+
+		data := fmt.Sprintf("dr:%s:%s", action, path)
+		if len(data) > 60 {
+			id := s.StorePath(path)
+			data = fmt.Sprintf("dr:%s:id:%s", action, id)
+		}
+
+		var icon string
+		if f.IsDir {
+			icon = IconFolder
+		} else {
+			icon = getFileIcon(f.Name)
+		}
+
+		name := filepath.Base(f.Name)
+
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%d. %s %s", i+1, icon, utils.TruncateString(name, 25)),
+				data,
+			),
+		))
+	}
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"),
+	))
+
+	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
 func (s *BotService) HandleDriveMkdir(message *tgbotapi.Message, args string) {
 	if !s.IsAuthorized(message.From.ID) {
 		return
@@ -456,7 +507,7 @@ func (s *BotService) HandleDriveSearch(message *tgbotapi.Message, args string) {
 	log.Printf("[DriveSearch] Searching for '%s' in %s", args, searchPath)
 
 	cmd := exec.CommandContext(ctx, "rclone", "lsjson", searchPath, "--config", configPath,
-		"--include", "*"+args+"*", "-R", "--max-depth", "5")
+		"--include", "*"+args+"*", "-R", "--max-depth", "5", "--ignore-case")
 	output, err := cmd.Output()
 
 	if err != nil {
@@ -467,8 +518,8 @@ func (s *BotService) HandleDriveSearch(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	var files []DriveFile
-	if err := json.Unmarshal(output, &files); err != nil {
+	var rawFiles []DriveFile
+	if err := json.Unmarshal(output, &rawFiles); err != nil {
 		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID,
 			"❌ *Gagal parsing hasil pencarian*")
 		editMsg.ParseMode = MarkdownV2
@@ -476,9 +527,19 @@ func (s *BotService) HandleDriveSearch(message *tgbotapi.Message, args string) {
 		return
 	}
 
+	var files []DriveFile
+	queryLower := strings.ToLower(args)
+	for _, f := range rawFiles {
+		if strings.Contains(strings.ToLower(f.Name), queryLower) {
+			files = append(files, f)
+		}
+	}
+
 	text := s.formatSearchResults(args, files)
+	keyboard := s.buildSearchNavigationKeyboard(files)
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID, text)
 	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 }
 
@@ -515,7 +576,7 @@ func (s *BotService) formatSearchResults(query string, files []DriveFile) string
 			if path == "" {
 				path = f.Name
 			}
-			text.WriteString(fmt.Sprintf("%s `%s`%s\n", icon, utils.EscapeMarkdownV2(utils.TruncateString(path, 45)), size))
+			text.WriteString(fmt.Sprintf("%d\\. %s `%s`%s\n", i+1, icon, utils.EscapeMarkdownV2(utils.TruncateString(path, 45)), size))
 		}
 	}
 
@@ -603,17 +664,44 @@ func (s *BotService) handleCancelDeleteCallback(callback *tgbotapi.CallbackQuery
 }
 
 func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName string) {
+	if fileName == "" || fileName == "/" || fileName == "." {
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Invalid path"))
+		return
+	}
+
 	targetPath := s.TaskManager.RcloneDest + "/" + fileName
+	log.Printf("[DriveDelete] Attempting to delete: %s", targetPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
-	cmd := exec.CommandContext(ctx, "rclone", "purge", targetPath, "--config", configPath)
 
-	if err := cmd.Run(); err != nil {
-		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Failed to delete"))
-		return
+	cmd := exec.CommandContext(ctx, "rclone", "deletefile", targetPath, "--config", configPath)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+
+		log.Printf("[DriveDelete] 'deletefile' failed: %v | Output: %s. Trying 'purge'...", err, string(output))
+
+		cmdPurge := exec.CommandContext(ctx, "rclone", "purge", targetPath, "--config", configPath)
+		outputPurge, errPurge := cmdPurge.CombinedOutput()
+
+		if errPurge != nil {
+			log.Printf("[DriveDelete] 'purge' also failed: %v | Output: %s", errPurge, string(outputPurge))
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Failed to delete"))
+
+			errMsg := fmt.Sprintf("❌ *Gagal menghapus file/folder*\n\nTarget: `%s`\nError: `%s`\nOutput: `%s`",
+				utils.EscapeMarkdownV2(fileName),
+				utils.EscapeMarkdownV2(errPurge.Error()),
+				utils.EscapeMarkdownV2(utils.TruncateString(string(outputPurge), 100)))
+
+			s.reply(callback.Message, errMsg)
+			return
+		}
+		log.Printf("[DriveDelete] Successfully purged: %s", targetPath)
+	} else {
+		log.Printf("[DriveDelete] Successfully deleted file: %s", targetPath)
 	}
 
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Deleted successfully"))
@@ -621,6 +709,8 @@ func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName st
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID,
 		fmt.Sprintf("✅ *File Dihapus*\n\n📁 `%s`", utils.EscapeMarkdownV2(fileName)))
 	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}
+
 	_, _ = s.Bot.Send(editMsg)
 }
 
