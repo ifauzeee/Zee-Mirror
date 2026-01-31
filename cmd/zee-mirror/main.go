@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -23,7 +25,19 @@ const (
 )
 
 func main() {
-	fmt.Println(`
+	cfg := config.LoadConfig()
+
+	_ = os.MkdirAll(cfg.ConfigDir, 0750)
+	logPath := filepath.Join(cfg.ConfigDir, "zee-mirror.log")
+	logFile, err := os.OpenFile(filepath.Clean(logPath), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+
+	var multi io.Writer = os.Stdout
+	if err == nil {
+		multi = io.MultiWriter(os.Stdout, logFile)
+		log.SetOutput(multi)
+	}
+
+	banner := `
 ███████╗███████╗███████╗                       
 ╚══███╔╝██╔════╝██╔════╝                       
   ███╔╝ █████╗  █████╗                         
@@ -36,10 +50,18 @@ func main() {
 ██╔████╔██║██║██████╔╝██████╔╝██║   ██║██████╔╝
 ██║╚██╔╝██║██║██╔══██╗██╔══██╗██║   ██║██╔══██╗
 ██║ ╚═╝ ██║██║██║  ██║██║  ██║╚██████╔╝██║  ██║
-╚═╝     ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`)
+╚═╝     ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`
+
+	_, _ = fmt.Fprintln(multi, banner)
+
+	if err != nil {
+		log.Printf("⚠️ Gagal membuka file log: %v", err)
+	} else {
+		log.Println("📝 Logging to file enabled: zee-mirror.log")
+	}
+
 	log.Println("🚀 Starting Zee-Mirror Bot...")
 
-	cfg := config.LoadConfig()
 	if !cfg.Validate() {
 		log.Fatal("❌ Invalid configuration")
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -296,52 +297,42 @@ func (s *BotService) formatHealthCheck(checks []HealthCheck) string {
 
 func (s *BotService) HandleLogs(message *tgbotapi.Message, args string) {
 	if !s.IsAdmin(message.From.ID) {
-		s.reply(message, "❌ *Akses Ditolak*\nHanya Admin yang bisa melihat logs\\.")
+		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Admin yang bisa melihat logs\\."))
 		return
 	}
 
-	logs, err := s.DB.GetRecentLogs(20)
+	logPath := filepath.Join(s.Config.ConfigDir, "zee-mirror.log")
+
+	if _, err := os.Stat(logPath); os.IsNotExist(err) {
+		s.reply(message, GetErrorMessage("FILE NOT FOUND", "File log tidak ditemukan atau belum dibuat\\."))
+		return
+	}
+
+	timestamp := time.Now().Format("20060102_150405")
+	tempFileName := fmt.Sprintf("zee-mirror_logs_%s.log", timestamp)
+	tempPath := filepath.Join(os.TempDir(), tempFileName)
+
+	input, err := os.ReadFile(filepath.Clean(logPath))
 	if err != nil {
-		s.reply(message, "❌ *Gagal mengambil logs*")
+		s.reply(message, GetErrorMessage("READ ERROR", fmt.Sprintf("Gagal membaca log: %v", err)))
 		return
 	}
 
-	text := s.formatLogs(logs)
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(msg)
-}
-
-func (s *BotService) formatLogs(logs []map[string]interface{}) string {
-	var content strings.Builder
-
-	if len(logs) == 0 {
-		content.WriteString("_No recent logs available_")
-	} else {
-		for _, log := range logs {
-			level := log["level"].(string)
-			message := log["message"].(string)
-			timestamp := log["timestamp"].(time.Time)
-
-			icon := "ℹ️"
-			switch level {
-			case "error":
-				icon = "❌"
-			case "warning":
-				icon = "⚠️"
-			case "success":
-				icon = "✅"
-			}
-
-			content.WriteString(fmt.Sprintf("`%s` %s *%s*\n└ `%s`\n",
-				timestamp.Format("15:04:05"),
-				icon,
-				strings.ToUpper(level),
-				utils.EscapeMarkdownV2(utils.TruncateString(message, 50))))
-		}
+	err = os.WriteFile(tempPath, input, 0600)
+	if err != nil {
+		s.reply(message, GetErrorMessage("WRITE ERROR", fmt.Sprintf("Gagal membuat file temp: %v", err)))
+		return
 	}
+	defer func() { _ = os.Remove(tempPath) }()
 
-	return ProfessionalMessage("RECENT LOGS", content.String())
+	file := tgbotapi.NewDocument(message.Chat.ID, tgbotapi.FilePath(tempPath))
+	file.Caption = fmt.Sprintf("📝 *Application Logs:* `%s`", utils.EscapeMarkdownV2(tempFileName))
+	file.ParseMode = MarkdownV2
+
+	_, err = s.Bot.Send(file)
+	if err != nil {
+		s.reply(message, GetErrorMessage("SEND ERROR", fmt.Sprintf("Gagal mengirim file: %v", err)))
+	}
 }
 
 func (s *BotService) HandleSystemCallback(callback *tgbotapi.CallbackQuery, parts []string) {
@@ -393,6 +384,14 @@ func (s *BotService) HandleSystemCallback(callback *tgbotapi.CallbackQuery, part
 		}
 		s.HandleLogs(msg, "")
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+
+	case "logs_file":
+		msg := &tgbotapi.Message{
+			Chat: callback.Message.Chat,
+			From: callback.From,
+		}
+		s.HandleLogs(msg, "file")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Sending file..."))
 
 	case "cleanup":
 		if callback.From.ID != s.Config.OwnerID {
