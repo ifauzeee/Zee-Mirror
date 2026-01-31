@@ -68,7 +68,7 @@ func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
 	}
 
 	return fmt.Sprintf(
-		"🔹 *ID:* `%s` \\| %s *%s*\n"+
+		"🏷️ *ID:* `%s` \\| %s *%s*\n"+
 			"%s\n"+
 			"📄 *File:* `%s`\n"+
 			"📦 *Size:* `%s / %s`\n"+

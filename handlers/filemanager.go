@@ -667,7 +667,7 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 	if file.Name != "" {
 		text.WriteString(fmt.Sprintf("📦 *Size:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(file.Size))))
 		text.WriteString(fmt.Sprintf("🕒 *Modified:* `%s`\n", utils.EscapeMarkdownV2(file.ModTime)))
-		text.WriteString(fmt.Sprintf("🆔 *MimeType:* `%s`\n", utils.EscapeMarkdownV2(file.MimeType)))
+		text.WriteString(fmt.Sprintf("🏷️ *MimeType:* `%s`\n", utils.EscapeMarkdownV2(file.MimeType)))
 	} else {
 		text.WriteString("_Metadata limited atau rclone sedang sibuk_\n")
 	}

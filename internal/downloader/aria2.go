@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/parser"
 	"zee-mirror/pkg/utils"
@@ -76,6 +77,9 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 		"--enable-http-pipelining=true",
 		"--peer-id-prefix=-AZ2060-",
 		"--peer-agent=Transmission/2.94",
+		"--content-disposition-default-utf8=true",
+		"--remote-time=true",
+		"--check-integrity=true",
 	}
 
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
@@ -83,7 +87,7 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 		args = append(args, "--load-cookies="+cookiesPath)
 	}
 
-	if task.FileName != "" && task.FileName != "unknown_file" {
+	if task.FileName != "" && task.FileName != "unknown_file" && !isGenericName(task.FileName) {
 		args = append(args, "--out="+task.FileName)
 	}
 
@@ -122,4 +126,14 @@ func (e *Aria2Engine) parseProgress(stdout interface{}, onProgress func(Progress
 			})
 		}
 	}
+}
+
+func isGenericName(name string) bool {
+	uuidRegex := regexp.MustCompile(`^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
+	if uuidRegex.MatchString(name) {
+		return true
+	}
+
+	hexRegex := regexp.MustCompile(`^[a-fA-F0-9]{16,}$`)
+	return hexRegex.MatchString(name)
 }

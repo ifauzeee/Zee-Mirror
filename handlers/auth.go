@@ -63,7 +63,7 @@ func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	content := fmt.Sprintf("👤 *User:* %s\n🆔 *ID:* `%d`\n🔰 *Role:* `Authorized`",
+	content := fmt.Sprintf("👤 *User:* %s\n🏷️ *ID:* `%d`\n🔰 *Role:* `Authorized`",
 		utils.EscapeMarkdownV2(username), targetID)
 	s.reply(message, GetSuccessMessage("ACCESS GRANTED", content))
 }

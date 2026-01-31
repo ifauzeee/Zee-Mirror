@@ -20,7 +20,7 @@ func (s *BotService) extractArchive(task *Task) error {
 	if task.OrigFileName != "" {
 		originalFilename = strings.TrimSuffix(task.OrigFileName, filepath.Ext(task.OrigFileName))
 	} else {
-		originalFilename = strings.TrimSuffix(filepath.Base(task.LocalPath), filepath.Ext(task.LocalPath))
+		originalFilename = strings.TrimSuffix(task.FileName, filepath.Ext(task.FileName))
 	}
 
 	extractDir := filepath.Join(filepath.Dir(task.LocalPath), originalFilename)
@@ -77,10 +77,14 @@ func (s *BotService) createZipArchive(task *Task) error {
 	task.SetStatus(StatusZipping)
 	s.updateTaskStatus(task)
 
-	zipPath := task.LocalPath + ".zip"
-	if filepath.Ext(task.LocalPath) != "" {
-		zipPath = task.LocalPath[:len(task.LocalPath)-len(filepath.Ext(task.LocalPath))] + ".zip"
+	var zipName string
+	if task.OrigFileName != "" {
+		zipName = task.OrigFileName + ".zip"
+	} else {
+		zipName = task.FileName + ".zip"
 	}
+
+	zipPath := filepath.Join(filepath.Dir(task.LocalPath), zipName)
 
 	args := []string{
 		"a",

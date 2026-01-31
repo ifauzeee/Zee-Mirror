@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"mime"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -142,7 +144,7 @@ func ExtractMagnetFromText(text string) string {
 	return ""
 }
 
-func ParseFlags(args string) (url string, zip bool, unzip bool, password string, quality string) {
+func ParseFlags(args string) (url string, zip bool, unzip bool, password string, quality string, name string) {
 	parts := strings.Fields(args)
 
 	for i := 0; i < len(parts); i++ {
@@ -159,6 +161,11 @@ func ParseFlags(args string) (url string, zip bool, unzip bool, password string,
 		case "-q":
 			if i+1 < len(parts) {
 				quality = parts[i+1]
+				i++
+			}
+		case "-n", "-name":
+			if i+1 < len(parts) {
+				name = parts[i+1]
 				i++
 			}
 		default:
@@ -361,5 +368,52 @@ func GetLastLines(s string, n int) string {
 	if len(lines) <= n {
 		return s
 	}
+
 	return strings.Join(lines[len(lines)-n:], "\n")
+}
+
+func ResolveFileName(urlStr string) string {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			return nil
+		},
+	}
+
+	req, err := http.NewRequest("HEAD", urlStr, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		// Fallback to GET if HEAD fails
+		req.Method = "GET"
+		resp, err = client.Do(req)
+		if err != nil {
+			return ""
+		}
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	cd := resp.Header.Get("Content-Disposition")
+	if cd != "" {
+		if _, params, err := mime.ParseMediaType(cd); err == nil {
+			if filename, ok := params["filename"]; ok && filename != "" {
+				return SanitizeFileName(filename)
+			}
+			// Handle filename* encoding if needed, but basic filename is usually enough
+		}
+	}
+
+	// If redirects happened, use the final URL path
+	if resp.Request.URL.String() != urlStr {
+		return GetFileNameFromURL(resp.Request.URL.String())
+	}
+
+	return ""
 }

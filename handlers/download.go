@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -20,55 +21,32 @@ import (
 )
 
 func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
-	url, zip, unzip, password, quality := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	var fileName string
 
+	if name != "" {
+		fileName = name
+	}
+
 	if message.ReplyToMessage != nil {
-		reply := message.ReplyToMessage
-		var fileID, fileName string
-
-		switch {
-		case reply.Document != nil:
-			fileID = reply.Document.FileID
-			fileName = reply.Document.FileName
-		case reply.Video != nil:
-			fileID = reply.Video.FileID
-			fileName = reply.Video.FileName
-			if fileName == "" {
-				fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
-			}
-		case reply.Audio != nil:
-			fileID = reply.Audio.FileID
-			fileName = reply.Audio.FileName
-			if fileName == "" {
-				fileName = fmt.Sprintf("audio_%d.mp3", time.Now().Unix())
-			}
-		case reply.Voice != nil:
-			fileID = reply.Voice.FileID
-			fileName = fmt.Sprintf("voice_%d.ogg", time.Now().Unix())
-		case reply.VideoNote != nil:
-			fileID = reply.VideoNote.FileID
-			fileName = fmt.Sprintf("video_note_%d.mp4", time.Now().Unix())
-		case reply.Animation != nil:
-			fileID = reply.Animation.FileID
-			fileName = reply.Animation.FileName
-			if fileName == "" {
-				fileName = fmt.Sprintf("animation_%d.mp4", time.Now().Unix())
-			}
-		case len(reply.Photo) > 0:
-			photo := reply.Photo[len(reply.Photo)-1]
-			fileID = photo.FileID
-			fileName = fmt.Sprintf("photo_%d.jpg", time.Now().Unix())
-		}
-
+		fileID, replyName := s.extractFileFromReply(message.ReplyToMessage)
 		if fileID != "" {
-			go s.handleTelegramFileDownload(message, fileID, fileName, zip, unzip, password, quality)
+			go s.handleTelegramFileDownload(message, fileID, replyName, zip, unzip, password, quality)
 			return
 		}
 	}
 
 	if url != "" {
-		fileName = utils.GetFileNameFromURL(url)
+		if fileName == "" {
+			fileName = utils.GetFileNameFromURL(url)
+			if isGenericName(fileName) {
+				resolvedName := utils.ResolveFileName(url)
+				if resolvedName != "" {
+					fileName = resolvedName
+					log.Printf("[Mirror] Resolved filename from header: %s", fileName)
+				}
+			}
+		}
 		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.handleAutoDelete(task)
@@ -81,8 +59,48 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 	_, _ = s.Bot.Send(msg)
 }
 
+func (s *BotService) extractFileFromReply(reply *tgbotapi.Message) (string, string) {
+	var fileID, fileName string
+
+	switch {
+	case reply.Document != nil:
+		fileID = reply.Document.FileID
+		fileName = reply.Document.FileName
+	case reply.Video != nil:
+		fileID = reply.Video.FileID
+		fileName = reply.Video.FileName
+		if fileName == "" {
+			fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
+		}
+	case reply.Audio != nil:
+		fileID = reply.Audio.FileID
+		fileName = reply.Audio.FileName
+		if fileName == "" {
+			fileName = fmt.Sprintf("audio_%d.mp3", time.Now().Unix())
+		}
+	case reply.Voice != nil:
+		fileID = reply.Voice.FileID
+		fileName = fmt.Sprintf("voice_%d.ogg", time.Now().Unix())
+	case reply.VideoNote != nil:
+		fileID = reply.VideoNote.FileID
+		fileName = fmt.Sprintf("video_note_%d.mp4", time.Now().Unix())
+	case reply.Animation != nil:
+		fileID = reply.Animation.FileID
+		fileName = reply.Animation.FileName
+		if fileName == "" {
+			fileName = fmt.Sprintf("animation_%d.mp4", time.Now().Unix())
+		}
+	case len(reply.Photo) > 0:
+		photo := reply.Photo[len(reply.Photo)-1]
+		fileID = photo.FileID
+		fileName = fmt.Sprintf("photo_%d.jpg", time.Now().Unix())
+	}
+
+	return fileID, fileName
+}
+
 func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
-	url, zip, unzip, password, quality := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractMagnetFromText(args)
 	}
@@ -97,7 +115,10 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	fileName := utils.GetFileNameFromURL(url)
+	fileName := name
+	if fileName == "" {
+		fileName = utils.GetFileNameFromURL(url)
+	}
 	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
@@ -105,7 +126,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 }
 
 func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
-	url, zip, _, password, quality := utils.ParseFlags(args)
+	url, zip, _, password, quality, _ := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
 	}
@@ -299,7 +320,7 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 }
 
 func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
-	url, zip, unzip, password, quality := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractMagnetFromText(args)
 	}
@@ -311,7 +332,10 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	fileName := "torrent_download"
+	fileName := name
+	if fileName == "" {
+		fileName = "torrent_download"
+	}
 	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
@@ -787,4 +811,14 @@ func (s *BotService) processTask(task *Task) {
 	case TypeClone:
 		s.cloneWithRclone(task)
 	}
+}
+
+func isGenericName(name string) bool {
+	uuidRegex := regexp.MustCompile(`^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
+	if uuidRegex.MatchString(name) {
+		return true
+	}
+
+	hexRegex := regexp.MustCompile(`^[a-fA-F0-9]{16,}$`)
+	return hexRegex.MatchString(name)
 }
