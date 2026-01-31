@@ -30,6 +30,10 @@ func (s *BotService) HandleDriveList(message *tgbotapi.Message, args string, edi
 		return
 	}
 
+	if editMessageID == 0 {
+		s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+	}
+
 	log.Printf("[DriveList] Request from %d with args: %s, editMsgID: %d", message.From.ID, args, editMessageID)
 
 	fullPath, relPath := s.resolveDrivePath(args)
@@ -305,6 +309,8 @@ func (s *BotService) HandleDriveMkdir(message *tgbotapi.Message, args string) {
 		return
 	}
 
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	if args == "" {
 		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/mkdir nama_folder`")
 		return
@@ -429,6 +435,8 @@ func (s *BotService) HandleDriveSearch(message *tgbotapi.Message, args string) {
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
+
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	if args == "" {
 		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/find keyword`")

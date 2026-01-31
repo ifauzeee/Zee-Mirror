@@ -141,10 +141,14 @@ func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int6
 }
 
 func (s *BotService) reply(message *tgbotapi.Message, text string) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	_, err := s.Bot.Send(msg)
-	if err != nil {
+	sentMsg, err := s.Bot.Send(msg)
+	if err == nil {
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
+	} else {
 		log.Printf("[Reply] Failed to send message: %v", err)
 	}
 }

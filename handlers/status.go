@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"zee-mirror/pkg/utils"
 
@@ -12,6 +13,7 @@ import (
 var lastStatusText = make(map[int64]string)
 
 func (s *BotService) HandleStatus(message *tgbotapi.Message) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 }
 
@@ -48,7 +50,10 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 		if forceNew {
 			msg := tgbotapi.NewMessage(chatID, "❌ *Tidak ada task aktif\\.*")
 			msg.ParseMode = MarkdownV2
-			_, _ = s.Bot.Send(msg)
+			sentMsg, err := s.Bot.Send(msg)
+			if err == nil {
+				s.AutoDeleteMessage(chatID, sentMsg.MessageID, 30*time.Second)
+			}
 		}
 		return
 	}
@@ -200,19 +205,17 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 }
 
 func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	if args == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID>\n\nLihat daftar task dengan /status"))
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
+		s.reply(message, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID>\n\nLihat daftar task dengan /status"))
 		return
 	}
 
 	taskID := args
 
 	if s.TaskManager.CancelTask(taskID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf("Task `%s` telah dibatalkan.", taskID)))
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
+		s.reply(message, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf("Task `%s` telah dibatalkan.", taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
@@ -220,9 +223,7 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	task := s.TaskManager.GetTaskByGID(taskID)
 	if task != nil {
 		if s.TaskManager.CancelTask(task.ID) {
-			msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Task `%s` dibatalkan*", task.ID))
-			msg.ParseMode = MarkdownV2
-			_, _ = s.Bot.Send(msg)
+			s.reply(message, fmt.Sprintf("✅ *Task `%s` dibatalkan*", task.ID))
 			return
 		}
 	}
@@ -243,24 +244,18 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	if foundBatch {
 		targetBatch.CancelFunc()
 		targetBatch.SetStatus(StatusCancelled)
-		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Batch `%s` dibatalkan*", taskID))
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
+		s.reply(message, fmt.Sprintf("✅ *Batch `%s` dibatalkan*", taskID))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
 
 	if s.checkBatchSubTaskCancellation(taskID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("✅ *Sub-Task `%s` dibatalkan*", taskID))
-		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
+		s.reply(message, fmt.Sprintf("✅ *Sub-Task `%s` dibatalkan*", taskID))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("❌ *Task/Batch `%s` tidak ditemukan*", utils.EscapeMarkdownV2(taskID)))
-	msg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(msg)
+	s.reply(message, fmt.Sprintf("❌ *Task/Batch `%s` tidak ditemukan*", utils.EscapeMarkdownV2(taskID)))
 }
 
 func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {

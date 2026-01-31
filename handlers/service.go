@@ -92,6 +92,28 @@ func (s *BotService) Shutdown() {
 	}
 }
 
+func (s *BotService) AutoDeleteMessage(chatID int64, messageID int, delay time.Duration) {
+	if s.Settings == nil {
+		return
+	}
+
+	s.Settings.mu.RLock()
+	active := s.Settings.AutoDeleteMessages
+	s.Settings.mu.RUnlock()
+
+	if !active || messageID == 0 {
+		return
+	}
+
+	go func() {
+		if delay > 0 {
+			time.Sleep(delay)
+		}
+		deleteCmd := tgbotapi.NewDeleteMessage(chatID, messageID)
+		_, _ = s.Bot.Request(deleteCmd)
+	}()
+}
+
 func (s *BotService) handleAutoDelete(task *Task) {
 	if s.Settings == nil {
 		return
@@ -101,15 +123,29 @@ func (s *BotService) handleAutoDelete(task *Task) {
 	active := s.Settings.AutoDeleteMessages
 	s.Settings.mu.RUnlock()
 
-	if !active || task.MessageID == 0 {
+	if !active {
 		return
 	}
 
-	go func() {
-		log.Printf("[AutoDelete] Instantly deleting command message %d for task %s", task.MessageID, task.ID)
-		deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
-		if _, err := s.Bot.Request(deleteCmd); err != nil {
-			log.Printf("[AutoDelete] Failed to delete command message: %v", err)
-		}
-	}()
+	if task.MessageID != 0 {
+		go func() {
+			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
+			_, _ = s.Bot.Request(deleteCmd)
+		}()
+	}
+
+	// If task is completed/failed/cancelled, delete the result message after 60s
+	task.Mu.RLock()
+	status := task.Status
+	resultMsgID := task.ResultMessageID
+	task.Mu.RUnlock()
+
+	if (status == StatusCompleted || status == StatusFailed || status == StatusCancelled) && resultMsgID != 0 {
+		go func() {
+			log.Printf("[AutoDelete] Deleting result message %d for task %s in 60s", resultMsgID, task.ID)
+			time.Sleep(60 * time.Second)
+			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, resultMsgID)
+			_, _ = s.Bot.Request(deleteCmd)
+		}()
+	}
 }

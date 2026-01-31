@@ -16,7 +16,7 @@ const (
 )
 
 func (s *BotService) HandleStart(message *tgbotapi.Message) {
-	fmt.Println("👉 HandleStart dipanggil")
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	userName := message.From.FirstName
 	if userName == "" {
@@ -30,14 +30,16 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
 
-	if _, err := s.Bot.Send(msg); err != nil {
+	if sentMsg, err := s.Bot.Send(msg); err != nil {
 		fmt.Printf("❌ Error sending welcome message: %v\n", err)
 	} else {
-		fmt.Println("✅ Welcome message sent")
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 	}
 }
 
 func (s *BotService) HandleHelp(message *tgbotapi.Message) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	content := "Silakan pilih kategori bantuan di bawah untuk melihat detail fungsi dan cara penggunaan\\.\n\n" +
 		"💡 *Klik tombol untuk membuka sub\\-menu\\.*"
 
@@ -71,11 +73,13 @@ func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
 
-	if _, err := s.Bot.Send(msg); err != nil {
+	if sentMsg, err := s.Bot.Send(msg); err != nil {
 		fmt.Printf("❌ Error sending help message: %v\n", err)
 		msg.ParseMode = ""
 		msg.Text = "📖 Panduan Bantuan\n\nSilakan pilih kategori di bawah:"
 		_, _ = s.Bot.Send(msg)
+	} else {
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 	}
 }
 

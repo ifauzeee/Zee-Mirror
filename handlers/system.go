@@ -14,6 +14,8 @@ import (
 func (s *BotService) HandlePing(message *tgbotapi.Message) {
 	start := time.Now()
 
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	msg := tgbotapi.NewMessage(message.Chat.ID, "🏓 *Pinging\\.\\.\\.*")
 	msg.ParseMode = MarkdownV2
 	sentMsg, err := s.Bot.Send(msg)
@@ -27,9 +29,13 @@ func (s *BotService) HandlePing(message *tgbotapi.Message) {
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
 	editMsg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(editMsg)
+
+	s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 }
 
 func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	msg := tgbotapi.NewMessage(message.Chat.ID, "🚀 *Running Speedtest\\.\\.\\.*")
 	msg.ParseMode = MarkdownV2
 	sentMsg, err := s.Bot.Send(msg)
@@ -45,6 +51,7 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
 			editMsg.ParseMode = MarkdownV2
 			_, _ = s.Bot.Send(editMsg)
+			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 			return
 		}
 
@@ -58,5 +65,6 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
 		editMsg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(editMsg)
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 	}()
 }

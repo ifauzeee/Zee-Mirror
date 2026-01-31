@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"zee-mirror/pkg/utils"
 
@@ -23,13 +24,18 @@ func NewSettings() *Settings {
 }
 
 func (s *BotService) HandleSettings(message *tgbotapi.Message) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+
 	text := s.formatSettingsMessage()
 	keyboard := s.getSettingsKeyboard()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, _ = s.Bot.Send(msg)
+	sentMsg, err := s.Bot.Send(msg)
+	if err == nil {
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
+	}
 }
 
 func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, parts []string) {
