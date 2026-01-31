@@ -29,8 +29,6 @@ func (s *BotService) HandlePing(message *tgbotapi.Message) {
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
 	editMsg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(editMsg)
-
-	s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 }
 
 func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
@@ -51,7 +49,6 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
 			editMsg.ParseMode = MarkdownV2
 			_, _ = s.Bot.Send(editMsg)
-			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 			return
 		}
 
@@ -65,6 +62,5 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
 		editMsg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(editMsg)
-		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 	}()
 }

@@ -145,10 +145,7 @@ func (s *BotService) reply(message *tgbotapi.Message, text string) {
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	sentMsg, err := s.Bot.Send(msg)
-	if err == nil {
-		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
-	} else {
+	if _, err := s.Bot.Send(msg); err != nil {
 		log.Printf("[Reply] Failed to send message: %v", err)
 	}
 }

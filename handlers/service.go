@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
@@ -127,24 +126,10 @@ func (s *BotService) handleAutoDelete(task *Task) {
 		return
 	}
 
+	// User's command message is deleted immediately
 	if task.MessageID != 0 {
 		go func() {
 			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
-			_, _ = s.Bot.Request(deleteCmd)
-		}()
-	}
-
-	// If task is completed/failed/cancelled, delete the result message after 60s
-	task.Mu.RLock()
-	status := task.Status
-	resultMsgID := task.ResultMessageID
-	task.Mu.RUnlock()
-
-	if (status == StatusCompleted || status == StatusFailed || status == StatusCancelled) && resultMsgID != 0 {
-		go func() {
-			log.Printf("[AutoDelete] Deleting result message %d for task %s in 60s", resultMsgID, task.ID)
-			time.Sleep(60 * time.Second)
-			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, resultMsgID)
 			_, _ = s.Bot.Request(deleteCmd)
 		}()
 	}
