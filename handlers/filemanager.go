@@ -249,10 +249,15 @@ func (s *BotService) buildDriveNavigationKeyboard(files []DriveFile, currentRelP
 			if currentRelPath != "" {
 				nextPath = strings.TrimSuffix(currentRelPath, "/") + "/" + f.Name
 			}
+			data := fmt.Sprintf("dr:c:%s", nextPath)
+			if len(data) > 60 {
+				id := s.StorePath(nextPath)
+				data = fmt.Sprintf("dr:c:id:%s", id)
+			}
 			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(
 					fmt.Sprintf("%d. %s %s", folderCount, IconFolder, utils.TruncateString(f.Name, 25)),
-					fmt.Sprintf("dr:c:%s", nextPath),
+					data,
 				),
 			))
 		}
@@ -266,17 +271,27 @@ func (s *BotService) buildDriveNavigationKeyboard(files []DriveFile, currentRelP
 			if currentRelPath != "" {
 				filePath = strings.TrimSuffix(currentRelPath, "/") + "/" + f.Name
 			}
+			data := fmt.Sprintf("dr:i:%s", filePath)
+			if len(data) > 60 {
+				id := s.StorePath(filePath)
+				data = fmt.Sprintf("dr:i:id:%s", id)
+			}
 			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(
 					fmt.Sprintf("%d. %s %s", fileCount, getFileIcon(f.Name), utils.TruncateString(f.Name, 25)),
-					fmt.Sprintf("dr:i:%s", filePath),
+					data,
 				),
 			))
 		}
 	}
 
 	var navButtons []tgbotapi.InlineKeyboardButton
-	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", fmt.Sprintf("dr:c:%s", currentRelPath)))
+	refreshData := fmt.Sprintf("dr:c:%s", currentRelPath)
+	if len(refreshData) > 60 {
+		id := s.StorePath(currentRelPath)
+		refreshData = fmt.Sprintf("dr:c:id:%s", id)
+	}
+	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", refreshData))
 	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🏠 Home", "dr:h"))
 	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dr:x"))
 
@@ -507,50 +522,76 @@ func (s *BotService) HandleDriveCallback(callback *tgbotapi.CallbackQuery, parts
 	}
 
 	action := parts[1]
-
 	switch action {
 	case "cd", "c":
-		if len(parts) >= 3 {
-			fullPath := strings.Join(parts[2:], ":")
-			msg := &tgbotapi.Message{
-				Chat: callback.Message.Chat,
-				From: callback.From,
-			}
-			s.HandleDriveList(msg, fullPath, callback.Message.MessageID)
-			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📂 Membuka folder..."))
-		}
-
+		s.handleCDCallback(callback, parts)
 	case "home", "h":
-		msg := &tgbotapi.Message{
-			Chat: callback.Message.Chat,
-			From: callback.From,
-		}
-		s.HandleDriveList(msg, "", callback.Message.MessageID)
-		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏠 Kembali ke awal"))
-
+		s.handleHomeCallback(callback)
 	case "info", "i":
-		if len(parts) >= 3 {
-			fullPath := strings.Join(parts[2:], ":")
-			s.handleDriveFileInfoDetailed(callback.Message.Chat.ID, callback.Message.MessageID, fullPath)
-			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
-		}
-
+		s.handleInfoCallback(callback, parts)
 	case CmdClose, "x":
-		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
-		_, _ = s.Bot.Request(deleteMsg)
-		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
-
+		s.handleCloseCallback(callback)
 	case "confirm_delete", "df":
-		if len(parts) >= 3 {
-			fileName := parts[2]
-			s.executeDelete(callback, fileName)
-		}
-
+		s.handleConfirmDeleteCallback(callback, parts)
 	case "cancel_delete", "xf":
-		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
-		_, _ = s.Bot.Request(deleteMsg)
-		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Cancelled"))
+		s.handleCancelDeleteCallback(callback)
 	}
+}
+
+func (s *BotService) resolveCallbackPath(parts []string) string {
+	if len(parts) < 3 {
+		return ""
+	}
+	fullPath := strings.Join(parts[2:], ":")
+	if strings.HasPrefix(fullPath, "id:") {
+		id := strings.TrimPrefix(fullPath, "id:")
+		if cached, ok := s.GetPath(id); ok {
+			return cached
+		}
+	}
+	return fullPath
+}
+
+func (s *BotService) handleCDCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+	fullPath := s.resolveCallbackPath(parts)
+	msg := &tgbotapi.Message{
+		Chat: callback.Message.Chat,
+		From: callback.From,
+	}
+	s.HandleDriveList(msg, fullPath, callback.Message.MessageID)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📂 Membuka folder..."))
+}
+
+func (s *BotService) handleHomeCallback(callback *tgbotapi.CallbackQuery) {
+	msg := &tgbotapi.Message{
+		Chat: callback.Message.Chat,
+		From: callback.From,
+	}
+	s.HandleDriveList(msg, "", callback.Message.MessageID)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏠 Kembali ke awal"))
+}
+
+func (s *BotService) handleInfoCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+	fullPath := s.resolveCallbackPath(parts)
+	s.handleDriveFileInfoDetailed(callback.Message.Chat.ID, callback.Message.MessageID, fullPath)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+}
+
+func (s *BotService) handleCloseCallback(callback *tgbotapi.CallbackQuery) {
+	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+	_, _ = s.Bot.Request(deleteMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
+}
+
+func (s *BotService) handleConfirmDeleteCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+	fullPath := s.resolveCallbackPath(parts)
+	s.executeDelete(callback, fullPath)
+}
+
+func (s *BotService) handleCancelDeleteCallback(callback *tgbotapi.CallbackQuery) {
+	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+	_, _ = s.Bot.Request(deleteMsg)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Cancelled"))
 }
 
 func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName string) {
@@ -637,9 +678,21 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 		dirPath = ""
 	}
 
+	backData := fmt.Sprintf("dr:c:%s", dirPath)
+	if len(backData) > 60 {
+		id := s.StorePath(dirPath)
+		backData = fmt.Sprintf("dr:c:id:%s", id)
+	}
+
+	deleteData := fmt.Sprintf("dr:df:%s", relPath)
+	if len(deleteData) > 60 {
+		id := s.StorePath(relPath)
+		deleteData = fmt.Sprintf("dr:df:id:%s", id)
+	}
+
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Folder", fmt.Sprintf("dr:c:%s", dirPath)),
-		tgbotapi.NewInlineKeyboardButtonData("❌ Delete", fmt.Sprintf("dr:df:%s", relPath)),
+		tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Folder", backData),
+		tgbotapi.NewInlineKeyboardButtonData("❌ Delete", deleteData),
 	))
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dr:x"),
