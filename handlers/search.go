@@ -91,7 +91,32 @@ func (s *BotService) HandleSearchCallback(callback *tgbotapi.CallbackQuery, part
 	}
 
 	if len(results) == 0 {
-		s.editStatusMessage(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("📭 *Tidak ada hasil ditemukan di %s*\n\n_Cobalah menggunakan kata kunci lain atau provider yang berbeda\\._", provider))
+
+		sessionID := uuid.New().String()[:8]
+		session := &SearchSession{
+			Query:     query,
+			Provider:  provider,
+			Results:   results,
+			Page:      0,
+			CreatedAt: time.Now(),
+		}
+		SearchMu.Lock()
+		SearchSessions[sessionID] = session
+		SearchMu.Unlock()
+
+		text := fmt.Sprintf("📭 *Tidak ada hasil ditemukan di %s*\n\n_Cobalah menggunakan kata kunci lain atau provider yang berbeda\\._", provider)
+
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_back:%s", sessionID)),
+				tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", fmt.Sprintf("t_close:%s", sessionID)),
+			),
+		)
+
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		editMsg.ParseMode = MarkdownV2
+		editMsg.ReplyMarkup = &keyboard
+		_, _ = s.Bot.Send(editMsg)
 		return
 	}
 
@@ -197,7 +222,11 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 	action := parts[0]
 
 	if action == "t_back" {
+		if len(parts) < 2 {
+			return
+		}
 		sessionID := parts[1]
+
 		SearchMu.RLock()
 		session, exists := SearchSessions[sessionID]
 		SearchMu.RUnlock()

@@ -54,7 +54,7 @@ func getHelpBatch() string {
 	return HelpDetailMessage(
 		"📦 BATCH",
 		"Download multiple URLs sekaligus dalam satu batch\\.",
-		"/batch\nURL1\nURL2\nURL3\n\n📋 *COMMAND TERKAIT*\n• `/batchstatus` ─ Lihat status batch\n• `/cancelbatch` ─ Batalkan batch\n\n✨ *FITUR*\n• Download parallel\n• Progress tracking per URL\n• Auto retry jika gagal",
+		"/batch\nURL1\nURL2\nURL3\n\n✨ *FITUR*\n• Download parallel\n• Progress tracking per URL\n• Auto retry jika gagal",
 		"/batch\nhttps://file1\\.com/a\\.zip\nhttps://file2\\.com/b\\.zip",
 		"",
 	)
