@@ -533,7 +533,14 @@ func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 		}
 	}
 
-	if err := s.UploadWithRclone(task); err != nil {
+	var err error
+	if task.Type == TypeLeech {
+		err = s.UploadToTelegram(task)
+	} else {
+		err = s.UploadWithRclone(task)
+	}
+
+	if err != nil {
 		task.SetError(fmt.Sprintf("Upload failed: %v", err))
 	} else {
 		task.SetStatus(StatusCompleted)
@@ -663,8 +670,14 @@ func (s *BotService) updateTaskStatus(task *Task) {
 	text := buildTaskStatusText(snapshot)
 
 	if snapshot.Status == StatusCompleted && utils.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
-		if s.sendVideoWithThumbnail(task, text) {
-			return
+		task.Mu.RLock()
+		existingID := task.ResultMessageID
+		task.Mu.RUnlock()
+
+		if existingID == 0 {
+			if s.sendVideoWithThumbnail(task, text) {
+				return
+			}
 		}
 	}
 
@@ -765,6 +778,31 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 
 func (s *BotService) sendFinalMessage(task *Task, text string) {
 	snapshot := task.GetSnapshot()
+
+	task.Mu.RLock()
+	msgID := task.ResultMessageID
+	task.Mu.RUnlock()
+
+	if msgID != 0 {
+		edit := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
+		edit.ParseMode = MarkdownV2
+		if snapshot.RemoteURL != "" {
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+				),
+			)
+			edit.ReplyMarkup = &keyboard
+		}
+		if _, err := s.Bot.Send(edit); err != nil {
+			log.Printf("[FinalMessage] Failed to edit caption: %v", err)
+
+			log.Printf("[FinalMessage] Fallback to sending new message")
+		} else {
+			return
+		}
+	}
+
 	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
 	msg.ParseMode = MarkdownV2
 

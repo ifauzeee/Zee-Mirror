@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"zee-mirror/pkg/utils"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (s *BotService) UploadWithRclone(task *Task) error {
@@ -239,4 +241,70 @@ func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 			lastUpdate = time.Now()
 		}
 	}
+}
+
+func (s *BotService) UploadToTelegram(task *Task) error {
+	task.SetStatus(StatusUploading)
+	task.Mu.Lock()
+	task.Progress = 0
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	filePath := task.LocalPath
+	if filePath == "" {
+		return fmt.Errorf("no file to upload")
+	}
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %v", err)
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("cannot upload directory to telegram directly, please zip it first")
+	}
+
+	if info.Size() > 2*1024*1024*1024 {
+		return fmt.Errorf("file too large for telegram (max 2GB)")
+	}
+
+	var msg tgbotapi.Chattable
+	if utils.IsVideoFile(filePath) {
+		video := tgbotapi.NewVideo(task.ChatID, tgbotapi.FilePath(filePath))
+		video.Caption = fmt.Sprintf("📄 %s", task.FileName)
+
+		if thumb, err := GenerateThumbnail(filePath, s.TaskManager.DownloadDir); err == nil {
+			video.Thumb = tgbotapi.FilePath(thumb)
+			defer func() {
+				if err := os.Remove(thumb); err != nil {
+					log.Printf("Failed to remove thumbnail: %v", err)
+				}
+			}()
+		}
+
+		msg = video
+	} else {
+		doc := tgbotapi.NewDocument(task.ChatID, tgbotapi.FilePath(filePath))
+		doc.Caption = fmt.Sprintf("📄 %s", task.FileName)
+		msg = doc
+	}
+
+	task.Mu.Lock()
+	task.Progress = 50
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	sentMsg, err := s.Bot.Send(msg)
+	if err != nil {
+		return fmt.Errorf("telegram upload failed: %v", err)
+	}
+
+	task.Mu.Lock()
+	task.ResultMessageID = sentMsg.MessageID
+	task.Progress = 100
+	task.UploadedSize = info.Size()
+	task.RemotePath = "telegram"
+	task.Mu.Unlock()
+
+	return nil
 }
