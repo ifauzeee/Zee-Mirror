@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
-	"zee-mirror/internal/database"
+	"zee-mirror/internal/repository"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -17,7 +18,9 @@ type BotService struct {
 	BatchManager  *BatchManager
 	Settings      *Settings
 	Config        *config.Config
-	DB            *database.DB
+	DB            repository.FullRepository
+	UserRepo      repository.UserRepository
+	SettingsRepo  repository.SettingsRepository
 	Notifications *NotificationService
 	PathCache     sync.Map
 }
@@ -40,19 +43,22 @@ func (s *BotService) GetPath(id string) (string, bool) {
 	return val.(string), true
 }
 
-func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db *database.DB) *BotService {
+func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullRepository) *BotService {
 	s := &BotService{
 		Bot:          bot,
 		Config:       cfg,
 		DB:           db,
+		UserRepo:     db,
+		SettingsRepo: db,
 		Settings:     NewSettings(),
 		BatchManager: NewBatchManager(),
 	}
 
-	if val, err := db.GetSetting("auto_delete_messages"); err == nil {
+	ctx := context.Background()
+	if val, err := db.Get(ctx, "auto_delete_messages"); err == nil {
 		s.Settings.AutoDeleteMessages = (val == "true")
 	}
-	if val, err := db.GetSetting("default_mode"); err == nil {
+	if val, err := db.Get(ctx, "default_mode"); err == nil {
 		s.Settings.DefaultMode = val
 	}
 
@@ -68,14 +74,14 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db *database.DB) *B
 	s.TaskManager = tm
 
 	var alertChannelID int64
-	if alertCh, err := db.GetSetting("alert_channel_id"); err == nil {
+	if alertCh, err := db.Get(ctx, "alert_channel_id"); err == nil {
 		_, _ = fmt.Sscanf(alertCh, "%d", &alertChannelID)
 	}
 	s.Notifications = NewNotificationService(bot, alertChannelID, cfg.OwnerID)
 
-	_ = db.UpsertUser(cfg.OwnerID, "Owner", "owner")
+	_ = db.Upsert(ctx, cfg.OwnerID, "Owner", "owner")
 	for _, id := range cfg.AuthorizedUsers {
-		_ = db.UpsertUser(id, "Authorized User", "authorized")
+		_ = db.Upsert(ctx, id, "Authorized User", "authorized")
 	}
 
 	go s.startDiskCleanupWorker()

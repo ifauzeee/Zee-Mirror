@@ -1,8 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -232,7 +233,8 @@ func (s *BotService) performHealthChecks() []HealthCheck {
 	checks = append(checks, diskCheck)
 
 	dbCheck := HealthCheck{Name: "Database"}
-	if err := s.DB.Ping(); err == nil {
+	ctx := context.Background()
+	if err := s.DB.Ping(ctx); err == nil {
 		dbCheck.Status = IconOK
 		dbCheck.Message = "SQLite connection OK"
 		dbCheck.Healthy = true
@@ -424,7 +426,7 @@ func (s *BotService) StartResourceMonitor() {
 		}
 	}()
 
-	log.Println("[Monitor] Resource monitoring started")
+	slog.Info("Resource monitoring started")
 }
 
 func (s *BotService) checkResourceAlerts() {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,14 +43,14 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 				resolvedName := utils.ResolveFileName(url)
 				if resolvedName != "" {
 					fileName = resolvedName
-					log.Printf("[Mirror] Resolved filename from header: %s", fileName)
+					slog.Debug("Resolved filename from header", "filename", fileName)
 				}
 			}
 		}
 		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.handleAutoDelete(task)
-		log.Printf("[Mirror] Task created: %s", task.ID)
+		slog.Info("Mirror task created", "taskID", task.ID, "url", url)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
-	log.Printf("[Leech] Task created: %s", task.ID)
+	slog.Info("Leech task created", "taskID", task.ID, "url", url)
 }
 
 func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
@@ -146,7 +146,7 @@ func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
 	task := s.TaskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, message.MessageID, message.From.ID, zip, false, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
-	log.Printf("[YTDLP] Task created: %s", task.ID)
+	slog.Info("YTDLP task created", "taskID", task.ID, "url", url)
 }
 
 func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string, zip bool, password string) {
@@ -167,7 +167,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 
 	cookiesPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
 	if _, err := os.Stat(cookiesPath); err == nil {
-		log.Printf("[YTDLP-Info] Using cookies from: %s", cookiesPath)
+		slog.Debug("Using YTDLP cookies", "path", cookiesPath)
 		args = append(args, "--cookies", cookiesPath)
 		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 	}
@@ -181,7 +181,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			stderr = string(exitErr.Stderr)
 		}
-		log.Printf("[YTDLP-Info] Error: %v, Stderr: %s", err, stderr)
+		slog.Error("YTDLP analysis failed", "error", err, "stderr", stderr)
 		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal menganalisa video:* %v\n\n_Pastikan URL valid atau coba lagi nanti\\._", utils.EscapeMarkdownV2(err.Error())))
 		return
 	}
@@ -202,7 +202,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 
 	resMap := make(map[int]float64)
 	for _, f := range data.Formats {
-		log.Printf("[YTDLP-Format] ID: %s, Res: %dp, FPS: %.1f, VCodec: %s", f.FormatID, f.Height, f.FPS, f.VCodec)
+		slog.Debug("YTDLP Format found", "id", f.FormatID, "height", f.Height, "fps", f.FPS, "vcodec", f.VCodec)
 
 		if strings.HasPrefix(f.FormatID, "sb") {
 			continue
@@ -316,7 +316,7 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 
 	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality)
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
-	log.Printf("[YTDLPCallback] Task created: %s", task.ID)
+	slog.Info("YTDLP task created from callback", "taskID", task.ID, "quality", quality)
 }
 
 func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
@@ -349,7 +349,7 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
-	log.Printf("[Torrent] Task created: %s", task.ID)
+	slog.Info("Torrent task created", "taskID", task.ID, "url", url)
 }
 
 func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password, quality string) {
@@ -372,7 +372,7 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 	if filepath.IsAbs(tgFile.FilePath) {
 		translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
 		if _, err := os.Stat(translatedPath); err == nil {
-			log.Printf("[TGDownload] Local file detected: %s", translatedPath)
+			slog.Info("Local TG file detected", "path", translatedPath)
 			fileURL = "file://" + translatedPath
 		}
 	}
@@ -386,7 +386,7 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 		}
 	}
 
-	log.Printf("[TGDownload] FileID: %s, FilePath: %s, FinalURL: %s", fileID, tgFile.FilePath, fileURL)
+	slog.Debug("Telegram download initiated", "fileID", fileID, "filePath", tgFile.FilePath, "url", fileURL)
 
 	taskType := TypeMirror
 	if strings.HasSuffix(strings.ToLower(fileName), ".torrent") {
@@ -395,7 +395,7 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 
 	task := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
-	log.Printf("[TGDownload] Task created: %s, Type: %s", task.ID, taskType)
+	slog.Info("Telegram download task created", "taskID", task.ID, "type", taskType)
 }
 
 func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
@@ -813,7 +813,8 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 			task.Mu.Lock()
 			task.ResultMessageID = sentMsg.MessageID
 			task.Mu.Unlock()
-			log.Printf("[AutoDelete] Captured result video msg ID %d for task %s", sentMsg.MessageID, task.ID)
+			slog.Info("Captured result video message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
+			s.AutoDeleteMessage(snapshot.ChatID, sentMsg.MessageID, 60*time.Second)
 			_ = os.Remove(thumb)
 			return true
 		}
@@ -841,9 +842,7 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 			edit.ReplyMarkup = &keyboard
 		}
 		if _, err := s.Bot.Send(edit); err != nil {
-			log.Printf("[FinalMessage] Failed to edit caption: %v", err)
-
-			log.Printf("[FinalMessage] Fallback to sending new message")
+			slog.Warn("Failed to edit caption, falling back to sending new message", "error", err)
 		} else {
 			return
 		}
@@ -865,7 +864,7 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 		task.Mu.Lock()
 		task.ResultMessageID = sentMsg.MessageID
 		task.Mu.Unlock()
-		log.Printf("[AutoDelete] Captured result final msg ID %d for task %s", sentMsg.MessageID, task.ID)
+		slog.Info("Captured result final message ID for auto-delete", "messageID", sentMsg.MessageID, "taskID", task.ID)
 	}
 }
 
@@ -881,11 +880,11 @@ func (s *BotService) processTask(task *Task) {
 	task.Mu.RUnlock()
 
 	if status == StatusCancelled {
-		log.Printf("[Task %s] Skipping cancelled task", task.ID)
+		slog.Info("Skipping cancelled task", "taskID", task.ID)
 		return
 	}
 
-	log.Printf("[Task %s] Starting processing type: %s", task.ID, task.Type)
+	slog.Info("Starting task processing", "taskID", task.ID, "type", task.Type)
 
 	switch task.Type {
 	case TypeMirror, TypeLeech, TypeTorrent:

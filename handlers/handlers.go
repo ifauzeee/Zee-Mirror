@@ -2,13 +2,12 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
-	"zee-mirror/internal/database"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/downloader"
+	"zee-mirror/internal/repository"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -58,7 +57,7 @@ const (
 
 type Task struct {
 	domain.Task
-	DB *database.DB
+	DB repository.TaskRepository
 }
 
 type TaskSnapshot = domain.TaskSnapshot
@@ -79,7 +78,7 @@ type TaskManager struct {
 	Wg                   sync.WaitGroup
 	ShutdownChan         chan struct{}
 	Bot                  *tgbotapi.BotAPI
-	DB                   *database.DB
+	DB                   repository.TaskRepository
 	LastStatusMsg        map[int64]int
 	StatusPages          map[int64]int
 	ProcessTaskFunc      func(*Task)
@@ -89,7 +88,7 @@ type TaskManager struct {
 	YTDLPEngine downloader.DownloadEngine
 }
 
-func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db *database.DB) *TaskManager {
+func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository) *TaskManager {
 	tm := &TaskManager{
 		Tasks:                make(map[string]*Task),
 		Queue:                make(chan *Task, 100),
@@ -110,10 +109,11 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 	}
 
 	if db != nil {
-		activeTasks, err := db.GetActiveTasks()
+		ctx := context.Background()
+		activeTasks, err := db.GetActive(ctx)
 		if err == nil {
 			for _, rt := range activeTasks {
-				ctx, cancel := context.WithCancel(context.Background())
+				taskCtx, cancel := context.WithCancel(context.Background())
 				task := &Task{
 					Task: domain.Task{
 						ID:             rt.ID,
@@ -135,7 +135,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 						Unzip:          rt.Unzip,
 						Password:       rt.Password,
 						Error:          rt.Error,
-						Ctx:            ctx,
+						Ctx:            taskCtx,
 						CancelFunc:     cancel,
 					},
 					DB: db,
@@ -146,7 +146,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 				tm.Tasks[task.ID] = task
 				tm.Queue <- task
 			}
-			log.Printf("📦 Loaded %d active tasks from database", len(activeTasks))
+			slog.Info("Loaded active tasks from database", "count", len(activeTasks))
 		}
 	}
 
@@ -232,7 +232,7 @@ func (t *Task) SaveToDB() error {
 	t.Mu.RLock()
 	defer t.Mu.RUnlock()
 
-	record := database.TaskRecord{
+	record := domain.TaskRecord{
 		ID:             t.ID,
 		GID:            t.GID,
 		Type:           string(t.Type),
@@ -255,10 +255,14 @@ func (t *Task) SaveToDB() error {
 	}
 
 	if !t.CompletedAt.IsZero() {
-		record.CompletedAt = sql.NullTime{Time: t.CompletedAt, Valid: true}
+		record.CompletedAt = struct {
+			Time  time.Time
+			Valid bool
+		}{Time: t.CompletedAt, Valid: true}
 	}
 
-	return t.DB.SaveTask(record)
+	ctx := context.Background()
+	return t.DB.Save(ctx, record)
 }
 
 func (tm *TaskManager) GetTask(taskID string) *Task {

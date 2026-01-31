@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -80,7 +80,7 @@ func (s *BotService) HandleSearchCallback(callback *tgbotapi.CallbackQuery, part
 	_, _ = s.Bot.Send(editMsg)
 
 	var results []SearchResult
-	log.Printf("[Search] Switching to provider: %s", provider)
+	slog.Info("Torrent search initiated", "provider", provider, "query", query)
 	switch provider {
 	case "solid":
 		results = searchSolidTorrents(query)
@@ -207,7 +207,7 @@ func (s *BotService) showSearchResults(chatID int64, messageID int, sessionID st
 	editMsg.ReplyMarkup = &keyboard
 
 	if _, err := s.Bot.Send(editMsg); err != nil {
-		log.Printf("[Search] Markdown error: %v", err)
+		slog.Warn("Search results markdown error, using fallback", "error", err)
 		fallbackText := fmt.Sprintf("🔍 Hasil Pencarian (%s): %s\n\nHalaman %d/%d\n\n", session.Provider, session.Query, session.Page+1, totalPages)
 		for i, item := range visibleItems {
 			fallbackText += fmt.Sprintf("%d. %s\nSize: %s | Seeds: %s\n\n", start+i+1, item.Title, item.Size, item.Seeders)
@@ -252,7 +252,7 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 		editMsg.ReplyMarkup = &keyboard
 
 		if _, err := s.Bot.Send(editMsg); err != nil {
-			log.Printf("[Callback] t_back Edit error: %v", err)
+			slog.Warn("t_back edit error", "error", err)
 		}
 
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
@@ -333,7 +333,7 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 		editMsg.ReplyMarkup = &keyboard
 
 		if _, err := s.Bot.Send(editMsg); err != nil {
-			log.Printf("[SearchItem] Markdown error: %v", err)
+			slog.Warn("Search item detail markdown error, using fallback", "error", err)
 			fallbackText := fmt.Sprintf("Detail Torrent:\n\n%s\nSize: %s\nMagnet:\n%s", item.Title, item.Size, cleanMagnet)
 			fallbackEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fallbackText)
 			fallbackEdit.ReplyMarkup = &keyboard
@@ -346,21 +346,21 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 func searchSolidTorrents(query string) []SearchResult {
 	var results []SearchResult
 	apiURL := fmt.Sprintf("https://solidtorrents.to/api/v1/search?q=%s&sort=seeders", url.QueryEscape(query))
-	log.Printf("[Solid] Requesting URL: %s", apiURL)
+	slog.Debug("Requesting SolidTorrents", "url", apiURL)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(apiURL)
 	if err != nil {
-		log.Printf("[Solid] Error: %v", err)
+		slog.Error("SolidTorrents request failed", "error", err)
 		return results
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("[Solid] Error closing response body: %v", err)
+			slog.Warn("Error closing SolidTorrents response body", "error", err)
 		}
 	}()
 
-	log.Printf("[Solid] Status Code: %d", resp.StatusCode)
+	slog.Debug("SolidTorrents response", "status", resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return results
@@ -376,7 +376,7 @@ func searchSolidTorrents(query string) []SearchResult {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		log.Printf("[Solid] Decode error: %v", err)
+		slog.Error("SolidTorrents decode error", "error", err)
 		return results
 	}
 
@@ -409,7 +409,7 @@ func searchSolidTorrents(query string) []SearchResult {
 func scrapeNyaa(query string) []SearchResult {
 	var results []SearchResult
 	searchURL := fmt.Sprintf("https://nyaa.si/?f=0&c=0_0&q=%s", url.QueryEscape(query))
-	log.Printf("[Nyaa] Requesting URL: %s", searchURL)
+	slog.Debug("Requesting Nyaa", "url", searchURL)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, _ := http.NewRequest("GET", searchURL, nil)
@@ -417,16 +417,16 @@ func scrapeNyaa(query string) []SearchResult {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[Nyaa] Error: %v", err)
+		slog.Error("Nyaa request failed", "error", err)
 		return results
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("[Nyaa] Error closing response body: %v", err)
+			slog.Warn("Error closing Nyaa response body", "error", err)
 		}
 	}()
 
-	log.Printf("[Nyaa] Status Code: %d", resp.StatusCode)
+	slog.Debug("Nyaa response", "status", resp.StatusCode)
 
 	if resp.StatusCode != 200 {
 		return results
@@ -434,7 +434,7 @@ func scrapeNyaa(query string) []SearchResult {
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		log.Printf("[Nyaa] Parse error: %v", err)
+		slog.Error("Nyaa parse error", "error", err)
 		return results
 	}
 
@@ -477,7 +477,7 @@ func searchPirateBay(query string) []SearchResult {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("[PirateBay] Error closing response body: %v", err)
+			slog.Warn("Error closing PirateBay response body", "error", err)
 		}
 	}()
 

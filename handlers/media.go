@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,7 +66,7 @@ func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) 
 	statusMsg.ParseMode = MarkdownV2
 	sent, err := s.Bot.Send(statusMsg)
 	if err != nil {
-		log.Printf("[Send] Failed to send status message: %v", err)
+		slog.Error("Failed to send status message", "error", err)
 		s.reply(message, "❌ *Gagal mengirim pesan status*")
 		return
 	}
@@ -75,7 +75,7 @@ func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) 
 		var downloadErr error
 		inputPath, downloadErr = s.downloadTelegramFile(fileID, fileName)
 		if downloadErr != nil {
-			log.Printf("[Download] Failed: %v", downloadErr)
+			slog.Error("Telegram download failed during audio extraction", "error", downloadErr)
 			s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal download file*\nError: %s", utils.EscapeMarkdownV2(downloadErr.Error())))
 			return
 		}
@@ -154,7 +154,7 @@ func (s *BotService) HandleCompressVideo(message *tgbotapi.Message, args string)
 	statusMsg.ParseMode = MarkdownV2
 	sent, err := s.Bot.Send(statusMsg)
 	if err != nil {
-		log.Printf("[Send] Failed to send status message: %v", err)
+		slog.Error("Failed to send status message", "error", err)
 		s.reply(message, "❌ *Gagal mengirim pesan status*")
 		return
 	}
@@ -238,7 +238,7 @@ func (s *BotService) HandleGenerateThumbnail(message *tgbotapi.Message, args str
 	statusMsg.ParseMode = MarkdownV2
 	sent, err := s.Bot.Send(statusMsg)
 	if err != nil {
-		log.Printf("[Send] Failed to send status message: %v", err)
+		slog.Error("Failed to send status message", "error", err)
 		s.reply(message, "❌ *Gagal mengirim pesan status*")
 		return
 	}
@@ -321,7 +321,7 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 	statusMsg.ParseMode = MarkdownV2
 	sent, err := s.Bot.Send(statusMsg)
 	if err != nil {
-		log.Printf("[Send] Failed to send status message: %v", err)
+		slog.Error("Failed to send status message", "error", err)
 		s.reply(message, "❌ *Gagal mengirim pesan status*")
 		return
 	}
@@ -402,7 +402,7 @@ func (s *BotService) HandleConvertFormat(message *tgbotapi.Message, args string)
 	statusMsg.ParseMode = MarkdownV2
 	sent, err := s.Bot.Send(statusMsg)
 	if err != nil {
-		log.Printf("[Send] Failed to send status message: %v", err)
+		slog.Error("Failed to send status message", "error", err)
 		s.reply(message, "❌ *Gagal mengirim pesan status*")
 		return
 	}
@@ -477,7 +477,7 @@ func (s *BotService) HandleMediaInfo(message *tgbotapi.Message, args string) {
 
 	var probe FFProbeOutput
 	if err := json.Unmarshal(output, &probe); err != nil {
-		log.Printf("[MediaInfo] JSON unmarshal error: %v | Output: %s", err, string(output))
+		slog.Error("FFProbe JSON unmarshal failed", "error", err)
 		s.reply(message, "❌ *Gagal menguraikan metadata file*")
 		return
 	}
@@ -546,7 +546,7 @@ func (s *BotService) editMessage(chatID int64, msgID int, text string) {
 	editMsg.ParseMode = MarkdownV2
 	_, err := s.Bot.Send(editMsg)
 	if err != nil {
-		log.Printf("[EditMessage] Failed to edit message: %v", err)
+		slog.Warn("Failed to edit message", "error", err)
 	}
 }
 
@@ -556,7 +556,7 @@ func (s *BotService) editMessageWithMarkup(chatID int64, msgID int, text string,
 	editMsg.ReplyMarkup = markup
 	_, err := s.Bot.Send(editMsg)
 	if err != nil {
-		log.Printf("[EditMessage] Failed to edit message with markup: %v", err)
+		slog.Warn("Failed to edit message with markup", "error", err)
 	}
 }
 
@@ -588,7 +588,7 @@ func (s *BotService) HandleMediaMirrorCallback(cb *tgbotapi.CallbackQuery, parts
 
 	task := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, cb.From.ID, false, false, "", "")
 	s.UpdateSharedDashboard(cb.Message.Chat.ID, false)
-	log.Printf("[Mirror] Local media task created: %s for %s", task.ID, fullPath)
+	slog.Info("Local media mirror task created", "taskID", task.ID, "path", fullPath)
 }
 
 func downloadFile(url, destPath string) error {
@@ -659,7 +659,7 @@ func (s *BotService) HandleScreenshots(message *tgbotapi.Message, args string) {
 	statusMsg.ParseMode = MarkdownV2
 	sent, err := s.Bot.Send(statusMsg)
 	if err != nil {
-		log.Printf("[Send] Failed to send status message: %v", err)
+		slog.Error("Failed to send status message during screenshots", "error", err)
 		s.reply(message, "❌ *Gagal mengirim pesan status*")
 		return
 	}
@@ -715,7 +715,7 @@ func (s *BotService) generateScreenshotsList(inputPath string, count int) ([]str
 			"-i", "file:"+inputPath, "-vframes", "1", "-q:v", "2", "file:"+outputPath, "-y")
 
 		if err := cmd.Run(); err != nil {
-			log.Printf("Failed to generate screenshot %d: %v", i, err)
+			slog.Warn("Failed to generate screenshot", "index", i, "error", err)
 			shotCancel()
 			continue
 		}
@@ -765,14 +765,14 @@ func (s *BotService) downloadTelegramFile(fileID, fileName string) (string, erro
 	if filepath.IsAbs(file.FilePath) {
 		translatedPath := strings.Replace(file.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
 		if _, err := os.Stat(translatedPath); err == nil {
-			log.Printf("[Download] Using local file: %s", translatedPath)
+			slog.Info("Using local telegram file", "path", translatedPath)
 			return translatedPath, nil
 		}
 	}
 
 	inputPath := filepath.Join(s.Config.DownloadDir, fileName)
 	downloadURL := s.getFileLink(file)
-	log.Printf("[Download] URL: %s", downloadURL)
+	slog.Debug("Telegram file download URL", "url", downloadURL)
 
 	if err := downloadFile(downloadURL, inputPath); err != nil {
 		return "", err

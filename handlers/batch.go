@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -143,7 +143,7 @@ func (s *BotService) HandleBatch(message *tgbotapi.Message, args string) {
 		for _, url := range options.URLs {
 			fileName := utils.GetFileNameFromURL(url)
 			task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, message.From.ID, false, false, options.Password, "")
-			log.Printf("[Batch-Mirror] Created task %s for %s", task.ID, url)
+			slog.Info("Batch sub-task created", "taskID", task.ID, "url", url)
 		}
 
 		s.UpdateSharedDashboard(message.Chat.ID, true)
@@ -160,7 +160,7 @@ func (s *BotService) HandleBatch(message *tgbotapi.Message, args string) {
 
 	go s.processBatchTask(batch)
 
-	log.Printf("[Batch] Created batch %s with %d URLs, priority: %d", batch.ID, len(options.URLs), options.Priority)
+	slog.Info("Batch task created", "batchID", batch.ID, "count", len(options.URLs), "priority", options.Priority)
 }
 
 func (s *BotService) updateBatchStatus(batch *BatchTask) {
@@ -243,7 +243,7 @@ func (s *BotService) createBatchTask(name string, urls []string, chatID int64, m
 }
 
 func (s *BotService) processBatchTask(batch *BatchTask) {
-	log.Printf("[Batch %s] Starting processing %d URLs", batch.ID, len(batch.URLs))
+	slog.Info("Processing batch task", "batchID", batch.ID, "count", len(batch.URLs))
 
 	if err := os.MkdirAll(batch.DownloadDir, 0750); err != nil {
 		batch.SetError(fmt.Sprintf("Failed to create batch directory: %v", err))
@@ -260,7 +260,7 @@ func (s *BotService) processBatchTask(batch *BatchTask) {
 	for i, url := range batch.URLs {
 		select {
 		case <-batch.Ctx.Done():
-			log.Printf("[Batch %s] Cancelled", batch.ID)
+			slog.Info("Batch task cancelled", "batchID", batch.ID)
 			batch.SetStatus(StatusCancelled)
 			s.updateBatchStatus(batch)
 			return
@@ -282,7 +282,7 @@ func (s *BotService) processBatchTask(batch *BatchTask) {
 				batch.Mu.Lock()
 				subTask.SetError(err.Error())
 				batch.Failed++
-				log.Printf("[Batch %s] Sub-task %s failed: %v", batch.ID, subTask.ID, err)
+				slog.Error("Batch sub-task failed", "batchID", batch.ID, "taskID", subTask.ID, "error", err)
 				batch.Progress = float64(batch.Completed+batch.Failed) / float64(len(batch.URLs)) * 100
 				batch.Mu.Unlock()
 			} else {
@@ -296,12 +296,12 @@ func (s *BotService) processBatchTask(batch *BatchTask) {
 					if upErr != nil {
 						subTask.SetError(upErr.Error())
 						batch.Failed++
-						log.Printf("[Batch %s] Sub-task %s upload failed: %v", batch.ID, subTask.ID, upErr)
+						slog.Error("Batch sub-task upload failed", "batchID", batch.ID, "taskID", subTask.ID, "error", upErr)
 					} else {
 						subTask.SetStatus(StatusCompleted)
 						batch.Completed++
 						batch.Downloaded += subTask.DownloadedSize
-						log.Printf("[Batch %s] Sub-task %s completed", batch.ID, subTask.ID)
+						slog.Info("Batch sub-task completed", "batchID", batch.ID, "taskID", subTask.ID)
 					}
 					batch.Progress = float64(batch.Completed+batch.Failed) / float64(len(batch.URLs)) * 100
 					batch.Mu.Unlock()
@@ -310,7 +310,7 @@ func (s *BotService) processBatchTask(batch *BatchTask) {
 					subTask.SetStatus(StatusCompleted)
 					batch.Completed++
 					batch.Downloaded += subTask.DownloadedSize
-					log.Printf("[Batch %s] Sub-task %s downloaded (waiting for zip)", batch.ID, subTask.ID)
+					slog.Debug("Batch sub-task downloaded, waiting for zip", "batchID", batch.ID, "taskID", subTask.ID)
 					batch.Progress = float64(batch.Completed+batch.Failed) / float64(len(batch.URLs)) * 100
 					batch.Mu.Unlock()
 				}
@@ -455,7 +455,7 @@ func (s *BotService) downloadBatchItem(batch *BatchTask, task *Task) error {
 }
 
 func (s *BotService) zipBatchResults(batch *BatchTask) error {
-	log.Printf("[Batch %s] Zipping results...", batch.ID)
+	slog.Info("Zipping batch results", "batchID", batch.ID)
 
 	zipFileName := utils.SanitizeFileName(batch.Name) + ".zip"
 	zipPath := filepath.Join(s.TaskManager.DownloadDir, "batch_"+batch.ID+"_output", zipFileName)
@@ -497,12 +497,12 @@ func (s *BotService) zipBatchResults(batch *BatchTask) error {
 		batch.TotalSize = info.Size()
 	}
 
-	log.Printf("[Batch %s] Zip created: %s", batch.ID, zipPath)
+	slog.Info("Batch zip created", "batchID", batch.ID, "path", zipPath)
 	return nil
 }
 
 func (s *BotService) uploadBatchResults(batch *BatchTask) error {
-	log.Printf("[Batch %s] Uploading results...", batch.ID)
+	slog.Info("Uploading batch results", "batchID", batch.ID)
 
 	uploadPath := batch.LocalPath
 	if uploadPath == "" {
@@ -556,7 +556,7 @@ func (s *BotService) uploadBatchResults(batch *BatchTask) error {
 		batch.RemoteURL = strings.TrimSpace(string(linkOutput))
 	}
 
-	log.Printf("[Batch %s] Upload completed. URL: %s", batch.ID, batch.RemoteURL)
+	slog.Info("Batch upload completed", "batchID", batch.ID, "url", batch.RemoteURL)
 	return nil
 }
 

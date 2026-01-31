@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os/exec"
 	"path"
@@ -39,7 +39,7 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 
 	task := s.TaskManager.CreateTask(TypeClone, url, "cloning...", message.Chat.ID, 0, message.From.ID, false, false, "", "")
 	s.UpdateSharedDashboard(message.Chat.ID, true)
-	log.Printf("[Clone] Task created: %s", task.ID)
+	slog.Info("Clone task created", "taskID", task.ID, "url", url)
 }
 
 func (s *BotService) cloneWithRclone(task *Task) {
@@ -109,7 +109,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	}
 	args = append(args, commonArgs...)
 
-	log.Printf("[Clone %s] Running rclone command: rclone %s", task.ID, strings.Join(args, " "))
+	slog.Debug("Running rclone clone command", "taskID", task.ID, "args", strings.Join(args, " "))
 
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
@@ -162,7 +162,7 @@ func (s *BotService) parseCloneProgress(task *Task, reader io.ReadCloser) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		log.Printf("[Rclone Clone %s] %s", task.ID, line)
+		slog.Debug("Rclone clone progress", "taskID", task.ID, "line", line)
 
 		s.handleRcloneLine(task, line)
 
@@ -232,7 +232,7 @@ func extractDriveID(urlStr string) (string, bool) {
 func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, error) {
 	name := getDriveNameFromURL(urlStr)
 	if name != "" {
-		log.Printf("[Clone] Name from URL title: %s", name)
+		slog.Debug("Resolved GDrive name from title", "id", id, "name", name)
 		return name, isFolder, nil
 	}
 
@@ -266,7 +266,7 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 		isDir, _ := info["IsDir"].(bool)
 		size, _ := info["Size"].(float64)
 		if !isDir && size > 0 {
-			log.Printf("[Clone] Detected file size from lsjson: %v", size)
+			slog.Debug("Detected GDrive file size", "id", id, "size", size)
 		}
 		return name, isFolder || isDir, nil
 	}

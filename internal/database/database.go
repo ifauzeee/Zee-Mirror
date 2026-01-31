@@ -1,12 +1,16 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
+
+	"zee-mirror/internal/domain"
+	"zee-mirror/internal/repository"
 
 	_ "modernc.org/sqlite"
 )
@@ -14,6 +18,10 @@ import (
 type DB struct {
 	*sql.DB
 }
+
+var _ repository.TaskRepository = (*DB)(nil)
+var _ repository.UserRepository = (*DB)(nil)
+var _ repository.SettingsRepository = (*DB)(nil)
 
 func NewDB(configDir string) (*DB, error) {
 	if err := os.MkdirAll(configDir, 0750); err != nil {
@@ -36,6 +44,10 @@ func NewDB(configDir string) (*DB, error) {
 	}
 
 	return instance, nil
+}
+
+func (db *DB) Ping(ctx context.Context) error {
+	return db.DB.PingContext(ctx)
 }
 
 func (db *DB) migrate() error {
@@ -86,14 +98,15 @@ func (db *DB) migrate() error {
 	return nil
 }
 
-func (db *DB) GetUser(id int64) (string, string, error) {
+// User Methods
+func (db *DB) GetByID(ctx context.Context, id int64) (string, string, error) {
 	var username, role string
-	err := db.QueryRow("SELECT username, role FROM users WHERE id = ?", id).Scan(&username, &role)
+	err := db.QueryRowContext(ctx, "SELECT username, role FROM users WHERE id = ?", id).Scan(&username, &role)
 	return username, role, err
 }
 
-func (db *DB) UpsertUser(id int64, username, role string) error {
-	_, err := db.Exec(`
+func (db *DB) Upsert(ctx context.Context, id int64, username, role string) error {
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO users (id, username, role, created_at)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
@@ -103,13 +116,13 @@ func (db *DB) UpsertUser(id int64, username, role string) error {
 	return err
 }
 
-func (db *DB) SetUserRole(id int64, role string) error {
-	_, err := db.Exec("UPDATE users SET role = ? WHERE id = ?", role, id)
+func (db *DB) SetRole(ctx context.Context, id int64, role string) error {
+	_, err := db.ExecContext(ctx, "UPDATE users SET role = ? WHERE id = ?", role, id)
 	return err
 }
 
-func (db *DB) GetAllUsers() ([]map[string]interface{}, error) {
-	rows, err := db.Query("SELECT id, username, role FROM users")
+func (db *DB) GetAll(ctx context.Context) ([]map[string]interface{}, error) {
+	rows, err := db.QueryContext(ctx, "SELECT id, username, role FROM users")
 	if err != nil {
 		return nil, err
 	}
@@ -131,31 +144,17 @@ func (db *DB) GetAllUsers() ([]map[string]interface{}, error) {
 	return users, nil
 }
 
-type TaskRecord struct {
-	ID             string
-	GID            string
-	Type           string
-	Status         string
-	URL            string
-	FileName       string
-	LocalPath      string
-	RemotePath     string
-	RemoteURL      string
-	TotalSize      int64
-	DownloadedSize int64
-	UploadedSize   int64
-	ChatID         int64
-	UserID         int64
-	CreatedAt      time.Time
-	CompletedAt    sql.NullTime
-	Zip            bool
-	Unzip          bool
-	Password       string
-	Error          string
+func (db *DB) GetCount(ctx context.Context) (int, error) {
+	var count int
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	return count, err
 }
 
-func (db *DB) SaveTask(t TaskRecord) error {
-	_, err := db.Exec(`
+// Task Methods
+type TaskRecord = domain.TaskRecord
+
+func (db *DB) Save(ctx context.Context, t TaskRecord) error {
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO tasks (
 			id, gid, type, status, url, file_name, local_path, remote_path, remote_url,
 			total_size, downloaded_size, uploaded_size, chat_id, user_id, created_at,
@@ -179,8 +178,8 @@ func (db *DB) SaveTask(t TaskRecord) error {
 	return err
 }
 
-func (db *DB) GetActiveTasks() ([]TaskRecord, error) {
-	rows, err := db.Query("SELECT * FROM tasks WHERE status NOT IN ('completed', 'failed', 'cancelled')")
+func (db *DB) GetActive(ctx context.Context) ([]TaskRecord, error) {
+	rows, err := db.QueryContext(ctx, "SELECT * FROM tasks WHERE status NOT IN ('completed', 'failed', 'cancelled')")
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +194,7 @@ func (db *DB) GetActiveTasks() ([]TaskRecord, error) {
 			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error,
 		)
 		if err != nil {
-			log.Printf("Error scanning task: %v", err)
+			slog.Error("Error scanning task", "error", err)
 			continue
 		}
 		tasks = append(tasks, t)
@@ -203,16 +202,16 @@ func (db *DB) GetActiveTasks() ([]TaskRecord, error) {
 	return tasks, nil
 }
 
-func (db *DB) GetBotStats() (map[string]interface{}, error) {
+func (db *DB) GetBotStats(ctx context.Context) (map[string]interface{}, error) {
 	stats := make(map[string]interface{})
 
 	var totalTasks, completedTasks, failedTasks int
 	var totalBandwidth int64
 
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks").Scan(&totalTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE status = 'completed'").Scan(&completedTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE status = 'failed'").Scan(&failedTasks)
-	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE status = 'completed'").Scan(&totalBandwidth)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks").Scan(&totalTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE status = 'completed'").Scan(&completedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE status = 'failed'").Scan(&failedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE status = 'completed'").Scan(&totalBandwidth)
 
 	stats["total_tasks"] = totalTasks
 	stats["completed_tasks"] = completedTasks
@@ -222,20 +221,11 @@ func (db *DB) GetBotStats() (map[string]interface{}, error) {
 	return stats, nil
 }
 
-type UserStats struct {
-	UserID          int64
-	Username        string
-	TotalDownloads  int
-	TotalUploads    int
-	TotalBandwidth  int64
-	SuccessfulTasks int
-	FailedTasks     int
-	LastActive      time.Time
-}
+type UserStats = domain.UserStats
 
-func (db *DB) GetTask(id string) (*TaskRecord, error) {
+func (db *DB) GetTaskByID(ctx context.Context, id string) (*TaskRecord, error) {
 	tr := &TaskRecord{}
-	err := db.QueryRow(`
+	err := db.QueryRowContext(ctx, `
 		SELECT id, gid, type, status, url, file_name, local_path, remote_path, remote_url, 
 		       total_size, downloaded_size, uploaded_size, chat_id, user_id, 
 		       created_at, completed_at, zip, unzip, password, error
@@ -251,54 +241,46 @@ func (db *DB) GetTask(id string) (*TaskRecord, error) {
 	return tr, nil
 }
 
-func (db *DB) GetUserStats(userID int64) (*UserStats, error) {
+func (db *DB) GetUserStats(ctx context.Context, userID int64) (*UserStats, error) {
 	stats := &UserStats{UserID: userID}
 
-	_ = db.QueryRow("SELECT COALESCE(username, '') FROM users WHERE id = ?", userID).Scan(&stats.Username)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ?", userID).Scan(&stats.TotalDownloads)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'completed'", userID).Scan(&stats.SuccessfulTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'failed'", userID).Scan(&stats.FailedTasks)
-	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND status = 'completed'", userID).Scan(&stats.TotalBandwidth)
-	_ = db.QueryRow("SELECT COALESCE(MAX(created_at), datetime('now')) FROM tasks WHERE user_id = ?", userID).Scan(&stats.LastActive)
+	_ = db.QueryRowContext(ctx, "SELECT COALESCE(username, '') FROM users WHERE id = ?", userID).Scan(&stats.Username)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = ?", userID).Scan(&stats.TotalDownloads)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'completed'", userID).Scan(&stats.SuccessfulTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'failed'", userID).Scan(&stats.FailedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND status = 'completed'", userID).Scan(&stats.TotalBandwidth)
+	_ = db.QueryRowContext(ctx, "SELECT COALESCE(MAX(created_at), datetime('now')) FROM tasks WHERE user_id = ?", userID).Scan(&stats.LastActive)
 
 	return stats, nil
 }
 
-type DailyStats struct {
-	Date           time.Time
-	TotalTasks     int
-	CompletedTasks int
-	FailedTasks    int
-	TotalBandwidth int64
-	AverageSpeed   int64
-	PeakConcurrent int
-}
+type DailyStats = domain.DailyStats
 
-func (db *DB) GetTodayStats() (*DailyStats, error) {
+func (db *DB) GetTodayStats(ctx context.Context) (*DailyStats, error) {
 	stats := &DailyStats{Date: time.Now()}
 	today := time.Now().Format("2006-01-02")
 
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", today+"%").Scan(&stats.TotalTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", today+"%").Scan(&stats.CompletedTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'failed'", today+"%").Scan(&stats.FailedTasks)
-	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", today+"%").Scan(&stats.TotalBandwidth)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", today+"%").Scan(&stats.TotalTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", today+"%").Scan(&stats.CompletedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'failed'", today+"%").Scan(&stats.FailedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", today+"%").Scan(&stats.TotalBandwidth)
 
 	return stats, nil
 }
 
-func (db *DB) GetUserTodayStats(userID int64) (*DailyStats, error) {
+func (db *DB) GetUserTodayStats(ctx context.Context, userID int64) (*DailyStats, error) {
 	stats := &DailyStats{Date: time.Now()}
 	today := time.Now().Format("2006-01-02")
 
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ?", userID, today+"%").Scan(&stats.TotalTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'completed'", userID, today+"%").Scan(&stats.CompletedTasks)
-	_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'failed'", userID, today+"%").Scan(&stats.FailedTasks)
-	_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'completed'", userID, today+"%").Scan(&stats.TotalBandwidth)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ?", userID, today+"%").Scan(&stats.TotalTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'completed'", userID, today+"%").Scan(&stats.CompletedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'failed'", userID, today+"%").Scan(&stats.FailedTasks)
+	_ = db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND created_at LIKE ? AND status = 'completed'", userID, today+"%").Scan(&stats.TotalBandwidth)
 
 	return stats, nil
 }
 
-func (db *DB) GetWeeklyStats() ([]DailyStats, error) {
+func (db *DB) GetWeeklyStats(ctx context.Context) ([]DailyStats, error) {
 	var stats []DailyStats
 
 	for i := 6; i >= 0; i-- {
@@ -306,10 +288,10 @@ func (db *DB) GetWeeklyStats() ([]DailyStats, error) {
 		dateStr := date.Format("2006-01-02")
 
 		ds := DailyStats{Date: date}
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", dateStr+"%").Scan(&ds.TotalTasks)
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.CompletedTasks)
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'failed'", dateStr+"%").Scan(&ds.FailedTasks)
-		_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.TotalBandwidth)
+		_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", dateStr+"%").Scan(&ds.TotalTasks)
+		_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.CompletedTasks)
+		_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'failed'", dateStr+"%").Scan(&ds.FailedTasks)
+		_ = db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.TotalBandwidth)
 
 		stats = append(stats, ds)
 	}
@@ -317,7 +299,7 @@ func (db *DB) GetWeeklyStats() ([]DailyStats, error) {
 	return stats, nil
 }
 
-func (db *DB) GetMonthlyStats() ([]DailyStats, error) {
+func (db *DB) GetMonthlyStats(ctx context.Context) ([]DailyStats, error) {
 	var stats []DailyStats
 
 	for i := 29; i >= 0; i-- {
@@ -325,9 +307,9 @@ func (db *DB) GetMonthlyStats() ([]DailyStats, error) {
 		dateStr := date.Format("2006-01-02")
 
 		ds := DailyStats{Date: date}
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", dateStr+"%").Scan(&ds.TotalTasks)
-		_ = db.QueryRow("SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.CompletedTasks)
-		_ = db.QueryRow("SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.TotalBandwidth)
+		_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ?", dateStr+"%").Scan(&ds.TotalTasks)
+		_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.CompletedTasks)
+		_ = db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE created_at LIKE ? AND status = 'completed'", dateStr+"%").Scan(&ds.TotalBandwidth)
 
 		stats = append(stats, ds)
 	}
@@ -335,22 +317,23 @@ func (db *DB) GetMonthlyStats() ([]DailyStats, error) {
 	return stats, nil
 }
 
-func (db *DB) SetSetting(key, value string) error {
-	_, err := db.Exec(`
+// Settings Methods
+func (db *DB) Get(ctx context.Context, key string) (string, error) {
+	var value string
+	err := db.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	return value, err
+}
+
+func (db *DB) Set(ctx context.Context, key, value string) error {
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
 	`, key, value, time.Now())
 	return err
 }
 
-func (db *DB) GetSetting(key string) (string, error) {
-	var value string
-	err := db.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
-	return value, err
-}
-
-func (db *DB) GetRecoverableTasks() ([]TaskRecord, error) {
-	rows, err := db.Query(`
+func (db *DB) GetRecoverable(ctx context.Context) ([]TaskRecord, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT * FROM tasks 
 		WHERE status IN ('downloading', 'uploading', 'queued', 'processing')
 		AND created_at > datetime('now', '-24 hours')
@@ -376,17 +359,17 @@ func (db *DB) GetRecoverableTasks() ([]TaskRecord, error) {
 	return tasks, nil
 }
 
-func (db *DB) UpdateTaskStatus(taskID, status, errorMsg string) error {
-	_, err := db.Exec("UPDATE tasks SET status = ?, error = ? WHERE id = ?", status, errorMsg, taskID)
+func (db *DB) UpdateStatus(ctx context.Context, taskID, status, errorMsg string) error {
+	_, err := db.ExecContext(ctx, "UPDATE tasks SET status = ?, error = ? WHERE id = ?", status, errorMsg, taskID)
 	return err
 }
 
-func (db *DB) SetTaskRecoverable(taskID string, recoverable bool) error {
+func (db *DB) SetTaskRecoverable(ctx context.Context, taskID string, recoverable bool) error {
 	return nil
 }
 
-func (db *DB) CleanupOldTasks(before time.Time) (int, error) {
-	result, err := db.Exec("DELETE FROM tasks WHERE status IN ('completed', 'failed', 'cancelled') AND created_at < ?", before)
+func (db *DB) DeleteOld(ctx context.Context, before string) (int, error) {
+	result, err := db.ExecContext(ctx, "DELETE FROM tasks WHERE status IN ('completed', 'failed', 'cancelled') AND created_at < ?", before)
 	if err != nil {
 		return 0, err
 	}
@@ -394,8 +377,8 @@ func (db *DB) CleanupOldTasks(before time.Time) (int, error) {
 	return int(affected), nil
 }
 
-func (db *DB) GetRecentLogs(limit int) ([]map[string]interface{}, error) {
-	rows, err := db.Query(`
+func (db *DB) GetRecentLogs(ctx context.Context, limit int) ([]map[string]interface{}, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT id, type, status, file_name, created_at, error 
 		FROM tasks 
 		ORDER BY created_at DESC 
@@ -431,9 +414,4 @@ func (db *DB) GetRecentLogs(limit int) ([]map[string]interface{}, error) {
 		})
 	}
 	return logs, nil
-}
-func (db *DB) GetUsersCount() (int, error) {
-	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
-	return count, err
 }

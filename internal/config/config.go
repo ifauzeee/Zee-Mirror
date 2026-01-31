@@ -16,6 +16,9 @@ type Config struct {
 	MaxConcurrentDownloads int
 	DownloadDir            string
 	ConfigDir              string
+	DashboardToken         string
+	DashboardPort          int
+	LogLevel               string
 }
 
 func LoadConfig() *Config {
@@ -23,9 +26,12 @@ func LoadConfig() *Config {
 		BotToken:               os.Getenv("BOT_TOKEN"),
 		TelegramAPI:            os.Getenv("TELEGRAM_API"),
 		RcloneDest:             os.Getenv("RCLONE_DEST"),
-		DownloadDir:            "/app/downloads",
-		ConfigDir:              "/app/config",
-		MaxConcurrentDownloads: 3,
+		DownloadDir:            getEnv("DOWNLOAD_DIR", "/app/downloads"),
+		ConfigDir:              getEnv("CONFIG_DIR", "/app/config"),
+		MaxConcurrentDownloads: getEnvInt("MAX_CONCURRENT_DOWNLOADS", 3),
+		DashboardToken:         getEnv("WEB_DASHBOARD_TOKEN", "zee-mirror-secret"),
+		DashboardPort:          getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
+		LogLevel:               getEnv("LOG_LEVEL", "info"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {
@@ -43,20 +49,22 @@ func LoadConfig() *Config {
 		}
 	}
 
-	if maxDL := os.Getenv("MAX_CONCURRENT_DOWNLOADS"); maxDL != "" {
-		if n, err := strconv.Atoi(maxDL); err == nil && n > 0 {
-			cfg.MaxConcurrentDownloads = n
-		}
-	}
-
-	if dlDir := os.Getenv("DOWNLOAD_DIR"); dlDir != "" {
-		cfg.DownloadDir = dlDir
-	}
-	if cfgDir := os.Getenv("CONFIG_DIR"); cfgDir != "" {
-		cfg.ConfigDir = cfgDir
-	}
-
 	return cfg
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	str := getEnv(key, "")
+	if n, err := strconv.Atoi(str); err == nil {
+		return n
+	}
+	return fallback
 }
 
 func (c *Config) Validate() bool {

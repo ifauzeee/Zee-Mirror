@@ -1,8 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,8 @@ func (s *BotService) IsAuthorized(userID int64) bool {
 		return true
 	}
 
-	_, role, err := s.DB.GetUser(userID)
+	ctx := context.Background()
+	_, role, err := s.UserRepo.GetByID(ctx, userID)
 	if err != nil {
 		return false
 	}
@@ -37,7 +39,8 @@ func (s *BotService) IsAdmin(userID int64) bool {
 		return true
 	}
 
-	_, role, err := s.DB.GetUser(userID)
+	ctx := context.Background()
+	_, role, err := s.UserRepo.GetByID(ctx, userID)
 	if err != nil {
 		return false
 	}
@@ -57,7 +60,8 @@ func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	err := s.DB.UpsertUser(targetID, username, "authorized")
+	ctx := context.Background()
+	err := s.DB.Upsert(ctx, targetID, username, "authorized")
 	if err != nil {
 		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan user: %v", err)))
 		return
@@ -80,7 +84,8 @@ func (s *BotService) HandleUnauthorize(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	err := s.DB.SetUserRole(targetID, "user")
+	ctx := context.Background()
+	err := s.DB.SetRole(ctx, targetID, "user")
 	if err != nil {
 		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal merubah role user: %v", err)))
 		return
@@ -94,13 +99,16 @@ func (s *BotService) HandleUsers(message *tgbotapi.Message) {
 		return
 	}
 
-	users, err := s.DB.GetAllUsers()
+	ctx := context.Background()
+	usersCount, _ := s.DB.GetCount(ctx)
+	users, err := s.DB.GetAll(ctx)
 	if err != nil {
 		s.reply(message, GetErrorMessage("DATABASE ERROR", "Gagal mengambil daftar user\\."))
 		return
 	}
 
 	var content strings.Builder
+	content.WriteString(fmt.Sprintf("Total Pengguna: %d\n\n", usersCount))
 	for _, u := range users {
 		id := u["id"].(int64)
 		username := u["username"].(string)
@@ -144,9 +152,9 @@ func (s *BotService) reply(message *tgbotapi.Message, text string) {
 	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	msg.ParseMode = MarkdownV2
 	if _, err := s.Bot.Send(msg); err != nil {
-		log.Printf("[Reply] Failed to send message: %v", err)
+		slog.Error("Failed to send message", "error", err, "userID", message.From.ID)
 	}
 }
 
@@ -169,7 +177,7 @@ func (s *BotService) performDiskCleanup() {
 
 	entries, err := os.ReadDir(s.Config.DownloadDir)
 	if err != nil {
-		log.Printf("[Cleanup] Error reading download dir: %v", err)
+		slog.Error("Error reading download dir", "error", err, "path", s.Config.DownloadDir)
 		return
 	}
 
@@ -186,13 +194,13 @@ func (s *BotService) performDiskCleanup() {
 				continue
 			}
 
-			log.Printf("[Cleanup] Removing old entry: %s", entry.Name())
+			slog.Info("Removing old entry", "name", entry.Name())
 			_ = os.RemoveAll(path)
 		}
 	}
 
 	if usage := s.getDiskUsage(); usage > 90 {
-		log.Printf("[Cleanup] Disk usage critical: %.2f%%. Performing emergency cleanup.", usage)
+		slog.Warn("Disk usage critical", "usage", usage)
 	}
 }
 

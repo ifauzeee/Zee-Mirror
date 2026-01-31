@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -36,10 +37,7 @@ func (s *APIServer) Start() {
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			apiKey := r.Header.Get("X-API-Key")
-			expectedKey := os.Getenv("WEB_DASHBOARD_TOKEN")
-			if expectedKey == "" {
-				expectedKey = "zee-mirror-secret"
-			}
+			expectedKey := s.Service.Config.DashboardToken
 
 			if apiKey != expectedKey {
 				w.Header().Set("Content-Type", "application/json")
@@ -81,8 +79,9 @@ func (s *APIServer) Start() {
 }
 
 func (s *APIServer) handleStats(w http.ResponseWriter, r *http.Request) {
-	stats, _ := s.Service.DB.GetBotStats()
-	usersCount, _ := s.Service.DB.GetUsersCount()
+	ctx := r.Context()
+	stats, _ := s.Service.DB.GetBotStats(ctx)
+	usersCount, _ := s.Service.DB.GetCount(ctx)
 	if stats == nil {
 		stats = make(map[string]interface{})
 	}
@@ -110,6 +109,7 @@ func (s *APIServer) handleTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *APIServer) handleSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if r.Method == http.MethodPost {
 		var newSettings struct {
 			AutoDeleteMessages bool   `json:"AutoDeleteMessages"`
@@ -121,8 +121,8 @@ func (s *APIServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 			s.Service.Settings.DefaultMode = newSettings.DefaultMode
 			s.Service.Settings.Mu.Unlock()
 
-			_ = s.Service.DB.SetSetting("auto_delete_messages", fmt.Sprintf("%v", newSettings.AutoDeleteMessages))
-			_ = s.Service.DB.SetSetting("default_mode", newSettings.DefaultMode)
+			_ = s.Service.SettingsRepo.Set(ctx, "auto_delete_messages", fmt.Sprintf("%v", newSettings.AutoDeleteMessages))
+			_ = s.Service.SettingsRepo.Set(ctx, "default_mode", newSettings.DefaultMode)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -232,7 +232,8 @@ func (s *APIServer) resolveFileStatus(f os.DirEntry, name, fullPath string) (str
 			return task.FileName, "active"
 		}
 
-		if tr, err := s.Service.DB.GetTask(name); err == nil {
+		ctx := context.Background()
+		if tr, err := s.Service.DB.GetTaskByID(ctx, name); err == nil {
 			return tr.FileName, "finished"
 		}
 
@@ -332,14 +333,20 @@ func (s *APIServer) handleWipeOrphans(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *APIServer) handleAnalytics(w http.ResponseWriter, r *http.Request) {
-	weekly, _ := s.Service.DB.GetWeeklyStats()
+	ctx := r.Context()
+	weekly, _ := s.Service.DB.GetWeeklyStats(ctx)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(weekly)
 }
 
 func (s *APIServer) handleLogs(w http.ResponseWriter, r *http.Request) {
-	logPath := filepath.Join(s.Service.Config.ConfigDir, "zee-mirror.log")
-	// #nosec G304
+	// Security: cleaner path joining
+	logPath := filepath.Clean(filepath.Join(s.Service.Config.ConfigDir, "zee-mirror.log"))
+	if !strings.HasPrefix(logPath, filepath.Clean(s.Service.Config.ConfigDir)) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
 	data, err := os.ReadFile(logPath)
 	if err != nil {
 		http.Error(w, "Failed to read logs", http.StatusInternalServerError)

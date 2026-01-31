@@ -295,7 +295,8 @@ func (s *BotService) HandleSetStorage(message *tgbotapi.Message, args string) {
 	}
 
 	s.TaskManager.RcloneDest = args
-	_ = s.DB.SetSetting("rclone_dest", args)
+	ctx := context.Background()
+	_ = s.DB.Set(ctx, "rclone_dest", args)
 
 	s.reply(message, fmt.Sprintf("✅ *Storage Updated*\n\n📂 Destination: `%s`", utils.EscapeMarkdownV2(args)))
 }

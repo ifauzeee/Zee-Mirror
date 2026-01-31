@@ -3,24 +3,24 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
-	"zee-mirror/internal/database"
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/repository"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TaskRecovery struct {
-	DB          *database.DB
+	DB          repository.TaskRepository
 	TaskManager *TaskManager
 	BotService  *BotService
 }
 
-func NewTaskRecovery(db *database.DB, tm *TaskManager, bs *BotService) *TaskRecovery {
+func NewTaskRecovery(db repository.TaskRepository, tm *TaskManager, bs *BotService) *TaskRecovery {
 	return &TaskRecovery{
 		DB:          db,
 		TaskManager: tm,
@@ -29,27 +29,28 @@ func NewTaskRecovery(db *database.DB, tm *TaskManager, bs *BotService) *TaskReco
 }
 
 func (tr *TaskRecovery) RecoverIncompleteTasks() error {
-	log.Println("[Recovery] Checking for incomplete tasks...")
+	slog.Info("Checking for incomplete tasks...")
 
-	tasks, err := tr.DB.GetRecoverableTasks()
+	ctx := context.Background()
+	tasks, err := tr.DB.GetRecoverable(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get recoverable tasks: %v", err)
 	}
 
 	if len(tasks) == 0 {
-		log.Println("[Recovery] No incomplete tasks found")
+		slog.Info("No incomplete tasks found")
 		return nil
 	}
 
-	log.Printf("[Recovery] Found %d incomplete tasks", len(tasks))
+	slog.Info("Found incomplete tasks", "count", len(tasks))
 
 	recovered := 0
 	skipped := 0
 
 	for _, record := range tasks {
 		if time.Since(record.CreatedAt) > 24*time.Hour {
-			log.Printf("[Recovery] Skipping old task %s", record.ID)
-			_ = tr.DB.UpdateTaskStatus(record.ID, "expired", "Task expired")
+			slog.Info("Skipping old task", "taskID", record.ID)
+			_ = tr.DB.UpdateStatus(ctx, record.ID, "expired", "Task expired")
 			skipped++
 			continue
 		}
@@ -60,7 +61,7 @@ func (tr *TaskRecovery) RecoverIncompleteTasks() error {
 			continue
 		}
 
-		log.Printf("[Recovery] Recovering task %s", record.ID)
+		slog.Info("Recovering task", "taskID", record.ID)
 
 		tr.TaskManager.Mu.Lock()
 		tr.TaskManager.Tasks[task.ID] = task
@@ -73,11 +74,11 @@ func (tr *TaskRecovery) RecoverIncompleteTasks() error {
 		recovered++
 	}
 
-	log.Printf("[Recovery] Recovered %d tasks, skipped %d", recovered, skipped)
+	slog.Info("Recovery summary", "recovered", recovered, "skipped", skipped)
 	return nil
 }
 
-func (tr *TaskRecovery) createTaskFromRecord(record database.TaskRecord) *Task {
+func (tr *TaskRecovery) createTaskFromRecord(record domain.TaskRecord) *Task {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
@@ -109,7 +110,8 @@ func (s *BotService) HandleRecoveryStatus(message *tgbotapi.Message) {
 		return
 	}
 
-	tasks, err := s.DB.GetRecoverableTasks()
+	ctx := context.Background()
+	tasks, err := s.DB.GetRecoverable(ctx)
 	if err != nil {
 		s.reply(message, "❌ *Gagal mengambil data recovery*")
 		return

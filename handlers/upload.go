@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,7 +37,7 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 		if info.IsDir() {
 			dirSize, err := utils.CalculateDirSize(uploadPath)
 			if err != nil {
-				log.Printf("[Upload] Warning: Could not calculate directory size: %v", err)
+				slog.Warn("Could not calculate directory size", "error", err, "path", uploadPath)
 				task.TotalSize = info.Size()
 			} else {
 				task.TotalSize = dirSize
@@ -129,10 +129,10 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		return
 	}
 
-	log.Printf("[RcloneLink] Failed to get direct link for %s: %v", task.FileName, linkErr)
+	slog.Warn("Failed to get direct link", "fileName", task.FileName, "error", linkErr)
 
 	if !isDirUpload {
-		log.Printf("[RcloneLink] Skipping directory fallback for file: %s", task.FileName)
+		slog.Debug("Skipping directory fallback for file", "fileName", task.FileName)
 		return
 	}
 
@@ -156,15 +156,15 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 						task.RemoteURL = "https://drive.google.com/drive/folders/" + id
 						return
 					} else {
-						log.Printf("[RcloneLink] Found folder %s but no ID field in lsjson output", task.FileName)
+						slog.Warn("Found folder but no ID field in lsjson output", "fileName", task.FileName)
 					}
 				}
 			}
 		} else {
-			log.Printf("[RcloneLink] Could not parse lsjson output for parent directory: %v", err)
+			slog.Error("Could not parse lsjson output", "error", err)
 		}
 	} else {
-		log.Printf("[RcloneLink] Failed to list parent directory contents: %v", idErr)
+		slog.Error("Failed to list parent directory contents", "error", idErr)
 	}
 
 	parentPath := s.TaskManager.RcloneDest
@@ -179,7 +179,7 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		baseURL := strings.TrimSpace(string(linkOutputParent))
 		task.RemoteURL = baseURL + "#folders/" + task.FileName
 	} else {
-		log.Printf("[RcloneLink] Also failed to get parent directory link for %s: %v", task.FileName, linkErrParent)
+		slog.Warn("Failed to get parent directory link", "fileName", task.FileName, "error", linkErrParent)
 		task.RemoteURL = "https://drive.google.com/drive/search?q=\"" + task.FileName + "\" in parents"
 	}
 }
@@ -277,7 +277,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 			video.Thumb = tgbotapi.FilePath(thumb)
 			defer func() {
 				if err := os.Remove(thumb); err != nil {
-					log.Printf("Failed to remove thumbnail: %v", err)
+					slog.Warn("Failed to remove thumbnail", "error", err, "path", thumb)
 				}
 			}()
 		}

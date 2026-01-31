@@ -72,6 +72,6 @@ EXPOSE 8080
 VOLUME ["/app/downloads", "/app/config"]
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD pgrep -x zee-mirror || exit 1
+    CMD curl -f http://localhost:8080/api/stats || exit 1
 
 CMD ["/app/zee-mirror"]

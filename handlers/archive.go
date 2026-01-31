@@ -3,12 +3,11 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
 	"zee-mirror/pkg/utils"
 )
 
@@ -61,7 +60,7 @@ func (s *BotService) extractArchive(task *Task) error {
 
 	totalSize, err := utils.CalculateDirSize(extractDir)
 	if err != nil {
-		log.Printf("[Extract] Warning: Could not calculate directory size: %v", err)
+		slog.Warn("Could not calculate directory size during extract", "error", err, "path", extractDir)
 	} else {
 		task.Mu.Lock()
 		task.TotalSize = totalSize

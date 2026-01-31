@@ -1,8 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ func (n *NotificationService) SendAlert(alertType, title, message string) {
 	msg := tgbotapi.NewMessage(targetID, text)
 	msg.ParseMode = "MarkdownV2"
 	if _, err := n.Bot.Send(msg); err != nil {
-		log.Printf("[Alert] Failed to send alert: %v", err)
+		slog.Error("Failed to send alert", "error", err, "targetID", targetID)
 	}
 }
 
@@ -116,7 +117,8 @@ func (s *BotService) HandleSetAlertChannel(message *tgbotapi.Message, args strin
 		s.Notifications.SetAlertChannel(channelID)
 	}
 
-	_ = s.DB.SetSetting("alert_channel_id", fmt.Sprintf("%d", channelID))
+	ctx := context.Background()
+	_ = s.DB.Set(ctx, "alert_channel_id", fmt.Sprintf("%d", channelID))
 
 	s.reply(message, fmt.Sprintf("✅ *Alert Channel Set*\n\nChannel ID: `%d`\n\nSemua alert akan dikirim ke channel ini\\.", channelID))
 }

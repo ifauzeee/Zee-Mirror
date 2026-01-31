@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -44,12 +45,13 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		return
 	}
 
+	ctx := context.Background()
 	action := parts[1]
 	s.Settings.Mu.Lock()
-	if val, err := s.DB.GetSetting("auto_delete_messages"); err == nil {
+	if val, err := s.DB.Get(ctx, "auto_delete_messages"); err == nil {
 		s.Settings.AutoDeleteMessages = (val == "true")
 	}
-	if val, err := s.DB.GetSetting("default_mode"); err == nil {
+	if val, err := s.DB.Get(ctx, "default_mode"); err == nil {
 		s.Settings.DefaultMode = val
 	}
 	s.Settings.Mu.Unlock()
@@ -61,7 +63,7 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		status := s.Settings.AutoDeleteMessages
 		s.Settings.Mu.Unlock()
 
-		_ = s.DB.SetSetting("auto_delete_messages", fmt.Sprintf("%v", status))
+		_ = s.DB.Set(ctx, "auto_delete_messages", fmt.Sprintf("%v", status))
 
 		if status {
 			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Auto Delete: ON"))
@@ -73,14 +75,14 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		s.Settings.Mu.Lock()
 		s.Settings.DefaultMode = string(TypeMirror)
 		s.Settings.Mu.Unlock()
-		_ = s.DB.SetSetting("default_mode", string(TypeMirror))
+		_ = s.DB.Set(ctx, "default_mode", string(TypeMirror))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
 
 	case "default_leech":
 		s.Settings.Mu.Lock()
 		s.Settings.DefaultMode = string(TypeLeech)
 		s.Settings.Mu.Unlock()
-		_ = s.DB.SetSetting("default_mode", string(TypeLeech))
+		_ = s.DB.Set(ctx, "default_mode", string(TypeLeech))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
 	default:

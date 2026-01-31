@@ -1,35 +1,38 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
+	"time"
 
-	"zee-mirror/internal/database"
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type UserStats = database.UserStats
-type DailyStats = database.DailyStats
+type UserStats = domain.UserStats
+type DailyStats = domain.DailyStats
 
 func (s *BotService) HandleStats(message *tgbotapi.Message) {
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
 
-	stats, err := s.DB.GetBotStats()
+	ctx := context.Background()
+	stats, err := s.DB.GetBotStats(ctx)
 	if err != nil {
 		s.reply(message, "❌ *Gagal mengambil statistik*")
 		return
 	}
 
-	userStats, _ := s.DB.GetUserStats(message.From.ID)
-	dailyStats, _ := s.DB.GetTodayStats()
-	userDailyStats, _ := s.DB.GetUserTodayStats(message.From.ID)
+	userStats, _ := s.DB.GetUserStats(ctx, message.From.ID)
+	dailyStats, _ := s.DB.GetTodayStats(ctx)
+	userDailyStats, _ := s.DB.GetUserTodayStats(ctx, message.From.ID)
 
-	log.Printf("[Stats] Generating stats for user %d", message.From.ID)
+	slog.Info("Generating stats", "userID", message.From.ID)
 	text := s.formatStatsMessage(stats, userStats, dailyStats, userDailyStats)
 
 	keyboard := s.getStatsKeyboard()
@@ -37,14 +40,15 @@ func (s *BotService) HandleStats(message *tgbotapi.Message) {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	_, err = s.Bot.Send(msg)
+	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
-		log.Printf("[Stats] Error sending stats message: %v", err)
+		slog.Error("Error sending stats message", "error", err, "userID", message.From.ID)
 		msg.ParseMode = ""
 		msg.Text = "❌ *Gagal memformat statistik (Markdown Error)*\n\nFallback: Manual Stats\nTotal Tasks: " + fmt.Sprint(getIntValue(stats, "total_tasks"))
 		_, _ = s.Bot.Send(msg)
 	} else {
-		log.Printf("[Stats] Stats message sent successfully to %d", message.From.ID)
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
+		slog.Info("Stats message sent successfully", "userID", message.From.ID)
 	}
 }
 
@@ -271,12 +275,13 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		return
 	}
 
+	ctx := context.Background()
 	action := parts[1]
 	var text string
 
 	switch action {
 	case "my":
-		userStats, err := s.DB.GetUserStats(callback.From.ID)
+		userStats, err := s.DB.GetUserStats(ctx, callback.From.ID)
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik Anda*"
 		} else {
@@ -284,8 +289,8 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		}
 
 	case "today":
-		dailyStats, err := s.DB.GetTodayStats()
-		userDailyStats, _ := s.DB.GetUserTodayStats(callback.From.ID)
+		dailyStats, err := s.DB.GetTodayStats(ctx)
+		userDailyStats, _ := s.DB.GetUserTodayStats(ctx, callback.From.ID)
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik hari ini*"
 		} else {
@@ -293,7 +298,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		}
 
 	case "weekly":
-		weeklyStats, err := s.DB.GetWeeklyStats()
+		weeklyStats, err := s.DB.GetWeeklyStats(ctx)
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik mingguan*"
 		} else {
@@ -301,7 +306,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		}
 
 	case "monthly":
-		monthlyStats, err := s.DB.GetMonthlyStats()
+		monthlyStats, err := s.DB.GetMonthlyStats(ctx)
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik bulanan*"
 		} else {
@@ -309,10 +314,10 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		}
 
 	case CmdRefresh:
-		stats, _ := s.DB.GetBotStats()
-		userStats, _ := s.DB.GetUserStats(callback.From.ID)
-		dailyStats, _ := s.DB.GetTodayStats()
-		userDailyStats, _ := s.DB.GetUserTodayStats(callback.From.ID)
+		stats, _ := s.DB.GetBotStats(ctx)
+		userStats, _ := s.DB.GetUserStats(ctx, callback.From.ID)
+		dailyStats, _ := s.DB.GetTodayStats(ctx)
+		userDailyStats, _ := s.DB.GetUserTodayStats(ctx, callback.From.ID)
 		text = s.formatStatsMessage(stats, userStats, dailyStats, userDailyStats)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Statistics refreshed!"))
 

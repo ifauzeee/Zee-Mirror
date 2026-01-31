@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -34,14 +34,14 @@ func (s *BotService) HandleDriveList(message *tgbotapi.Message, args string, edi
 		s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 	}
 
-	log.Printf("[DriveList] Request from %d with args: %s, editMsgID: %d", message.From.ID, args, editMessageID)
+	slog.Info("Drive list request", "userID", message.From.ID, "args", args, "editMsgID", editMessageID)
 
 	fullPath, relPath := s.resolveDrivePath(args)
-	log.Printf("[DriveList] Listing path: %s", fullPath)
+	slog.Debug("Listing drive path", "fullPath", fullPath)
 
 	sent, err := s.sendLoadingStatus(message.Chat.ID, editMessageID)
 	if err != nil {
-		log.Printf("[DriveList] Error preparing status message: %v", err)
+		slog.Error("Error preparing status message", "error", err)
 		return
 	}
 
@@ -51,7 +51,7 @@ func (s *BotService) HandleDriveList(message *tgbotapi.Message, args string, edi
 		return
 	}
 
-	log.Printf("[DriveList] Successfully found %d items", len(files))
+	slog.Debug("Drive list found items", "count", len(files))
 
 	if s.tryJumpToFileInfo(message, sent.MessageID, relPath, files) {
 		return
@@ -119,7 +119,7 @@ func (s *BotService) sendLoadingStatus(chatID int64, editMessageID int) (*tgbota
 }
 
 func (s *BotService) handleDriveError(chatID int64, messageID int, title string, err error) {
-	log.Printf("[DriveList] Error: %v", err)
+	slog.Error("Drive operation error", "title", title, "error", err)
 	errorText := fmt.Sprintf("❌ *%s*\n\nError: %s", title, utils.EscapeMarkdownV2(err.Error()))
 	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, errorText)
 	editMsg.ParseMode = MarkdownV2
@@ -130,7 +130,7 @@ func (s *BotService) tryJumpToFileInfo(message *tgbotapi.Message, messageID int,
 	if len(files) == 1 && !files[0].IsDir {
 		fileName := files[0].Name
 		if relPath == fileName || strings.HasSuffix(relPath, "/"+fileName) {
-			log.Printf("[DriveList] Target is a file, jumping to info view: %s (Editing message %d)", relPath, messageID)
+			slog.Info("Target is a file, jumping to info view", "relPath", relPath, "messageID", messageID)
 			s.handleDriveFileInfoDetailed(message.Chat.ID, messageID, relPath)
 			return true
 		}
@@ -152,7 +152,7 @@ func (s *BotService) renderDriveList(chatID int64, messageID int, relPath string
 	editMsg.ReplyMarkup = &keyboard
 
 	if _, err := s.Bot.Send(editMsg); err != nil {
-		log.Printf("[DriveList] Error sending final list message: %v", err)
+		slog.Error("Error sending final list message", "error", err)
 		s.handleDriveError(chatID, messageID, "Gagal menampilkan daftar file", err)
 	}
 }
@@ -504,7 +504,7 @@ func (s *BotService) HandleDriveSearch(message *tgbotapi.Message, args string) {
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
 	searchPath := s.TaskManager.RcloneDest
 
-	log.Printf("[DriveSearch] Searching for '%s' in %s", args, searchPath)
+	slog.Info("Searching drive", "query", args, "path", searchPath)
 
 	cmd := exec.CommandContext(ctx, "rclone", "lsjson", searchPath, "--config", configPath,
 		"--include", "*"+args+"*", "-R", "--max-depth", "5", "--ignore-case")
@@ -670,7 +670,7 @@ func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName st
 	}
 
 	targetPath := s.TaskManager.RcloneDest + "/" + fileName
-	log.Printf("[DriveDelete] Attempting to delete: %s", targetPath)
+	slog.Info("Attempting to delete drive file", "path", targetPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -678,17 +678,16 @@ func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName st
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
 
 	cmd := exec.CommandContext(ctx, "rclone", "deletefile", targetPath, "--config", configPath)
-	output, err := cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 
 	if err != nil {
-
-		log.Printf("[DriveDelete] 'deletefile' failed: %v | Output: %s. Trying 'purge'...", err, string(output))
+		slog.Warn("deletefile failed, trying purge", "error", err, "path", targetPath)
 
 		cmdPurge := exec.CommandContext(ctx, "rclone", "purge", targetPath, "--config", configPath)
 		outputPurge, errPurge := cmdPurge.CombinedOutput()
 
 		if errPurge != nil {
-			log.Printf("[DriveDelete] 'purge' also failed: %v | Output: %s", errPurge, string(outputPurge))
+			slog.Error("purge also failed", "error", errPurge, "path", targetPath)
 			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Failed to delete"))
 
 			errMsg := fmt.Sprintf("❌ *Gagal menghapus file/folder*\n\nTarget: `%s`\nError: `%s`\nOutput: `%s`",
@@ -699,9 +698,9 @@ func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName st
 			s.reply(callback.Message, errMsg)
 			return
 		}
-		log.Printf("[DriveDelete] Successfully purged: %s", targetPath)
+		slog.Info("Successfully purged path", "path", targetPath)
 	} else {
-		log.Printf("[DriveDelete] Successfully deleted file: %s", targetPath)
+		slog.Info("Successfully deleted file", "path", targetPath)
 	}
 
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Deleted successfully"))
@@ -725,7 +724,7 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
 
-	log.Printf("[DriveInfo] Detailed request for: %s | Target: %s", relPath, targetPath)
+	slog.Debug("Detailed drive info request", "relPath", relPath, "targetPath", targetPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -733,7 +732,7 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 	cmd := exec.CommandContext(ctx, "rclone", "lsjson", targetPath, "--config", configPath)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Printf("[DriveInfo] lsjson error: %v", err)
+		slog.Error("rclone lsjson failed for info", "error", err, "path", targetPath)
 	}
 
 	var file DriveFile
@@ -741,7 +740,7 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 		var files []DriveFile
 		if errJson := json.Unmarshal(output, &files); errJson == nil && len(files) > 0 {
 			file = files[0]
-			log.Printf("[DriveInfo] Metadata found: %s (%d bytes)", file.Name, file.Size)
+			slog.Debug("Drive metadata found", "name", file.Name, "size", file.Size)
 		}
 	}
 
@@ -803,7 +802,7 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 	editMsg.ReplyMarkup = &keyboard
 
 	if _, err := s.Bot.Send(editMsg); err != nil {
-		log.Printf("[DriveInfo] Failed to send/edit info message: %v", err)
+		slog.Error("Failed to send/edit info message", "error", err)
 		msg := tgbotapi.NewMessage(chatID, text.String())
 		msg.ParseMode = MarkdownV2
 		msg.ReplyMarkup = keyboard

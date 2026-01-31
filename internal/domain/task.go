@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 	"time"
 )
@@ -64,6 +65,50 @@ type Task struct {
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
 	Mu         sync.RWMutex
+}
+
+type TaskRecord struct {
+	ID             string
+	GID            string
+	Type           string
+	Status         string
+	URL            string
+	FileName       string
+	LocalPath      string
+	RemotePath     string
+	RemoteURL      string
+	TotalSize      int64
+	DownloadedSize int64
+	UploadedSize   int64
+	ChatID         int64
+	UserID         int64
+	CreatedAt      time.Time
+	CompletedAt    sql.NullTime
+	Zip            bool
+	Unzip          bool
+	Password       string
+	Error          string
+}
+
+type UserStats struct {
+	UserID          int64
+	Username        string
+	TotalDownloads  int
+	TotalUploads    int
+	TotalBandwidth  int64
+	SuccessfulTasks int
+	FailedTasks     int
+	LastActive      time.Time
+}
+
+type DailyStats struct {
+	Date           time.Time
+	TotalTasks     int
+	CompletedTasks int
+	FailedTasks    int
+	TotalBandwidth int64
+	AverageSpeed   int64
+	PeakConcurrent int
 }
 
 type TaskSnapshot struct {

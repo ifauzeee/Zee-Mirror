@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -364,15 +365,16 @@ func (s *BotService) HandleSpeedFromCallback(callback *tgbotapi.CallbackQuery) {
 }
 
 func (s *BotService) HandleStatsFromCallback(callback *tgbotapi.CallbackQuery) {
-	stats, err := s.DB.GetBotStats()
+	ctx := context.Background()
+	stats, err := s.DB.GetBotStats(ctx)
 	if err != nil {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Error"))
 		return
 	}
 
-	userStats, _ := s.DB.GetUserStats(callback.From.ID)
-	dailyStats, _ := s.DB.GetTodayStats()
-	userDailyStats, _ := s.DB.GetUserTodayStats(callback.From.ID)
+	userStats, _ := s.DB.GetUserStats(ctx, callback.From.ID)
+	dailyStats, _ := s.DB.GetTodayStats(ctx)
+	userDailyStats, _ := s.DB.GetUserTodayStats(ctx, callback.From.ID)
 
 	text := s.formatStatsMessage(stats, userStats, dailyStats, userDailyStats)
 	keyboard := s.getStatsKeyboard()
