@@ -321,6 +321,16 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 
 func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
+	if message.ReplyToMessage != nil && message.ReplyToMessage.Document != nil {
+		fileID := message.ReplyToMessage.Document.FileID
+		fileName := message.ReplyToMessage.Document.FileName
+
+		if strings.HasSuffix(strings.ToLower(fileName), ".torrent") {
+			go s.handleTelegramFileDownload(message, fileID, fileName, zip, unzip, password, quality)
+			return
+		}
+	}
+
 	if url == "" {
 		url = utils.ExtractMagnetFromText(args)
 	}
@@ -377,9 +387,15 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 	}
 
 	log.Printf("[TGDownload] FileID: %s, FilePath: %s, FinalURL: %s", fileID, tgFile.FilePath, fileURL)
-	task := s.TaskManager.CreateTask(TypeMirror, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+
+	taskType := TypeMirror
+	if strings.HasSuffix(strings.ToLower(fileName), ".torrent") {
+		taskType = TypeTorrent
+	}
+
+	task := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
-	log.Printf("[TGDownload] Task created: %s", task.ID)
+	log.Printf("[TGDownload] Task created: %s, Type: %s", task.ID, taskType)
 }
 
 func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
@@ -455,8 +471,10 @@ func (s *BotService) downloadWithAria2(task *Task) {
 	}
 
 	if strings.HasPrefix(task.URL, "file://") {
-		s.handleLocalFileDownload(task, outputDir)
-		return
+		if task.Type != TypeTorrent {
+			s.handleLocalFileDownload(task, outputDir)
+			return
+		}
 	}
 
 	lastUpdate := time.Now()
@@ -643,6 +661,27 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 }
 
 func findDownloadedFile(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+
+	var candidates []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasSuffix(name, ".aria2") ||
+			strings.HasSuffix(name, ".part") ||
+			strings.HasSuffix(name, ".ytdl") ||
+			strings.HasSuffix(name, ".temp") {
+			continue
+		}
+		candidates = append(candidates, filepath.Join(dir, name))
+	}
+
+	if len(candidates) == 1 {
+		return candidates[0]
+	}
+
 	var result string
 	var maxSize int64
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

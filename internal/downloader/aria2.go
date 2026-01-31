@@ -97,6 +97,13 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 		args = append(args, "--seed-time=0")
 	}
 
+	if task.Type == domain.TypeTorrent && len(task.URL) > 7 && task.URL[:7] == "file://" {
+		localPath := task.URL[7:]
+		args = args[:len(args)-1]
+		args = append(args, localPath)
+		args = append(args, "--seed-time=0")
+	}
+
 	return args
 }
 
