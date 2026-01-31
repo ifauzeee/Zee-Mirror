@@ -22,7 +22,6 @@ func ProfessionalMessage(title string, content string) string {
 		LineSeparator)
 }
 
-// HelpDetailMessage formats help detail with sections
 func HelpDetailMessage(title, kegunaan, caraPakai, contoh, extra string) string {
 	content := ""
 
@@ -107,9 +106,6 @@ func GetStartKeyboard() tgbotapi.InlineKeyboardMarkup {
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("💻 Code Repo", RepoURL),
 			tgbotapi.NewInlineKeyboardButtonData("❓ Help", "help:main"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 		),
 	)
 }

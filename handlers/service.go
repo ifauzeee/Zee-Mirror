@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
@@ -19,13 +20,12 @@ type BotService struct {
 	Config        *config.Config
 	DB            *database.DB
 	Notifications *NotificationService
-	PathCache     sync.Map // For storing short-lived local paths for callbacks
+	PathCache     sync.Map
 }
 
 func (s *BotService) StorePath(path string) string {
 	id := uuid.New().String()[:8]
 	s.PathCache.Store(id, path)
-	// Optionally: set a timer to delete it after 1 hour
 	go func() {
 		time.Sleep(1 * time.Hour)
 		s.PathCache.Delete(id)
@@ -48,6 +48,13 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db *database.DB) *B
 		DB:           db,
 		Settings:     NewSettings(),
 		BatchManager: NewBatchManager(),
+	}
+
+	if val, err := db.GetSetting("auto_delete_messages"); err == nil {
+		s.Settings.AutoDeleteMessages = (val == "true")
+	}
+	if val, err := db.GetSetting("default_mode"); err == nil {
+		s.Settings.DefaultMode = val
 	}
 
 	processFunc := func(task *Task) {
@@ -83,4 +90,26 @@ func (s *BotService) Shutdown() {
 		close(s.TaskManager.ShutdownChan)
 		s.TaskManager.Wg.Wait()
 	}
+}
+
+func (s *BotService) handleAutoDelete(task *Task) {
+	if s.Settings == nil {
+		return
+	}
+
+	s.Settings.mu.RLock()
+	active := s.Settings.AutoDeleteMessages
+	s.Settings.mu.RUnlock()
+
+	if !active || task.MessageID == 0 {
+		return
+	}
+
+	go func() {
+		log.Printf("[AutoDelete] Instantly deleting command message %d for task %s", task.MessageID, task.ID)
+		deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
+		if _, err := s.Bot.Request(deleteCmd); err != nil {
+			log.Printf("[AutoDelete] Failed to delete command message: %v", err)
+		}
+	}()
 }

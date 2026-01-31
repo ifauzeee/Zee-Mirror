@@ -69,8 +69,9 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 
 	if url != "" {
 		fileName = utils.GetFileNameFromURL(url)
-		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 		s.UpdateSharedDashboard(message.Chat.ID, true)
+		s.handleAutoDelete(task)
 		log.Printf("[Mirror] Task created: %s", task.ID)
 		return
 	}
@@ -97,8 +98,9 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	}
 
 	fileName := utils.GetFileNameFromURL(url)
-	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
+	s.handleAutoDelete(task)
 	log.Printf("[Leech] Task created: %s", task.ID)
 }
 
@@ -120,8 +122,9 @@ func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	task := s.TaskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, 0, message.From.ID, zip, false, password, quality)
+	task := s.TaskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, message.MessageID, message.From.ID, zip, false, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
+	s.handleAutoDelete(task)
 	log.Printf("[YTDLP] Task created: %s", task.ID)
 }
 
@@ -228,10 +231,6 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🚀 Kualitas Terbaik", fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
 	))
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
-	))
 	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
 	if len(sortedHeights) == 0 {
@@ -294,7 +293,7 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 	s.TaskManager.LastStatusMsg[callback.Message.Chat.ID] = callback.Message.MessageID
 	s.TaskManager.Mu.Unlock()
 
-	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, 0, callback.From.ID, session.Zip, false, session.Password, quality)
+	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality)
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	log.Printf("[YTDLPCallback] Task created: %s", task.ID)
 }
@@ -313,8 +312,9 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	}
 
 	fileName := "torrent_download"
-	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
+	s.handleAutoDelete(task)
 	log.Printf("[Torrent] Task created: %s", task.ID)
 }
 
@@ -601,6 +601,7 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 	}
 	s.updateTaskStatus(task)
 	s.cleanupTask(task)
+	s.handleAutoDelete(task)
 }
 
 func findDownloadedFile(dir string) string {
@@ -638,12 +639,12 @@ func (s *BotService) updateTaskStatus(task *Task) {
 	text := buildTaskStatusText(snapshot)
 
 	if snapshot.Status == StatusCompleted && utils.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
-		if s.sendVideoWithThumbnail(snapshot, text) {
+		if s.sendVideoWithThumbnail(task, text) {
 			return
 		}
 	}
 
-	s.sendFinalMessage(snapshot, text)
+	s.sendFinalMessage(task, text)
 }
 
 func buildTaskStatusText(snapshot TaskSnapshot) string {
@@ -712,7 +713,8 @@ func determineSizeString(snapshot TaskSnapshot) string {
 	return sizeStr
 }
 
-func (s *BotService) sendVideoWithThumbnail(snapshot TaskSnapshot, text string) bool {
+func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
+	snapshot := task.GetSnapshot()
 	if thumb, err := GenerateThumbnail(snapshot.LocalPath, s.TaskManager.DownloadDir); err == nil {
 		photo := tgbotapi.NewPhoto(snapshot.ChatID, tgbotapi.FilePath(thumb))
 		photo.Caption = text
@@ -721,11 +723,14 @@ func (s *BotService) sendVideoWithThumbnail(snapshot TaskSnapshot, text string) 
 			photo.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
-					tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 				),
 			)
 		}
-		if _, err := s.Bot.Send(photo); err == nil {
+		if sentMsg, err := s.Bot.Send(photo); err == nil {
+			task.Mu.Lock()
+			task.ResultMessageID = sentMsg.MessageID
+			task.Mu.Unlock()
+			log.Printf("[AutoDelete] Captured result video msg ID %d for task %s", sentMsg.MessageID, task.ID)
 			_ = os.Remove(thumb)
 			return true
 		}
@@ -734,7 +739,8 @@ func (s *BotService) sendVideoWithThumbnail(snapshot TaskSnapshot, text string) 
 	return false
 }
 
-func (s *BotService) sendFinalMessage(snapshot TaskSnapshot, text string) {
+func (s *BotService) sendFinalMessage(task *Task, text string) {
+	snapshot := task.GetSnapshot()
 	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
 	msg.ParseMode = MarkdownV2
 
@@ -742,13 +748,17 @@ func (s *BotService) sendFinalMessage(snapshot TaskSnapshot, text string) {
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
-				tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 			),
 		)
 		msg.ReplyMarkup = keyboard
 	}
 
-	_, _ = s.Bot.Send(msg)
+	if sentMsg, err := s.Bot.Send(msg); err == nil {
+		task.Mu.Lock()
+		task.ResultMessageID = sentMsg.MessageID
+		task.Mu.Unlock()
+		log.Printf("[AutoDelete] Captured result final msg ID %d for task %s", sentMsg.MessageID, task.ID)
+	}
 }
 
 func (s *BotService) editStatusMessage(chatID int64, msgID int, text string) {

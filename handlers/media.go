@@ -76,7 +76,6 @@ func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📤 Upload ke Drive", "media_m:"+pathID),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 		),
 	)
 	s.editMessageWithMarkup(sent.Chat.ID, sent.MessageID, GetSuccessMessage("AUDIO EXTRACTED", content), &keyboard)
@@ -164,7 +163,6 @@ func (s *BotService) HandleCompressVideo(message *tgbotapi.Message, args string)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📤 Upload ke Drive", "media_m:"+pathID),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 		),
 	)
 	s.editMessageWithMarkup(sent.Chat.ID, sent.MessageID, GetSuccessMessage("VIDEO COMPRESSED", content), &keyboard)
@@ -296,7 +294,7 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 
 	inputDir := filepath.Dir(videoPath)
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(videoPath),
-		"-i", "file:"+subPath, // subPath might be elsewhere
+		"-i", "file:"+subPath,
 		"-c", "copy", "-c:s", "mov_text",
 		filepath.Base(outputPath), "-y")
 	cmd.Dir = inputDir
@@ -315,7 +313,6 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📤 Upload ke Drive", "media_m:"+pathID),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 		),
 	)
 	s.editMessageWithMarkup(sent.Chat.ID, sent.MessageID, GetSuccessMessage("SUBTITLE EMBEDDED", content), &keyboard)
@@ -397,7 +394,6 @@ func (s *BotService) HandleConvertFormat(message *tgbotapi.Message, args string)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📤 Upload ke Drive", "media_m:"+pathID),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
 		),
 	)
 	s.editMessageWithMarkup(sent.Chat.ID, sent.MessageID, GetSuccessMessage("MEDIA CONVERTED", content), &keyboard)
@@ -497,7 +493,6 @@ func (s *BotService) HandleMediaMirrorCallback(cb *tgbotapi.CallbackQuery, parts
 	s.TaskManager.LastStatusMsg[cb.Message.Chat.ID] = cb.Message.MessageID
 	s.TaskManager.Mu.Unlock()
 
-	// Create a mirror task using local file path
 	url := "file://" + fullPath
 	fileName := filepath.Base(fullPath)
 
@@ -521,7 +516,6 @@ func downloadFile(url, destPath string) error {
 func (s *BotService) getFileLink(file tgbotapi.File) string {
 	if s.Config.TelegramAPI != "" {
 		apiFormat := s.Config.TelegramAPI
-		// Replace "bot%s/%s" with "file/bot%s/%s" for file download
 		apiFormat = strings.Replace(apiFormat, "bot%s/%s", "file/bot%s/%s", 1)
 
 		filePath := strings.TrimPrefix(file.FilePath, "/")
@@ -676,7 +670,6 @@ func (s *BotService) downloadTelegramFile(fileID, fileName string) (string, erro
 		fileName = filepath.Base(file.FilePath)
 	}
 
-	// Optimization for local bot API
 	if filepath.IsAbs(file.FilePath) {
 		translatedPath := strings.Replace(file.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
 		if _, err := os.Stat(translatedPath); err == nil {

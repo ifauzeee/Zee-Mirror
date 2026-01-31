@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"zee-mirror/pkg/utils"
-
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (s *BotService) extractArchive(task *Task) error {
@@ -122,26 +120,4 @@ func (s *BotService) createZipArchive(task *Task) error {
 func (s *BotService) cleanupTask(task *Task) {
 	taskDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
 	_ = os.RemoveAll(taskDir)
-}
-
-func (s *BotService) handleAutoDelete(task *Task) {
-	if s.Settings == nil || !s.Settings.AutoDeleteMessages {
-		return
-	}
-
-	go func() {
-		select {
-		case <-task.Ctx.Done():
-			return
-		case <-context.Background().Done():
-			return
-		default:
-			ctx, cancel := context.WithTimeout(context.Background(), 60*1000*1000*1000)
-			defer cancel()
-			<-ctx.Done()
-
-			deleteMsg := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
-			_, _ = s.Bot.Request(deleteMsg)
-		}
-	}()
 }

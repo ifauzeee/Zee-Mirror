@@ -40,29 +40,46 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 
 	action := parts[1]
 	s.Settings.mu.Lock()
+	if val, err := s.DB.GetSetting("auto_delete_messages"); err == nil {
+		s.Settings.AutoDeleteMessages = (val == "true")
+	}
+	if val, err := s.DB.GetSetting("default_mode"); err == nil {
+		s.Settings.DefaultMode = val
+	}
+	s.Settings.mu.Unlock()
 
 	switch action {
 	case "auto_delete":
+		s.Settings.mu.Lock()
 		s.Settings.AutoDeleteMessages = !s.Settings.AutoDeleteMessages
-		if s.Settings.AutoDeleteMessages {
+		status := s.Settings.AutoDeleteMessages
+		s.Settings.mu.Unlock()
+
+		_ = s.DB.SetSetting("auto_delete_messages", fmt.Sprintf("%v", status))
+
+		if status {
 			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Auto Delete: ON"))
 		} else {
 			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Auto Delete: OFF"))
 		}
 
 	case "default_mirror":
+		s.Settings.mu.Lock()
 		s.Settings.DefaultMode = string(TypeMirror)
+		s.Settings.mu.Unlock()
+		_ = s.DB.SetSetting("default_mode", string(TypeMirror))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📥 Default: Mirror"))
 
 	case "default_leech":
+		s.Settings.mu.Lock()
 		s.Settings.DefaultMode = string(TypeLeech)
+		s.Settings.mu.Unlock()
+		_ = s.DB.SetSetting("default_mode", string(TypeLeech))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
 	default:
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
-
-	s.Settings.mu.Unlock()
 
 	text := s.formatSettingsMessage()
 	keyboard := s.getSettingsKeyboard()
@@ -121,7 +138,6 @@ func (s *BotService) getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", "help:back"),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", "dashboard:close"),
 		),
 	)
 }

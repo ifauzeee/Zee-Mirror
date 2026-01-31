@@ -153,9 +153,6 @@ func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup
 		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("dashboard:page:%d", page+1)))
 	}
 	rows = append(rows, navRow)
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("❌ Close", "dashboard:close"),
-	))
 
 	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
