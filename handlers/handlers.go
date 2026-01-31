@@ -41,6 +41,7 @@ const (
 	MarkdownV2       = "MarkdownV2"
 	StatusHeaderText = "📊 *Status Task Aktif*\n\n"
 	UnknownFile      = "unknown_file"
+	UnknownSize      = "Unknown"
 
 	ModeLeech  = "leech"
 	CmdRefresh = "refresh"

@@ -118,6 +118,7 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 		if p.Found {
 			update.Progress = p.Progress
 			update.Total = p.Total
+			update.Downloaded = p.Downloaded
 			update.Speed = p.Speed
 			update.ETA = p.ETA
 			update.Connections = 16

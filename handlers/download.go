@@ -550,6 +550,32 @@ func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 	s.handleAutoDelete(task)
 }
 
+func (s *BotService) updateTaskProgress(task *Task, up downloader.ProgressUpdate) {
+	task.Mu.Lock()
+	if up.FileName != "" {
+		task.FileName = up.FileName
+	}
+	if up.Progress != 0 {
+		task.Progress = up.Progress
+	}
+	if up.Total != 0 {
+		task.TotalSize = up.Total
+	}
+	if up.Downloaded != 0 {
+		task.DownloadedSize = up.Downloaded
+	}
+	if up.Speed != 0 {
+		task.Speed = up.Speed
+	}
+	if up.ETA != 0 {
+		task.ETA = up.ETA
+	}
+	if up.Error != "" {
+		task.Error = up.Error
+	}
+	task.Mu.Unlock()
+}
+
 func (s *BotService) downloadWithYTDLP(task *Task) {
 	task.SetStatus(StatusDownloading)
 	task.Mu.Lock()
@@ -567,26 +593,7 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 
 	lastUpdate := time.Now()
 	err := s.TaskManager.YTDLPEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
-		task.Mu.Lock()
-		if up.FileName != "" {
-			task.FileName = up.FileName
-		}
-		if up.Progress != 0 {
-			task.Progress = up.Progress
-		}
-		if up.Total != 0 {
-			task.TotalSize = up.Total
-		}
-		if up.Speed != 0 {
-			task.Speed = up.Speed
-		}
-		if up.ETA != 0 {
-			task.ETA = up.ETA
-		}
-		if up.Error != "" {
-			task.Error = up.Error
-		}
-		task.Mu.Unlock()
+		s.updateTaskProgress(task, up)
 
 		if time.Since(lastUpdate) >= 5*time.Second {
 			s.updateTaskStatus(task)
@@ -719,7 +726,7 @@ func calculateDuration(snapshot TaskSnapshot) time.Duration {
 }
 
 func determineSizeString(snapshot TaskSnapshot) string {
-	sizeStr := "Unknown"
+	sizeStr := UnknownSize
 
 	if snapshot.LocalPath != "" {
 		if info, err := os.Stat(snapshot.LocalPath); err == nil && info.IsDir() {

@@ -11,11 +11,12 @@ import (
 var ytdlpProgressRegex = regexp.MustCompile(`\[download\]\s+([\d\.]+)%\s+of\s+(?:~)?(\S+)\s+at\s+(\S+)\s+ETA\s+(\S+)`)
 
 type YTDLPProgress struct {
-	Progress float64
-	Total    int64
-	Speed    int64
-	ETA      time.Duration
-	Found    bool
+	Progress   float64
+	Total      int64
+	Downloaded int64
+	Speed      int64
+	ETA        time.Duration
+	Found      bool
 }
 
 func ParseYTDLPLine(line string) YTDLPProgress {
@@ -36,6 +37,10 @@ func ParseYTDLPLine(line string) YTDLPProgress {
 	}
 	p.Total = utils.ParseBytesString(totalStr)
 	p.Speed = utils.ParseBytesString(speedStr)
+
+	if p.Total > 0 && p.Progress > 0 {
+		p.Downloaded = int64(float64(p.Total) * p.Progress / 100)
+	}
 
 	if d, err := ParseYTDLPDuration(etaStr); err == nil {
 		p.ETA = d

@@ -22,7 +22,7 @@ func getHelpLeech() string {
 
 func getHelpYTDLP() string {
 	return HelpDetailMessage(
-		"🎬 YT\\-DLP",
+		"🎬 YT-DLP",
 		"Download video/audio dari 1000\\+ situs\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
 		"• `/ytdlp <URL>` ─ Download dengan pilihan kualitas\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Download audio only \\(MP3\\)\n• Subtitle otomatis",
 		"`/ytdlp https://youtube\\.com/watch?v=xxxxx`\n`/ytdlp https://tiktok\\.com/@user/video/123`",

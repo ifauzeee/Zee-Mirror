@@ -67,6 +67,11 @@ func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
 		processedSize = taskSnapshot.UploadedSize
 	}
 
+	totalSizeStr := utils.FormatBytes(taskSnapshot.TotalSize)
+	if taskSnapshot.TotalSize == 0 {
+		totalSizeStr = "Unknown"
+	}
+
 	return fmt.Sprintf(
 		"🏷️ *ID:* `%s` \\| %s *%s*\n"+
 			"%s\n"+
@@ -80,7 +85,7 @@ func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
 		utils.EscapeMarkdownV2(bar),
 		utils.EscapeMarkdownV2(utils.TruncateString(taskSnapshot.FileName, 35)),
 		utils.EscapeMarkdownV2(utils.FormatBytes(processedSize)),
-		utils.EscapeMarkdownV2(utils.FormatBytes(taskSnapshot.TotalSize)),
+		utils.EscapeMarkdownV2(totalSizeStr),
 		utils.EscapeMarkdownV2(utils.FormatSpeed(taskSnapshot.Speed)),
 		utils.EscapeMarkdownV2(utils.FormatDuration(taskSnapshot.ETA)),
 		utils.EscapeMarkdownV2(taskSnapshot.ID),
