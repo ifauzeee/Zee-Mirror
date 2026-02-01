@@ -32,6 +32,11 @@ services:
       - TZ=${TZ:-Asia/Jakarta}
       - TELEGRAM_API=http://telegram-bot-api:8081/bot%s/%s
       - WEB_DASHBOARD_TOKEN=${WEB_DASHBOARD_TOKEN}
+      - WEB_DASHBOARD_URL=${WEB_DASHBOARD_URL:-http://localhost}
+      - SMART_AUTO_ORGANIZATION=${SMART_AUTO_ORGANIZATION:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DOWNLOAD_DIR=${DOWNLOAD_DIR:-/app/downloads}
+      - CONFIG_DIR=${CONFIG_DIR:-/app/config}
     
     volumes:
       - downloads:/app/downloads

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"zee-mirror/internal/downloader"
+	"zee-mirror/internal/organizer"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -644,7 +645,7 @@ func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 	}
 	task.FileName = filepath.Base(task.LocalPath)
 
-	if task.Unzip && utils.IsArchiveFile(task.LocalPath) {
+	if task.Unzip && organizer.IsArchiveFile(task.LocalPath) {
 		if err := s.extractArchive(task); err != nil {
 			task.SetError(fmt.Sprintf("Extraction failed: %v", err))
 			s.updateTaskStatus(task)
@@ -833,7 +834,7 @@ func (s *BotService) updateTaskStatus(task *Task) {
 
 	text := buildTaskStatusText(snapshot)
 
-	if snapshot.Status == StatusCompleted && utils.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
+	if snapshot.Status == StatusCompleted && organizer.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
 		task.Mu.RLock()
 		existingID := task.ResultMessageID
 		task.Mu.RUnlock()
@@ -932,7 +933,6 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 			task.ResultMessageID = sentMsg.MessageID
 			task.Mu.Unlock()
 			slog.Info("Captured result video message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
-			s.AutoDeleteMessage(snapshot.ChatID, sentMsg.MessageID, 60*time.Second)
 			_ = os.Remove(thumb)
 			return true
 		}
@@ -982,7 +982,7 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 		task.Mu.Lock()
 		task.ResultMessageID = sentMsg.MessageID
 		task.Mu.Unlock()
-		slog.Info("Captured result final message ID for auto-delete", "messageID", sentMsg.MessageID, "taskID", task.ID)
+		slog.Info("Captured result final message ID", "messageID", sentMsg.MessageID, "taskID", task.ID)
 	}
 }
 

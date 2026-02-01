@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/organizer"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -48,10 +49,18 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 		task.Mu.Unlock()
 	}
 
-	remotePath := filepath.Join(s.TaskManager.RcloneDest, task.FileName)
+	remoteDest := s.TaskManager.RcloneDest
+	if s.Config.SmartAutoOrganization {
+		if subFolder := organizer.GetTargetFolder(task.FileName); subFolder != "" {
+			remoteDest = filepath.Join(remoteDest, subFolder)
+			slog.Info("Smart Auto Organization: moving to subfolder", "taskID", task.ID, "subFolder", subFolder)
+		}
+	}
+
+	remotePath := filepath.Join(remoteDest, task.FileName)
 	task.RemotePath = remotePath
 
-	rcloneDest := s.TaskManager.RcloneDest
+	rcloneDest := remoteDest
 	if info, err := os.Stat(uploadPath); err == nil && info.IsDir() {
 		rcloneDest = remotePath
 	}
@@ -115,11 +124,15 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 }
 
 func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configPath string, isDirUpload bool) {
+	currentRemotePath := task.RemotePath
+	if currentRemotePath == "" {
+		currentRemotePath = filepath.Join(s.TaskManager.RcloneDest, task.FileName)
+	}
 
 	linkArgs := []string{
 		"link",
 		"--config", configPath,
-		filepath.Join(s.TaskManager.RcloneDest, task.FileName),
+		currentRemotePath,
 	}
 	//nolint:gosec
 	linkCmd := exec.CommandContext(ctx, "rclone", linkArgs...)
@@ -136,11 +149,12 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		return
 	}
 
+	parentPath := filepath.Dir(currentRemotePath)
 	idArgs := []string{
 		"lsjson",
 		"--config", configPath,
 		"--dirs-only",
-		s.TaskManager.RcloneDest,
+		parentPath,
 	}
 	idCmd := exec.CommandContext(ctx, "rclone", idArgs...)
 	idOutput, idErr := idCmd.Output()
@@ -167,7 +181,6 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		slog.Error("Failed to list parent directory contents", "error", idErr)
 	}
 
-	parentPath := s.TaskManager.RcloneDest
 	linkArgsParent := []string{
 		"link",
 		"--config", configPath,
@@ -269,7 +282,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 	}
 
 	var msg tgbotapi.Chattable
-	if utils.IsVideoFile(filePath) {
+	if organizer.IsVideoFile(filePath) {
 		video := tgbotapi.NewVideo(task.ChatID, tgbotapi.FilePath(filePath))
 		video.Caption = fmt.Sprintf("📄 %s", task.FileName)
 

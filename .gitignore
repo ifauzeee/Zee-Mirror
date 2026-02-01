@@ -49,6 +49,7 @@ vendor/
 *.out
 
 # Logs
+# Logs
 *.log
 logs/
 
@@ -67,3 +68,4 @@ view_file
 tmp/
 temp/
 *.tmp
+zee-mirror-tmp

@@ -192,28 +192,6 @@ func GetFileExtension(filename string) string {
 	return strings.ToLower(ext)
 }
 
-func IsArchiveFile(filename string) bool {
-	ext := GetFileExtension(filename)
-	archiveExts := []string{".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".tgz"}
-	for _, e := range archiveExts {
-		if ext == e || strings.HasSuffix(strings.ToLower(filename), e) {
-			return true
-		}
-	}
-	return false
-}
-
-func IsVideoFile(filename string) bool {
-	ext := GetFileExtension(filename)
-	videoExts := []string{".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v"}
-	for _, e := range videoExts {
-		if ext == e {
-			return true
-		}
-	}
-	return false
-}
-
 func TruncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s

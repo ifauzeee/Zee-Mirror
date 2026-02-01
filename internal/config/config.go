@@ -19,6 +19,7 @@ type Config struct {
 	DashboardToken         string
 	DashboardPort          int
 	LogLevel               string
+	SmartAutoOrganization  bool
 }
 
 func LoadConfig() *Config {
@@ -32,6 +33,7 @@ func LoadConfig() *Config {
 		DashboardToken:         getEnv("WEB_DASHBOARD_TOKEN", "zee-mirror-secret"),
 		DashboardPort:          getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
 		LogLevel:               getEnv("LOG_LEVEL", "info"),
+		SmartAutoOrganization:  getEnvBool("SMART_AUTO_ORGANIZATION", false),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {
@@ -65,6 +67,18 @@ func getEnvInt(key string, fallback int) int {
 		return n
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	str := getEnv(key, "")
+	if str == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(str)
+	if err != nil {
+		return fallback
+	}
+	return b
 }
 
 func (c *Config) Validate() bool {
