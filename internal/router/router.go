@@ -39,13 +39,15 @@ func (r *Router) RegisterCallback(prefix string, handler CallbackHandler) {
 
 func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 	if msg.IsCommand() {
+		if r.service != nil {
+			r.service.AutoDeleteCommandAndReply(msg)
+		}
 		command := msg.Command()
 		if handler, ok := r.commands[command]; ok {
 			handler(r.service, msg)
 			return
 		}
 
-		// Handle dynamic commands like cancel_
 		if strings.HasPrefix(command, "cancel_") {
 			taskID := strings.TrimPrefix(command, "cancel_")
 			r.service.HandleCancel(msg, taskID)
@@ -58,7 +60,6 @@ func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 		return
 	}
 
-	// Handle non-command messages (like magnet links)
 	text := msg.Text
 	if text == "" && msg.Caption != "" {
 		text = msg.Caption
@@ -66,6 +67,9 @@ func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 
 	if text != "" {
 		if strings.HasPrefix(text, "magnet:?") {
+			if r.service != nil {
+				r.service.AutoDeleteCommandAndReply(msg)
+			}
 			r.service.HandleTorrent(msg, text)
 			return
 		}
@@ -80,7 +84,6 @@ func (r *Router) HandleCallback(cb *tgbotapi.CallbackQuery) {
 
 	prefix := parts[0]
 
-	// Handle dynamic prefixes like cancel_
 	if strings.HasPrefix(prefix, "cancel_") {
 		taskID := strings.TrimPrefix(prefix, "cancel_")
 		r.service.HandleCancelCallback(cb, taskID)

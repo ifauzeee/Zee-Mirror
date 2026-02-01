@@ -37,7 +37,12 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	task := s.TaskManager.CreateTask(TypeClone, url, "cloning...", message.Chat.ID, 0, message.From.ID, false, false, "", "", 0)
+	replyID := 0
+	if message.ReplyToMessage != nil {
+		replyID = message.ReplyToMessage.MessageID
+	}
+	task := s.TaskManager.CreateTask(TypeClone, url, "cloning...", message.Chat.ID, message.MessageID, replyID, message.From.ID, false, false, "", "", 0)
+	s.handleAutoDelete(task)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	slog.Info("Clone task created", "taskID", task.ID, "url", url)
 }

@@ -13,7 +13,6 @@ import (
 var lastStatusText = make(map[int64]string)
 
 func (s *BotService) HandleStatus(message *tgbotapi.Message) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 }
 
@@ -205,8 +204,6 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 }
 
 func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	if args == "" {
 		s.reply(message, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID>\n\nLihat daftar task dengan /status"))
 		return

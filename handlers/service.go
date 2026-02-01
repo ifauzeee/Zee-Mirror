@@ -139,4 +139,19 @@ func (s *BotService) handleAutoDelete(task *Task) {
 			_, _ = s.Bot.Request(deleteCmd)
 		}()
 	}
+
+	// User's reply message (e.g. file being mirrored) is also deleted
+	if task.ReplyMessageID != 0 {
+		go func() {
+			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.ReplyMessageID)
+			_, _ = s.Bot.Request(deleteCmd)
+		}()
+	}
+}
+
+func (s *BotService) AutoDeleteCommandAndReply(message *tgbotapi.Message) {
+	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
+	if message.ReplyToMessage != nil {
+		s.AutoDeleteMessage(message.Chat.ID, message.ReplyToMessage.MessageID, 0)
+	}
 }

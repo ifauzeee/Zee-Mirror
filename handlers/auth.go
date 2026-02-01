@@ -149,8 +149,6 @@ func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int6
 }
 
 func (s *BotService) reply(message *tgbotapi.Message, text string) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	if _, err := s.Bot.Send(msg); err != nil {

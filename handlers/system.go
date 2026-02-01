@@ -14,8 +14,6 @@ import (
 func (s *BotService) HandlePing(message *tgbotapi.Message) {
 	start := time.Now()
 
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, "🏓 *Pinging\\.\\.\\.*")
 	msg.ParseMode = MarkdownV2
 	sentMsg, err := s.Bot.Send(msg)
@@ -32,8 +30,6 @@ func (s *BotService) HandlePing(message *tgbotapi.Message) {
 }
 
 func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, "🚀 *Running Speedtest\\.\\.\\.*")
 	msg.ParseMode = MarkdownV2
 	sentMsg, err := s.Bot.Send(msg)

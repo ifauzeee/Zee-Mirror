@@ -62,6 +62,7 @@ type Task struct {
 	Quality         string
 	OrigFileName    string
 	ResultMessageID int
+	ReplyMessageID  int
 
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
@@ -142,6 +143,7 @@ type TaskSnapshot struct {
 	Quality         string        `json:"quality"`
 	OrigFileName    string        `json:"origFileName"`
 	ResultMessageID int           `json:"resultMessageID"`
+	ReplyMessageID  int           `json:"replyMessageID"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {
@@ -177,5 +179,6 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		Quality:         t.Quality,
 		OrigFileName:    t.OrigFileName,
 		ResultMessageID: t.ResultMessageID,
+		ReplyMessageID:  t.ReplyMessageID,
 	}
 }

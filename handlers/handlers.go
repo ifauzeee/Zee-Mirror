@@ -189,28 +189,29 @@ func (tm *TaskManager) refreshActiveDashboards() {
 	}
 }
 
-func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64) *Task {
+func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64) *Task {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
 		Task: domain.Task{
-			ID:           uuid.New().String()[:8],
-			Type:         taskType,
-			Status:       StatusQueued,
-			URL:          url,
-			FileName:     fileName,
-			OrigFileName: fileName,
-			ChatID:       chatID,
-			MessageID:    msgID,
-			UserID:       userID,
-			Zip:          zip,
-			Unzip:        unzip,
-			Password:     password,
-			Quality:      quality,
-			CreatedAt:    time.Now(),
-			Ctx:          ctx,
-			CancelFunc:   cancel,
-			TotalSize:    expectedTotalSize, // Set total size if known
+			ID:             uuid.New().String()[:8],
+			Type:           taskType,
+			Status:         StatusQueued,
+			URL:            url,
+			FileName:       fileName,
+			OrigFileName:   fileName,
+			ChatID:         chatID,
+			MessageID:      msgID,
+			ReplyMessageID: replyID,
+			UserID:         userID,
+			Zip:            zip,
+			Unzip:          unzip,
+			Password:       password,
+			Quality:        quality,
+			CreatedAt:      time.Now(),
+			Ctx:            ctx,
+			CancelFunc:     cancel,
+			TotalSize:      expectedTotalSize, // Set total size if known
 		},
 		DB: tm.DB,
 	}

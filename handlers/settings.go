@@ -19,14 +19,12 @@ type Settings struct {
 
 func NewSettings() *Settings {
 	return &Settings{
-		AutoDeleteMessages: false,
+		AutoDeleteMessages: true,
 		DefaultMode:        string(TypeMirror),
 	}
 }
 
 func (s *BotService) HandleSettings(message *tgbotapi.Message) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	text := s.formatSettingsMessage()
 	keyboard := s.getSettingsKeyboard()
 

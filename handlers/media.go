@@ -52,8 +52,6 @@ func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) 
 		return
 	}
 
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	fileID, fileName := s.getFileFromMessage(message)
 	inputPath := args
 
@@ -119,8 +117,6 @@ func (s *BotService) HandleCompressVideo(message *tgbotapi.Message, args string)
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
-
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	fileID, fileName := s.getFileFromMessage(message)
 	inputPath := args
@@ -209,8 +205,6 @@ func (s *BotService) HandleGenerateThumbnail(message *tgbotapi.Message, args str
 		return
 	}
 
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	fileID, fileName := s.getFileFromMessage(message)
 	timestamp := "00:00:05"
 	inputPath := ""
@@ -287,8 +281,6 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 		return
 	}
 
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	fileID, fileName := s.getFileFromMessage(message)
 	var videoPath, subPath string
 
@@ -362,8 +354,6 @@ func (s *BotService) HandleConvertFormat(message *tgbotapi.Message, args string)
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
-
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	fileID, fileName := s.getFileFromMessage(message)
 	var inputPath, targetFormat string
@@ -445,8 +435,6 @@ func (s *BotService) HandleMediaInfo(message *tgbotapi.Message, args string) {
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
-
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	fileID, fileName := s.getFileFromMessage(message)
 	inputPath := args
@@ -586,7 +574,13 @@ func (s *BotService) HandleMediaMirrorCallback(cb *tgbotapi.CallbackQuery, parts
 	url := "file://" + fullPath
 	fileName := filepath.Base(fullPath)
 
-	task := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, cb.From.ID, false, false, "", "", 0)
+	replyID := 0
+	if cb.Message.ReplyToMessage != nil {
+		replyID = cb.Message.ReplyToMessage.MessageID
+	}
+
+	task := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, replyID, cb.From.ID, false, false, "", "", 0)
+	s.handleAutoDelete(task)
 	s.UpdateSharedDashboard(cb.Message.Chat.ID, false)
 	slog.Info("Local media mirror task created", "taskID", task.ID, "path", fullPath)
 }
@@ -619,8 +613,6 @@ func (s *BotService) HandleScreenshots(message *tgbotapi.Message, args string) {
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
-
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
 
 	fileID, fileName := s.getFileFromMessage(message)
 	count := 4

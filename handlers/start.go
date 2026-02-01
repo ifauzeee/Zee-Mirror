@@ -17,8 +17,6 @@ const (
 )
 
 func (s *BotService) HandleStart(message *tgbotapi.Message) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	userName := message.From.FirstName
 	if userName == "" {
 		userName = "User"
@@ -39,8 +37,6 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 }
 
 func (s *BotService) HandleHelp(message *tgbotapi.Message) {
-	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-
 	helpText := GetHelpMainText()
 	keyboard := GetHelpKeyboard()
 
