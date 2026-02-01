@@ -188,7 +188,7 @@ func (tm *TaskManager) refreshActiveDashboards() {
 	}
 }
 
-func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID int, userID int64, zip, unzip bool, password, quality string) *Task {
+func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64) *Task {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
@@ -209,6 +209,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 			CreatedAt:    time.Now(),
 			Ctx:          ctx,
 			CancelFunc:   cancel,
+			TotalSize:    expectedTotalSize, // Set total size if known
 		},
 		DB: tm.DB,
 	}

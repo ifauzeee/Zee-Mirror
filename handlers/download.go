@@ -47,7 +47,7 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 				}
 			}
 		}
-		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
+		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality, 0)
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.handleAutoDelete(task)
 		slog.Info("Mirror task created", "taskID", task.ID, "url", url)
@@ -119,7 +119,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	if fileName == "" {
 		fileName = utils.GetFileNameFromURL(url)
 	}
-	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
+	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
 	slog.Info("Leech task created", "taskID", task.ID, "url", url)
@@ -143,7 +143,7 @@ func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	task := s.TaskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, message.MessageID, message.From.ID, zip, false, password, quality)
+	task := s.TaskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, message.MessageID, message.From.ID, zip, false, password, quality, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
 	slog.Info("YTDLP task created", "taskID", task.ID, "url", url)
@@ -314,7 +314,7 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 	s.TaskManager.LastStatusMsg[callback.Message.Chat.ID] = callback.Message.MessageID
 	s.TaskManager.Mu.Unlock()
 
-	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality)
+	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	slog.Info("YTDLP task created from callback", "taskID", task.ID, "quality", quality)
 }
@@ -346,7 +346,7 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	if fileName == "" {
 		fileName = "torrent_download"
 	}
-	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality)
+	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, message.Chat.ID, message.MessageID, message.From.ID, zip, unzip, password, quality, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
 	slog.Info("Torrent task created", "taskID", task.ID, "url", url)
@@ -393,13 +393,60 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 		taskType = TypeTorrent
 	}
 
-	task := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality)
+	task := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, 0, message.From.ID, zip, unzip, password, quality, int64(tgFile.FileSize))
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	slog.Info("Telegram download task created", "taskID", task.ID, "type", taskType)
 }
 
 func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
 	sourcePath := strings.TrimPrefix(task.URL, "file://")
+
+	task.Mu.RLock()
+	expectedSize := task.TotalSize
+	task.Mu.RUnlock()
+
+	lastUpdate := time.Now()
+	var sameSizeCount int
+	var lastSize int64
+
+	for {
+		info, err := os.Stat(sourcePath)
+		if err != nil {
+			task.SetError(fmt.Sprintf("Local file not found: %v", err))
+			s.updateTaskStatus(task)
+			return
+		}
+
+		currentSize := info.Size()
+
+		if expectedSize > 0 {
+			if currentSize >= expectedSize {
+				break
+			}
+
+			if time.Since(lastUpdate) >= 3*time.Second {
+				task.Mu.Lock()
+				task.DownloadedSize = currentSize
+				task.Progress = float64(currentSize) / float64(expectedSize) * 100
+				task.Mu.Unlock()
+				s.updateTaskStatus(task)
+				lastUpdate = time.Now()
+			}
+		} else {
+
+			break
+		}
+
+		if currentSize == lastSize {
+			sameSizeCount++
+
+		} else {
+			sameSizeCount = 0
+		}
+		lastSize = currentSize
+
+		time.Sleep(1 * time.Second)
+	}
 
 	info, err := os.Stat(sourcePath)
 	if err != nil {

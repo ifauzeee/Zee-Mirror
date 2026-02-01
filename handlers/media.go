@@ -586,7 +586,7 @@ func (s *BotService) HandleMediaMirrorCallback(cb *tgbotapi.CallbackQuery, parts
 	url := "file://" + fullPath
 	fileName := filepath.Base(fullPath)
 
-	task := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, cb.From.ID, false, false, "", "")
+	task := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, cb.From.ID, false, false, "", "", 0)
 	s.UpdateSharedDashboard(cb.Message.Chat.ID, false)
 	slog.Info("Local media mirror task created", "taskID", task.ID, "path", fullPath)
 }
