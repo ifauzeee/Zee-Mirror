@@ -29,11 +29,12 @@ const (
 type TaskType = domain.TaskType
 
 const (
-	TypeMirror  = domain.TypeMirror
-	TypeLeech   = domain.TypeLeech
-	TypeYTDLP   = domain.TypeYTDLP
-	TypeTorrent = domain.TypeTorrent
-	TypeClone   = domain.TypeClone
+	TypeMirror     = domain.TypeMirror
+	TypeLeech      = domain.TypeLeech
+	TypeYTDLP      = domain.TypeYTDLP
+	TypeYTDLPLeech = domain.TypeYTDLPLeech
+	TypeTorrent    = domain.TypeTorrent
+	TypeClone      = domain.TypeClone
 )
 
 const (

@@ -146,13 +146,13 @@ func processUpdates(updates tgbotapi.UpdatesChannel, service *handlers.BotServic
 			}
 			ctx := context.Background()
 			_ = service.UserRepo.Upsert(ctx, update.Message.From.ID, update.Message.From.UserName, "user")
-			r.HandleMessage(update.Message)
+			go r.HandleMessage(update.Message)
 		} else if update.CallbackQuery != nil {
 			if !service.IsAuthorized(update.CallbackQuery.From.ID) {
 				slog.Warn("Unauthorized callback", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName)
 				continue
 			}
-			r.HandleCallback(update.CallbackQuery)
+			go r.HandleCallback(update.CallbackQuery)
 		}
 	}
 }
@@ -177,15 +177,24 @@ func setupBasicRoutes(r *router.Router) {
 
 func setupDownloadRoutes(r *router.Router) {
 	r.RegisterCommand("mirror", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleMirror(m, m.CommandArguments()) })
+	r.RegisterCommand("m", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleMirror(m, m.CommandArguments()) })
 	r.RegisterCommand("leech", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLeech(m, m.CommandArguments()) })
+	r.RegisterCommand("l", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLeech(m, m.CommandArguments()) })
 	r.RegisterCommand("ytdlp", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLP(m, m.CommandArguments()) })
+	r.RegisterCommand("y", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLP(m, m.CommandArguments()) })
+	r.RegisterCommand("ytdlpleech", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLPLeech(m, m.CommandArguments()) })
+	r.RegisterCommand("yl", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLPLeech(m, m.CommandArguments()) })
 	r.RegisterCommand("torrent", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleTorrent(m, m.CommandArguments()) })
+	r.RegisterCommand("t", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleTorrent(m, m.CommandArguments()) })
 	r.RegisterCommand("clone", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleClone(m, m.CommandArguments()) })
+	r.RegisterCommand("cl", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleClone(m, m.CommandArguments()) })
 }
 
 func setupAdminRoutes(r *router.Router) {
 	r.RegisterCommand("status", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStatus(m) })
+	r.RegisterCommand("st", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStatus(m) })
 	r.RegisterCommand("cancel", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleCancel(m, m.CommandArguments()) })
+	r.RegisterCommand("c", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleCancel(m, m.CommandArguments()) })
 	r.RegisterCommand("cancelall", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleCancelAll(m) })
 	r.RegisterCommand("search", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSearch(m, m.CommandArguments()) })
 	r.RegisterCommand("batch", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleBatch(m, m.CommandArguments()) })

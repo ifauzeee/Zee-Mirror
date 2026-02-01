@@ -114,14 +114,15 @@ func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action
 				tgbotapi.NewInlineKeyboardButtonData("📤 Leech", "help:cmd_leech"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🎬 YT-DLP", "help:cmd_ytdlp"),
+				tgbotapi.NewInlineKeyboardButtonData("🎬 YT Mirror", "help:cmd_ytdlp"),
+				tgbotapi.NewInlineKeyboardButtonData("🎬 YT Leech", "help:cmd_ytdlpleech"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "help:cmd_torrent"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("📋 Clone", "help:cmd_clone"),
-				tgbotapi.NewInlineKeyboardButtonData("📦 Batch", "help:cmd_batch"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📦 Batch", "help:cmd_batch"),
 				tgbotapi.NewInlineKeyboardButtonData("🔍 Search", "help:cmd_search"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
@@ -143,6 +144,12 @@ func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action
 		))
 	case "cmd_ytdlp":
 		text = getHelpYTDLP()
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+			backToCat,
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+		))
+	case "cmd_ytdlpleech":
+		text = getHelpYTDLPLeech()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
 			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),

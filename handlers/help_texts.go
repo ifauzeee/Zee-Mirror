@@ -4,7 +4,7 @@ func getHelpMirror() string {
 	return HelpDetailMessage(
 		"📥 MIRROR",
 		"Upload file dari URL langsung ke Google Drive\\.\nFile akan disimpan di cloud storage tanpa menyimpan di server\\.",
-		"• `/mirror <URL>` ─ Download \\& upload ke Drive\n• Reply ke file dengan `/mirror`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-z` ─ Zip file sebelum upload\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass>` ─ Password zip/unzip",
+		"• `/mirror` atau `/m` <URL> ─ Download \\& upload ke Drive\n• Reply ke file dengan `/mirror`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-z` ─ Zip file sebelum upload\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass>` ─ Password zip/unzip",
 		"`/mirror https://example\\.com/file\\.zip`\n`/mirror \\-z https://example\\.com/folder`\n`/mirror \\-uz \\-p secret https://file\\.rar`",
 		"",
 	)
@@ -14,7 +14,7 @@ func getHelpLeech() string {
 	return HelpDetailMessage(
 		"📤 LEECH",
 		"Download file dari URL ke server bot\\.\nFile akan dikirim langsung ke chat Telegram setelah selesai\\.",
-		"• `/leech <URL>` ─ Download ke server\n• Reply ke file dengan `/leech`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-z` ─ Zip file sebelum kirim\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass>` ─ Password zip/unzip",
+		"• `/leech` atau `/l` <URL> ─ Download ke server\n• Reply ke file dengan `/leech`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-z` ─ Zip file sebelum kirim\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass>` ─ Password zip/unzip",
 		"`/leech https://example\\.com/video\\.mp4`\n`/leech \\-uz https://archive\\.rar`",
 		"",
 	)
@@ -22,10 +22,20 @@ func getHelpLeech() string {
 
 func getHelpYTDLP() string {
 	return HelpDetailMessage(
-		"🎬 YT-DLP",
-		"Download video/audio dari 1000\\+ situs\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
-		"• `/ytdlp <URL>` ─ Download dengan pilihan kualitas\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Download audio only \\(MP3\\)\n• Subtitle otomatis",
+		"🎬 YT-DLP MIRROR",
+		"Download video/audio dari 1000\\+ situs langsung ke Drive\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
+		"• `/ytdlp` atau `/y` <URL> ─ Download dengan pilihan kualitas\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Download audio only \\(MP3\\)\n• Subtitle otomatis",
 		"`/ytdlp https://youtube\\.com/watch?v=xxxxx`\n`/ytdlp https://tiktok\\.com/@user/video/123`",
+		"",
+	)
+}
+
+func getHelpYTDLPLeech() string {
+	return HelpDetailMessage(
+		"🎬 YT-DLP LEECH",
+		"Download video/audio dari 1000\\+ situs langsung ke Telegram\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
+		"• `/ytdlpleech` atau `/yl` <URL> ─ Download ke Telegram\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Kirim sebagai video Telegram",
+		"`/ytdlpleech https://youtube\\.com/watch?v=xxxxx`",
 		"",
 	)
 }
@@ -34,7 +44,7 @@ func getHelpTorrent() string {
 	return HelpDetailMessage(
 		"🧲 TORRENT",
 		"Download file via magnet link atau file torrent \\(\\.torrent\\)\\.\nBot akan otomatis mendeteksi jika Anda mengirim magnet link tanpa command\\.",
-		"• `/torrent <magnet>` ─ Download dari magnet\n• Reply ke \\.torrent dengan `/torrent`\n• Kirim magnet link langsung \\(Auto\\-Detect\\)\n\n✨ *FITUR*\n• Support magnet link \\& file \\.torrent\n• Multi\\-connection download\n• Resume download",
+		"• `/torrent` atau `/t` <magnet> ─ Download dari magnet\n• Reply ke \\.torrent dengan `/torrent`\n• Kirim magnet link langsung \\(Auto\\-Detect\\)\n\n✨ *FITUR*\n• Support magnet link \\& file \\.torrent\n• Multi\\-connection download\n• Resume download",
 		"`/torrent magnet:?xt=urn:btih:xxxxx`",
 		"💡 *AUTO\\-DETECT:* Anda bisa langsung mengirim magnet link, bot akan otomatis memprosesnya\\.",
 	)
@@ -44,7 +54,7 @@ func getHelpClone() string {
 	return HelpDetailMessage(
 		"📋 CLONE",
 		"Clone/salin file atau folder dari Google Drive ke Drive tujuan\\.",
-		"• `/clone <drive_url>` ─ Clone ke storage aktif\n\n🔗 *URL YANG DIDUKUNG*\n• `drive\\.google\\.com/file/d/xxx`\n• `drive\\.google\\.com/drive/folders/xxx`\n• `drive\\.google\\.com/open?id=xxx`",
+		"• `/clone` atau `/cl` <drive_url> ─ Clone ke storage aktif\n\n🔗 *URL YANG DIDUKUNG*\n• `drive\\.google\\.com/file/d/xxx`\n• `drive\\.google\\.com/drive/folders/xxx`\n• `drive\\.google\\.com/open?id=xxx`",
 		"`/clone https://drive\\.google\\.com/file/d/abc123`",
 		"",
 	)
@@ -74,7 +84,7 @@ func getHelpStatus() string {
 	return HelpDetailMessage(
 		"📊 STATUS",
 		"Melihat semua task yang sedang aktif \\(download/upload\\)\\.",
-		"• `/status` ─ Tampilkan semua task aktif\n\n📋 *INFO DITAMPILKAN*\n• Nama file\n• Progress \\(%\\)\n• Kecepatan download/upload\n• ETA \\(estimasi waktu selesai\\)\n• Status \\(downloading/uploading\\)\n\n🔘 *TOMBOL AKSI*\n• Refresh ─ Update status\n• Cancel ─ Batalkan task",
+		"• `/status` atau `/st` ─ Tampilkan semua task aktif\n\n📋 *INFO DITAMPILKAN*\n• Nama file\n• Progress \\(%\\)\n• Kecepatan download/upload\n• ETA \\(estimasi waktu selesai\\)\n• Status \\(downloading/uploading\\)\n\n🔘 *TOMBOL AKSI*\n• Refresh ─ Update status\n• Cancel ─ Batalkan task",
 		"`/status`",
 		"",
 	)
@@ -274,7 +284,7 @@ func getHelpCancel() string {
 	return HelpDetailMessage(
 		"❌ CANCEL",
 		"Membatalkan task tertentu\\.",
-		"• `/cancel <task_id>` ─ Batalkan task\n• Klik tombol Cancel di status",
+		"• `/cancel` atau `/c` <task_id> ─ Batalkan task\n• Klik tombol Cancel di status",
 		"`/cancel abc123`",
 		"💡 *TIP:* Lihat task ID dengan `/status`",
 	)
@@ -393,17 +403,18 @@ func getHelpSetLogChannel() string {
 func getHelpAllCommands() string {
 	content := "📋 *DAFTAR SELURUH PERINTAH BOT*\n\n" +
 		"📥 *DOWNLOAD*\n" +
-		"• `/mirror` ─ Mirror ke Drive\n" +
-		"• `/leech` ─ Leech ke Telegram\n" +
-		"• `/ytdlp` ─ YT\\-DLP Download\n" +
-		"• `/torrent` ─ Torrent Download\n" +
-		"• `/clone` ─ Clone GDrive\n" +
+		"• `/mirror` \\(/m\\) ─ Mirror ke Drive\n" +
+		"• `/leech` \\(/l\\) ─ Leech ke Telegram\n" +
+		"• `/ytdlp` \\(/y\\) ─ YT\\-DLP Mirror\n" +
+		"• `/ytdlpleech` \\(/yl\\) ─ YT\\-DLP Leech\n" +
+		"• `/torrent` \\(/t\\) ─ Torrent Download\n" +
+		"• `/clone` \\(/cl\\) ─ Clone GDrive\n" +
 		"• `/batch` ─ Batch Download\n" +
 		"• `/batchstatus` ─ Status Batch\n" +
 		"• `/cancelbatch` ─ Batal Batch\n" +
 		"• `/search` ─ Cari Torrent\n\n" +
 		"📊 *MONITOR & SYSTEM*\n" +
-		"• `/status` ─ Status Aktif\n" +
+		"• `/status` \\(/st\\) ─ Status Aktif\n" +
 		"• `/stats` ─ Statistik Bot\n" +
 		"• `/system` ─ Info System\n" +
 		"• `/health` ─ Cek Kesehatan\n" +
@@ -439,7 +450,7 @@ func getHelpAllCommands() string {
 		"• `/help` ─ Menu Bantuan\n" +
 		"• `/recover` ─ Pulihkan Task\n" +
 		"• `/recoverystatus` ─ Status Recovery\n" +
-		"• `/cancel` ─ Batal Task ID\n" +
+		"• `/cancel` \\(/c\\) ─ Batal Task ID\n" +
 		"• `/cancelall` ─ Batal Semua"
 
 	return ProfessionalMessage("ALL COMMANDS", content)

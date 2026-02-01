@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -126,32 +127,109 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 }
 
 func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
+	s.handleYTDLPGeneric(message, args, TypeYTDLP)
+}
+
+func (s *BotService) HandleYTDLPLeech(message *tgbotapi.Message, args string) {
+	s.handleYTDLPGeneric(message, args, TypeYTDLPLeech)
+}
+
+func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, taskType TaskType) {
 	url, zip, _, password, quality, _ := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
 	}
 
+	if url == "" && message.ReplyToMessage != nil {
+		replyText := message.ReplyToMessage.Text
+		if replyText == "" {
+			replyText = message.ReplyToMessage.Caption
+		}
+		url = utils.ExtractURLFromText(replyText)
+	}
+
 	if url == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL video\\.")
+		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL video atau reply ke pesan yang berisi link\\.")
 		msg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(msg)
+		if sentMsg, err := s.Bot.Send(msg); err == nil {
+			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 30*time.Second)
+		}
 		return
 	}
 
 	if quality == "" && (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) {
-		s.showYTDLPQualityMenu(message, url, zip, password)
+		s.showYTDLPQualityMenu(message, url, zip, password, taskType)
 		return
 	}
 
-	task := s.TaskManager.CreateTask(TypeYTDLP, url, "video", message.Chat.ID, message.MessageID, message.From.ID, zip, false, password, quality, 0)
+	task := s.TaskManager.CreateTask(taskType, url, "video", message.Chat.ID, message.MessageID, message.From.ID, zip, false, password, quality, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
-	slog.Info("YTDLP task created", "taskID", task.ID, "url", url)
+	slog.Info("YTDLP task created", "taskID", task.ID, "type", taskType, "url", url)
 }
 
-func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string, zip bool, password string) {
+func (s *BotService) isYTDLPPlaylist(url string) bool {
+	return (strings.Contains(url, "/@") ||
+		strings.Contains(url, "/channel/") ||
+		strings.Contains(url, "/c/") ||
+		strings.Contains(url, "/user/") ||
+		strings.Contains(url, "/playlist?") ||
+		strings.Contains(url, "&list=")) && !strings.Contains(url, "watch?v=")
+}
+
+func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string, zip bool, password string, taskType TaskType) {
+	if s.isYTDLPPlaylist(url) {
+		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nURL yang Anda berikan adalah link Channel atau Playlist\\. Bot ini hanya mendukung download video tunggal untuk saat ini\\.")
+		msg.ParseMode = MarkdownV2
+		sentMsg, _ := s.Bot.Send(msg)
+		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 15*time.Second)
+		return
+	}
+
 	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 Menganalisa kualitas video…"))
 
+	args := s.getYTDLPAnalysisArgs(url)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		stderr := ""
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = string(exitErr.Stderr)
+		}
+		slog.Error("YTDLP analysis failed", "error", err, "stderr", stderr)
+		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal menganalisa video:* %v\n\n_Pastikan URL valid atau coba lagi nanti\\._", utils.EscapeMarkdownV2(err.Error())))
+		s.AutoDeleteMessage(statusMsg.Chat.ID, statusMsg.MessageID, 20*time.Second)
+		return
+	}
+
+	resMap, err := s.parseYTDLPFormats(output)
+	if err != nil {
+		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal memproses data video:* %v", utils.EscapeMarkdownV2(err.Error())))
+		return
+	}
+
+	sortedHeights := s.getSortedHeights(resMap)
+
+	sessionID := s.createYTDLPSession(url, zip, password, taskType)
+	keyboard := s.buildYTDLPKeyboard(sortedHeights, resMap, sessionID)
+
+	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
+	if len(sortedHeights) == 0 {
+		text = "📽️ *Pilih Kualitas Video*\n\nResolusi tidak terdeteksi, gunakan kualitas terbaik:"
+	}
+
+	editMsg := tgbotapi.NewEditMessageText(statusMsg.Chat.ID, statusMsg.MessageID, text)
+	editMsg.ParseMode = MarkdownV2
+	editMsg.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(editMsg)
+}
+
+func (s *BotService) getYTDLPAnalysisArgs(url string) []string {
 	args := []string{
 		"-j",
 		"--no-playlist",
@@ -163,6 +241,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 		"--remote-components", "ejs:github",
 		"--js-runtime", "node",
 		"--cache-dir", "/home/botuser/.cache/yt-dlp-final",
+		"--playlist-items", "0",
 	}
 
 	cookiesPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
@@ -173,19 +252,10 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 	}
 
 	args = append(args, url)
-	cmd := exec.Command("yt-dlp", args...)
+	return args
+}
 
-	output, err := cmd.Output()
-	if err != nil {
-		stderr := ""
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			stderr = string(exitErr.Stderr)
-		}
-		slog.Error("YTDLP analysis failed", "error", err, "stderr", stderr)
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal menganalisa video:* %v\n\n_Pastikan URL valid atau coba lagi nanti\\._", utils.EscapeMarkdownV2(err.Error())))
-		return
-	}
-
+func (s *BotService) parseYTDLPFormats(output []byte) (map[int]float64, error) {
 	var data struct {
 		Formats []struct {
 			FormatID string  `json:"format_id"`
@@ -196,72 +266,66 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 	}
 
 	if err := json.Unmarshal(output, &data); err != nil {
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, "❌ *Gagal memproses data video*")
-		return
+		return nil, err
 	}
 
 	resMap := make(map[int]float64)
 	for _, f := range data.Formats {
-		slog.Debug("YTDLP Format found", "id", f.FormatID, "height", f.Height, "fps", f.FPS, "vcodec", f.VCodec)
-
 		if strings.HasPrefix(f.FormatID, "sb") {
 			continue
 		}
-
 		if f.Height > 0 && f.VCodec != "" && f.VCodec != "none" {
 			if f.FPS > resMap[f.Height] {
 				resMap[f.Height] = f.FPS
 			}
 		}
 	}
+	return resMap, nil
+}
 
-	var sortedHeights []int
+func (s *BotService) getSortedHeights(resMap map[int]float64) []int {
+	var heights []int
 	for h := range resMap {
-		sortedHeights = append(sortedHeights, h)
+		heights = append(heights, h)
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(sortedHeights)))
+	sort.Sort(sort.Reverse(sort.IntSlice(heights)))
+	return heights
+}
 
+func (s *BotService) createYTDLPSession(url string, zip bool, password string, taskType TaskType) string {
 	sessionID := uuid.New().String()[:8]
 	s.TaskManager.Mu.Lock()
+	defer s.TaskManager.Mu.Unlock()
 	s.TaskManager.YTDLPSessions[sessionID] = &YTDLPSession{
 		URL:      url,
 		Zip:      zip,
 		Password: password,
+		Type:     taskType,
 	}
-	s.TaskManager.Mu.Unlock()
+	return sessionID
+}
 
+func (s *BotService) buildYTDLPKeyboard(sortedHeights []int, resMap map[int]float64, sessionID string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	for i := 0; i < len(sortedHeights); i += 2 {
 		var row []tgbotapi.InlineKeyboardButton
 
 		h1 := sortedHeights[i]
-		fps1 := resMap[h1]
-		label1 := formatQualityLabel(h1, fps1)
+		label1 := formatQualityLabel(h1, resMap[h1])
 		row = append(row, tgbotapi.NewInlineKeyboardButtonData(label1, fmt.Sprintf("ytdlp_q:%d:%s", h1, sessionID)))
 
 		if i+1 < len(sortedHeights) {
 			h2 := sortedHeights[i+1]
-			fps2 := resMap[h2]
-			label2 := formatQualityLabel(h2, fps2)
+			label2 := formatQualityLabel(h2, resMap[h2])
 			row = append(row, tgbotapi.NewInlineKeyboardButtonData(label2, fmt.Sprintf("ytdlp_q:%d:%s", h2, sessionID)))
 		}
-
 		rows = append(rows, row)
 	}
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🚀 Kualitas Terbaik", fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
 	))
-	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
-	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
-	if len(sortedHeights) == 0 {
-		text = "📽️ *Pilih Kualitas Video*\n\nResolusi tidak terdeteksi, gunakan kualitas terbaik:"
-	}
-
-	editMsg := tgbotapi.NewEditMessageText(statusMsg.Chat.ID, statusMsg.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
-	editMsg.ReplyMarkup = &keyboard
-	_, _ = s.Bot.Send(editMsg)
+	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 func formatQualityLabel(height int, fps float64) string {
@@ -314,9 +378,9 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 	s.TaskManager.LastStatusMsg[callback.Message.Chat.ID] = callback.Message.MessageID
 	s.TaskManager.Mu.Unlock()
 
-	task := s.TaskManager.CreateTask(TypeYTDLP, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
+	task := s.TaskManager.CreateTask(session.Type, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
-	slog.Info("YTDLP task created from callback", "taskID", task.ID, "quality", quality)
+	slog.Info("YTDLP task created from callback", "taskID", task.ID, "type", session.Type, "quality", quality)
 }
 
 func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
@@ -697,8 +761,15 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 		task.TotalSize = info.Size()
 	}
 
-	if err := s.UploadWithRclone(task); err != nil {
-		task.SetError(fmt.Sprintf("Upload failed: %v", err))
+	var uploadErr error
+	if task.Type == TypeYTDLPLeech {
+		uploadErr = s.UploadToTelegram(task)
+	} else {
+		uploadErr = s.UploadWithRclone(task)
+	}
+
+	if uploadErr != nil {
+		task.SetError(fmt.Sprintf("Upload failed: %v", uploadErr))
 	} else {
 		task.SetStatus(StatusCompleted)
 	}
@@ -936,7 +1007,7 @@ func (s *BotService) processTask(task *Task) {
 	switch task.Type {
 	case TypeMirror, TypeLeech, TypeTorrent:
 		s.downloadWithAria2(task)
-	case TypeYTDLP:
+	case TypeYTDLP, TypeYTDLPLeech:
 		s.downloadWithYTDLP(task)
 	case TypeClone:
 		s.cloneWithRclone(task)

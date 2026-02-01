@@ -23,11 +23,12 @@ const (
 type TaskType string
 
 const (
-	TypeMirror  TaskType = "mirror"
-	TypeLeech   TaskType = "leech"
-	TypeYTDLP   TaskType = "ytdlp"
-	TypeTorrent TaskType = "torrent"
-	TypeClone   TaskType = "clone"
+	TypeMirror     TaskType = "mirror"
+	TypeLeech      TaskType = "leech"
+	TypeYTDLP      TaskType = "ytdlp"
+	TypeYTDLPLeech TaskType = "ytdlp_leech"
+	TypeTorrent    TaskType = "torrent"
+	TypeClone      TaskType = "clone"
 )
 
 type Task struct {
