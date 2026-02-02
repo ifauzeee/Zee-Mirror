@@ -209,7 +209,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"✅ *SUPPORT*\n"+
 				"• HTTP/HTTPS \\| FTP \\| Magnet\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/leech <URL>`")
+				"• `/leech <URL\\>`")
 
 	case "ytdlp":
 		return ProfessionalMessage("YT-DLP MODE",
@@ -217,7 +217,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"✅ *SUPPORT*\n"+
 				"• YouTube \\| Twitter \\| TikTok \\| etc.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/ytdlp <URL>`")
+				"• `/ytdlp <URL\\>`")
 
 	case "torrent":
 		return ProfessionalMessage("TORRENT MODE",
@@ -230,7 +230,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 		return ProfessionalMessage("CLONE MODE",
 			"Clone file/folder Google Drive\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/clone <GDRIVE_URL>`")
+				"• `/clone <GDRIVE_URL\\>`")
 
 	case "batch":
 		return ProfessionalMessage("BATCH MODE",
@@ -244,7 +244,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 		return ProfessionalMessage("SEARCH MODE",
 			"Cari torrent dari berbagai sumber\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/search <keyword>`")
+				"• `/search <keyword\\>`")
 
 	case "back":
 		return ""

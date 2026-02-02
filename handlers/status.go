@@ -205,7 +205,7 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 
 func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	if args == "" {
-		s.reply(message, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID>\n\nLihat daftar task dengan /status"))
+		s.reply(message, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID\\>\n\nLihat daftar task dengan /status"))
 		return
 	}
 

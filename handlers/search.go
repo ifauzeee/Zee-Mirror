@@ -41,7 +41,7 @@ var (
 
 func (s *BotService) HandleSearch(message *tgbotapi.Message, query string) {
 	if query == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "🔍 *Pencarian Torrent*\n\nGunakan: `/search <kata kunci>`")
+		msg := tgbotapi.NewMessage(message.Chat.ID, "🔍 *Pencarian Torrent*\n\nGunakan: `/search <kata kunci\\>`")
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
