@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -450,22 +451,51 @@ func (s *BotService) HandleDriveShare(message *tgbotapi.Message, args string) {
 	statusMsg.ParseMode = MarkdownV2
 	sent, _ := s.Bot.Send(statusMsg)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	var link string
+	if s.Config.IndexURL != "" {
+		// Normalize paths
+		targetPathSlash := strings.ReplaceAll(targetPath, "\\", "/")
+		rcloneDestSlash := strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/")
+		rcloneDestSlash = strings.TrimRight(rcloneDestSlash, "/")
 
-	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
-	cmd := exec.CommandContext(ctx, "rclone", "link", targetPath, "--config", configPath)
-	output, err := cmd.Output()
+		var relPath string
+		if strings.HasPrefix(targetPathSlash, rcloneDestSlash) {
+			relPath = strings.TrimPrefix(targetPathSlash, rcloneDestSlash)
+		} else {
+			parts := strings.SplitN(targetPathSlash, ":", 2)
+			if len(parts) > 1 {
+				relPath = parts[1]
+			} else {
+				relPath = targetPathSlash
+			}
+		}
 
-	if err != nil {
-		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID,
-			fmt.Sprintf("❌ *Gagal generate link*\n\nError: %s", utils.EscapeMarkdownV2(err.Error())))
-		editMsg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(editMsg)
-		return
+		relPath = strings.TrimLeft(relPath, "/")
+		pathParts := strings.Split(relPath, "/")
+		for i, part := range pathParts {
+			pathParts[i] = url.PathEscape(part)
+		}
+		encodedPath := strings.Join(pathParts, "/")
+		baseURL := strings.TrimRight(s.Config.IndexURL, "/")
+		link = fmt.Sprintf("%s/%s", baseURL, encodedPath)
+	} else {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+		cmd := exec.CommandContext(ctx, "rclone", "link", targetPath, "--config", configPath)
+		output, err := cmd.Output()
+
+		if err != nil {
+			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sent.MessageID,
+				fmt.Sprintf("❌ *Gagal generate link*\n\nError: %s", utils.EscapeMarkdownV2(err.Error())))
+			editMsg.ParseMode = MarkdownV2
+			_, _ = s.Bot.Send(editMsg)
+			return
+		}
+		link = strings.TrimSpace(string(output))
 	}
 
-	link := strings.TrimSpace(string(output))
 	text := fmt.Sprintf("✅ *Share Link Generated*\n\n📄 File: `%s`\n🔗 Link: %s",
 		utils.EscapeMarkdownV2(args),
 		utils.EscapeMarkdownV2(link))
@@ -704,40 +734,88 @@ func (s *BotService) executeDelete(callback *tgbotapi.CallbackQuery, fileName st
 }
 
 func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, relPath string) {
-	basePath := strings.TrimSuffix(s.TaskManager.RcloneDest, "/")
-
-	cleanedRel := strings.Trim(relPath, "/")
-	targetPath := basePath
-	if cleanedRel != "" {
-		targetPath = basePath + "/" + cleanedRel
-	}
-
-	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	targetPath, configPath := s.resolvePaths(relPath)
 
 	slog.Debug("Detailed drive info request", "relPath", relPath, "targetPath", targetPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	file := s.getDriveMetadata(ctx, targetPath, configPath)
+	cloudLink := s.getCloudLink(ctx, targetPath, configPath)
+
+	text := s.buildFileInfoMessage(relPath, file)
+	keyboard := s.buildFileInfoKeyboard(relPath, cloudLink)
+
+	s.sendOrEditMessage(chatID, messageID, text, keyboard)
+}
+
+func (s *BotService) resolvePaths(relPath string) (string, string) {
+	basePath := strings.TrimSuffix(s.TaskManager.RcloneDest, "/")
+	cleanedRel := strings.Trim(relPath, "/")
+	targetPath := basePath
+	if cleanedRel != "" {
+		targetPath = basePath + "/" + cleanedRel
+	}
+	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+	return targetPath, configPath
+}
+
+func (s *BotService) getDriveMetadata(ctx context.Context, targetPath, configPath string) DriveFile {
 	cmd := exec.CommandContext(ctx, "rclone", "lsjson", targetPath, "--config", configPath)
 	output, err := cmd.Output()
 	if err != nil {
 		slog.Error("rclone lsjson failed for info", "error", err, "path", targetPath)
+		return DriveFile{}
 	}
 
-	var file DriveFile
-	if err == nil {
-		var files []DriveFile
-		if errJson := json.Unmarshal(output, &files); errJson == nil && len(files) > 0 {
-			file = files[0]
-			slog.Debug("Drive metadata found", "name", file.Name, "size", file.Size)
-		}
+	var files []DriveFile
+	if errJson := json.Unmarshal(output, &files); errJson == nil && len(files) > 0 {
+		file := files[0]
+		slog.Debug("Drive metadata found", "name", file.Name, "size", file.Size)
+		return file
+	}
+	return DriveFile{}
+}
+
+func (s *BotService) getCloudLink(ctx context.Context, targetPath, configPath string) string {
+	if s.Config.IndexURL != "" {
+		return s.generateIndexLink(targetPath)
 	}
 
 	linkCmd := exec.CommandContext(ctx, "rclone", "link", targetPath, "--config", configPath)
 	linkOutput, _ := linkCmd.Output()
-	cloudLink := strings.TrimSpace(string(linkOutput))
+	return strings.TrimSpace(string(linkOutput))
+}
 
+func (s *BotService) generateIndexLink(targetPath string) string {
+	targetPathSlash := strings.ReplaceAll(targetPath, "\\", "/")
+	rcloneDestSlash := strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/")
+	rcloneDestSlash = strings.TrimRight(rcloneDestSlash, "/")
+
+	var relPath string
+	if strings.HasPrefix(targetPathSlash, rcloneDestSlash) {
+		relPath = strings.TrimPrefix(targetPathSlash, rcloneDestSlash)
+	} else {
+		parts := strings.SplitN(targetPathSlash, ":", 2)
+		if len(parts) > 1 {
+			relPath = parts[1]
+		} else {
+			relPath = targetPathSlash
+		}
+	}
+
+	relPath = strings.TrimLeft(relPath, "/")
+	pathParts := strings.Split(relPath, "/")
+	for i, part := range pathParts {
+		pathParts[i] = url.PathEscape(part)
+	}
+	encodedPath := strings.Join(pathParts, "/")
+	baseURL := strings.TrimRight(s.Config.IndexURL, "/")
+	return fmt.Sprintf("%s/%s", baseURL, encodedPath)
+}
+
+func (s *BotService) buildFileInfoMessage(relPath string, file DriveFile) string {
 	var text strings.Builder
 	text.WriteString(fmt.Sprintf("%s *FILE INFORMATION*\n", getFileIcon(relPath)))
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
@@ -752,11 +830,18 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
+	return text.String()
+}
 
+func (s *BotService) buildFileInfoKeyboard(relPath, cloudLink string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	if cloudLink != "" && utils.IsValidURL(cloudLink) {
+		btnText := BtnTextCloudLink
+		if s.Config.IndexURL != "" {
+			btnText = BtnTextIndexURL
+		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("📥 Cloud Link", cloudLink),
+			tgbotapi.NewInlineKeyboardButtonURL(btnText, cloudLink),
 		))
 	}
 
@@ -785,15 +870,17 @@ func (s *BotService) handleDriveFileInfoDetailed(chatID int64, messageID int, re
 		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"),
 	))
 
-	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
 
-	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text.String())
+func (s *BotService) sendOrEditMessage(chatID int64, messageID int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
+	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text)
 	editMsg.ParseMode = MarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 
 	if _, err := s.Bot.Send(editMsg); err != nil {
 		slog.Error("Failed to send/edit info message", "error", err)
-		msg := tgbotapi.NewMessage(chatID, text.String())
+		msg := tgbotapi.NewMessage(chatID, text)
 		msg.ParseMode = MarkdownV2
 		msg.ReplyMarkup = keyboard
 		_, _ = s.Bot.Send(msg)

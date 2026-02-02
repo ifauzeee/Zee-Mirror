@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -129,6 +131,131 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		currentRemotePath = filepath.Join(s.TaskManager.RcloneDest, task.FileName)
 	}
 
+	// Normalize remote path to use forward slashes for rclone compatibility
+	currentRemotePath = strings.ReplaceAll(currentRemotePath, "\\", "/")
+
+	if s.Config.IndexURL != "" {
+		if s.generateIndexURL(ctx, task, configPath, currentRemotePath) {
+			return
+		}
+	}
+
+	s.generateDirectLink(ctx, task, configPath, currentRemotePath, isDirUpload)
+}
+
+func (s *BotService) generateIndexURL(ctx context.Context, task *Task, configPath, currentRemotePath string) bool {
+	// Attempt ID-based generation first
+	if s.generateIDBasedIndexURL(ctx, task, configPath, currentRemotePath) {
+		return true
+	}
+
+	// Fallback to path-based
+	return s.generatePathBasedIndexURL(task, currentRemotePath)
+}
+
+func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, configPath, currentRemotePath string) bool {
+	var fileID, parentID string
+
+	// 1. Get File ID using rclone lsjson on the file itself
+	lsArgs := []string{
+		"lsjson",
+		currentRemotePath,
+		"--config", configPath,
+		"--no-modtime",
+		"--no-mimetype",
+	}
+	lsCmd := exec.CommandContext(ctx, "rclone", lsArgs...)
+	if lsOutput, err := lsCmd.Output(); err == nil {
+		var files []map[string]interface{}
+		if json.Unmarshal(lsOutput, &files) == nil && len(files) > 0 {
+			// Check for both "ID" and "Id" keys
+			if id, ok := files[0]["ID"].(string); ok {
+				fileID = id
+			} else if id, ok := files[0]["Id"].(string); ok {
+				fileID = id
+			}
+		}
+	} else {
+		slog.Warn("Failed to get File ID", "path", currentRemotePath, "error", err)
+	}
+
+	// 2. Get Parent ID by listing the grandparent directory and looking for the parent folder
+	parentPath := path.Dir(currentRemotePath)
+	grandParentPath := path.Dir(parentPath)
+	parentName := path.Base(parentPath)
+
+	linkArgsParent := []string{
+		"lsjson",
+		grandParentPath,
+		"--config", configPath,
+		"--dirs-only",
+		"--no-modtime",
+		"--no-mimetype",
+	}
+
+	linkCmdParent := exec.CommandContext(ctx, "rclone", linkArgsParent...)
+	if linkOutputParent, err := linkCmdParent.Output(); err == nil {
+		var files []map[string]interface{}
+		if json.Unmarshal(linkOutputParent, &files) == nil {
+			for _, folder := range files {
+				if name, ok := folder["Name"].(string); ok && name == parentName {
+					if id, ok := folder["ID"].(string); ok {
+						parentID = id
+					} else if id, ok := folder["Id"].(string); ok {
+						parentID = id
+					}
+					break
+				}
+			}
+		}
+	} else {
+		slog.Warn("Failed to list grandparent directory", "grandParentPath", grandParentPath, "error", err)
+	}
+
+	if fileID != "" && parentID != "" {
+		baseURL := strings.TrimRight(s.Config.IndexURL, "/")
+		encodedFileName := url.PathEscape(task.FileName)
+
+		task.RemoteURL = fmt.Sprintf("%s/en/folder/%s/file/%s/%s", baseURL, parentID, fileID, encodedFileName)
+		slog.Info("Generated ID-based Index URL", "url", task.RemoteURL)
+		return true
+	}
+
+	slog.Warn("Could not generate ID-based URL (missing IDs)", "fileID", fileID, "parentID", parentID, "parentPath", parentPath, "parentName", parentName)
+	return false
+}
+
+func (s *BotService) generatePathBasedIndexURL(task *Task, currentRemotePath string) bool {
+	remotePathSlash := strings.ReplaceAll(currentRemotePath, "\\", "/")
+	rcloneDestSlash := strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/")
+	rcloneDestSlash = strings.TrimRight(rcloneDestSlash, "/")
+
+	var relPath string
+	if strings.HasPrefix(remotePathSlash, rcloneDestSlash) {
+		relPath = strings.TrimPrefix(remotePathSlash, rcloneDestSlash)
+	} else {
+		parts := strings.SplitN(remotePathSlash, ":", 2)
+		if len(parts) > 1 {
+			relPath = parts[1]
+		} else {
+			relPath = remotePathSlash
+		}
+	}
+
+	relPath = strings.TrimLeft(relPath, "/")
+	pathParts := strings.Split(relPath, "/")
+	for i, part := range pathParts {
+		pathParts[i] = url.PathEscape(part)
+	}
+	encodedPath := strings.Join(pathParts, "/")
+
+	baseURL := strings.TrimRight(s.Config.IndexURL, "/")
+	task.RemoteURL = fmt.Sprintf("%s/%s", baseURL, encodedPath)
+	slog.Info("Generated Path-based Index URL", "url", task.RemoteURL)
+	return true
+}
+
+func (s *BotService) generateDirectLink(ctx context.Context, task *Task, configPath, currentRemotePath string, isDirUpload bool) {
 	linkArgs := []string{
 		"link",
 		"--config", configPath,
@@ -149,7 +276,11 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		return
 	}
 
-	parentPath := filepath.Dir(currentRemotePath)
+	s.generateDirectoryLink(ctx, task, configPath, currentRemotePath)
+}
+
+func (s *BotService) generateDirectoryLink(ctx context.Context, task *Task, configPath, currentRemotePath string) {
+	parentPath := path.Dir(currentRemotePath)
 	idArgs := []string{
 		"lsjson",
 		"--config", configPath,

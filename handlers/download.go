@@ -22,6 +22,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	BtnTextCloudLink = "☁️ Cloud Link"
+	BtnTextIndexURL  = "🌐 Index URL"
+)
+
 func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	var fileName string
@@ -947,9 +952,13 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 		photo.Caption = text
 		photo.ParseMode = MarkdownV2
 		if snapshot.RemoteURL != "" {
+			btnText := BtnTextCloudLink
+			if s.Config.IndexURL != "" {
+				btnText = BtnTextIndexURL
+			}
 			photo.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 				),
 			)
 		}
@@ -977,9 +986,13 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 		edit := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
 		edit.ParseMode = MarkdownV2
 		if snapshot.RemoteURL != "" {
+			btnText := BtnTextCloudLink
+			if s.Config.IndexURL != "" {
+				btnText = BtnTextIndexURL
+			}
 			keyboard := tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 				),
 			)
 			edit.ReplyMarkup = &keyboard
@@ -995,9 +1008,13 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 	msg.ParseMode = MarkdownV2
 
 	if snapshot.Status == StatusCompleted && snapshot.RemoteURL != "" {
+		btnText := BtnTextCloudLink
+		if s.Config.IndexURL != "" {
+			btnText = BtnTextIndexURL
+		}
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL("☁️ Cloud Link", snapshot.RemoteURL),
+				tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 			),
 		)
 		msg.ReplyMarkup = keyboard

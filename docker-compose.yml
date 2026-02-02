@@ -28,6 +28,7 @@ services:
       - OWNER_ID=${OWNER_ID}
       - AUTHORIZED_USERS=${AUTHORIZED_USERS:-}
       - RCLONE_DEST=${RCLONE_DEST:-gdrive:/MirrorBot}
+      - INDEX_URL=${INDEX_URL}
       - MAX_CONCURRENT_DOWNLOADS=${MAX_CONCURRENT_DOWNLOADS:-3}
       - TZ=${TZ:-Asia/Jakarta}
       - TELEGRAM_API=http://telegram-bot-api:8081/bot%s/%s

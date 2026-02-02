@@ -20,6 +20,7 @@ type Config struct {
 	DashboardPort          int
 	LogLevel               string
 	SmartAutoOrganization  bool
+	IndexURL               string
 }
 
 func LoadConfig() *Config {
@@ -34,6 +35,7 @@ func LoadConfig() *Config {
 		DashboardPort:          getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
 		LogLevel:               getEnv("LOG_LEVEL", "info"),
 		SmartAutoOrganization:  getEnvBool("SMART_AUTO_ORGANIZATION", false),
+		IndexURL:               os.Getenv("INDEX_URL"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {
