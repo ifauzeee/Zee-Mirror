@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"zee-mirror/handlers"
@@ -420,109 +418,39 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := s.parseTorrentFiles(session.URL)
-	if err != nil {
+	// If metadata is already fetched, return it
+	if len(session.Files) > 0 {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"files":   []domain.TorrentFile{},
-			"loading": true,
-			"message": "Mengambil metadata torrent... Ini memerlukan waktu beberapa detik.",
+			"files":   session.Files,
+			"loading": false,
 		})
 		return
 	}
 
+	// If fetching failed with an error, return it
+	if session.Error != "" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"files":   []domain.TorrentFile{},
+			"loading": false,
+			"error":   session.Error,
+		})
+		return
+	}
+
+	// Otherwise, it's still loading
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"files":   files,
-		"loading": false,
+		"files":   []domain.TorrentFile{},
+		"loading": true,
+		"message": "Mengambil metadata torrent di background... Ini mungkin memerlukan waktu beberapa menit untuk magnet link.",
 	})
 }
 
-func (s *APIServer) parseTorrentFiles(magnetURL string) ([]domain.TorrentFile, error) {
-	tmpDir, err := os.MkdirTemp("", "torrent_meta_")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	url := strings.TrimPrefix(magnetURL, "file://")
-
-	args := []string{
-		"--dir=" + tmpDir,
-		"--seed-time=0",
-		"--quiet=true",
-		"--show-files=true",
-	}
-
-	if strings.HasPrefix(magnetURL, "magnet:") {
-		args = append(args, "--bt-metadata-only=true", "--bt-save-metadata=true", "--bt-stop-timeout=30")
-	}
-
-	args = append(args, url)
-
-	cmd := exec.CommandContext(ctx, "aria2c", args...)
-	output, err := cmd.CombinedOutput()
-
-	files := parseTorrentOutput(string(output))
-
-	if len(files) == 0 {
-		metaFiles, _ := filepath.Glob(filepath.Join(tmpDir, "*.torrent"))
-		for _, metaFile := range metaFiles {
-			files = s.parseTorrentMetadataFile(metaFile)
-			if len(files) > 0 {
-				break
-			}
-		}
-	}
-
-	if len(files) == 0 && err != nil {
-		return nil, fmt.Errorf("failed to get torrent info: %v", err)
-	}
-
-	return files, nil
-}
-
-func parseTorrentOutput(output string) []domain.TorrentFile {
-	var files []domain.TorrentFile
-	lines := strings.Split(output, "\n")
-
-	filePattern := regexp.MustCompile(`^(\d+)\|(.+?)\|(\d+)\|`)
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if matches := filePattern.FindStringSubmatch(line); len(matches) >= 4 {
-			idx, _ := strconv.Atoi(matches[1])
-			size, _ := strconv.ParseInt(matches[3], 10, 64)
-			path := matches[2]
-			name := filepath.Base(path)
-
-			files = append(files, domain.TorrentFile{
-				Index: idx,
-				Name:  name,
-				Path:  path,
-				Size:  size,
-			})
-		}
-	}
-
-	return files
-}
-
-func (s *APIServer) parseTorrentMetadataFile(torrentPath string) []domain.TorrentFile {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "aria2c", "--show-files", torrentPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil
-	}
-
-	return parseTorrentOutput(string(output))
-}
+// Remove old parseTorrentFiles, parseTorrentOutput, parseTorrentMetadataFile as they are now in handlers package
+// The following functions are now survivors or cleanup targets:
+// - handleTorrentStart (KEEP)
 
 func (s *APIServer) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

@@ -525,7 +525,11 @@ func (s *BotService) createTorrentSession(url, name string, zip, unzip bool, pas
 		MessageID:     msgID,
 		ReplyID:       replyID,
 		UserID:        userID,
+		IsFetching:    true,
 	}
+
+	// Start background metadata fetch
+	go s.fetchTorrentMetadataBackground(sessionID)
 
 	// Auto-cleanup session after 1 hour
 	go func() {

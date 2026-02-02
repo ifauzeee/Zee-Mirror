@@ -10,16 +10,19 @@ type YTDLPSession struct {
 
 // TorrentSession stores torrent download session information
 type TorrentSession struct {
-	URL           string // Magnet link or torrent file URL
-	FileName      string // Custom filename if provided
-	Zip           bool   // Whether to zip the result
-	Unzip         bool   // Whether to unzip archives
-	Password      string // Archive password
-	SelectedFiles []int  // Selected file indices (empty = all files)
-	ChatID        int64  // Chat ID for the session
-	MessageID     int    // Message ID for updates
-	ReplyID       int    // Reply message ID
-	UserID        int64  // User ID who initiated
+	URL           string        // Magnet link or torrent file URL
+	FileName      string        // Custom filename if provided
+	Zip           bool          // Whether to zip the result
+	Unzip         bool          // Whether to unzip archives
+	Password      string        // Archive password
+	SelectedFiles []int         // Selected file indices (empty = all files)
+	ChatID        int64         // Chat ID for the session
+	MessageID     int           // Message ID for updates
+	ReplyID       int           // Reply message ID
+	UserID        int64         // User ID who initiated
+	Files         []TorrentFile // List of files in the torrent
+	Error         string        // Error message if metadata fetching failed
+	IsFetching    bool          // Whether metadata is currently being fetched
 }
 
 // TorrentFile represents a file within a torrent
