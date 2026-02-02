@@ -232,21 +232,54 @@ func FormatStatus(status string) string {
 	return strings.ToUpper(status[:1]) + status[1:]
 }
 
+func isIgnoredFileName(name string) bool {
+	lowerName := strings.ToLower(name)
+	ignoredNames := map[string]bool{
+		"playlist.m3u8": true,
+		"index.m3u8":    true,
+		"master.m3u8":   true,
+		"index.html":    true,
+		"manifest.mpd":  true,
+		"playlist.mpd":  true,
+		"video.mp4":     true,
+		"stream.m3u8":   true,
+		"watch":         true,
+		"video":         true,
+		"embed":         true,
+		"play":          true,
+	}
+	return ignoredNames[lowerName]
+}
+
+func getFileNameFromQuery(u *url.URL) string {
+	q := u.Query()
+	if zipName := q.Get("zipname"); zipName != "" {
+		return SanitizeFileName(zipName)
+	}
+	if fileName := q.Get("filename"); fileName != "" {
+		return SanitizeFileName(fileName)
+	}
+	return ""
+}
+
+func getFileNameFromPixelDrain(u *url.URL) string {
+	if strings.Contains(u.Host, "pixeldrain.com") && strings.HasPrefix(u.Path, "/api/file/") {
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+		if len(parts) >= 3 {
+			return SanitizeFileName(parts[2])
+		}
+	}
+	return ""
+}
+
 func GetFileNameFromURL(urlStr string) string {
 	u, err := url.Parse(urlStr)
 	if err == nil {
-		q := u.Query()
-		if zipName := q.Get("zipname"); zipName != "" {
-			return SanitizeFileName(zipName)
+		if name := getFileNameFromQuery(u); name != "" {
+			return name
 		}
-		if fileName := q.Get("filename"); fileName != "" {
-			return SanitizeFileName(fileName)
-		}
-		if strings.Contains(u.Host, "pixeldrain.com") && strings.HasPrefix(u.Path, "/api/file/") {
-			parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-			if len(parts) >= 3 {
-				return SanitizeFileName(parts[2])
-			}
+		if name := getFileNameFromPixelDrain(u); name != "" {
+			return name
 		}
 
 		path := u.Path
@@ -254,7 +287,11 @@ func GetFileNameFromURL(urlStr string) string {
 			parts := strings.Split(path, "/")
 			for i := len(parts) - 1; i >= 0; i-- {
 				if parts[i] != "" {
-					return SanitizeFileName(parts[i])
+					name := parts[i]
+					if i > 0 && isIgnoredFileName(name) {
+						continue
+					}
+					return SanitizeFileName(name)
 				}
 			}
 		}
@@ -369,7 +406,6 @@ func ResolveFileName(urlStr string) string {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		// Fallback to GET if HEAD fails
 		req.Method = "GET"
 		resp, err = client.Do(req)
 		if err != nil {
@@ -384,11 +420,9 @@ func ResolveFileName(urlStr string) string {
 			if filename, ok := params["filename"]; ok && filename != "" {
 				return SanitizeFileName(filename)
 			}
-			// Handle filename* encoding if needed, but basic filename is usually enough
 		}
 	}
 
-	// If redirects happened, use the final URL path
 	if resp.Request.URL.String() != urlStr {
 		return GetFileNameFromURL(resp.Request.URL.String())
 	}

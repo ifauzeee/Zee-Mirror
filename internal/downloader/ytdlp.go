@@ -53,8 +53,17 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 }
 
 func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []string {
+	outputTemplate := "%(title)s.%(ext)s"
+	if task.FileName != "" && task.FileName != "video" && task.FileName != "unknown_file" {
+		if filepath.Ext(task.FileName) != "" {
+			outputTemplate = task.FileName
+		} else {
+			outputTemplate = task.FileName + ".%(ext)s"
+		}
+	}
+
 	args := []string{
-		"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
+		"-o", filepath.Join(outputDir, outputTemplate),
 		"--newline", "--no-playlist",
 		"--continue",
 		"--merge-output-format", "mp4",

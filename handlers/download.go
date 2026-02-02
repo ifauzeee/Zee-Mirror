@@ -149,7 +149,7 @@ func (s *BotService) HandleYTDLPLeech(message *tgbotapi.Message, args string) {
 }
 
 func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, taskType TaskType) {
-	url, zip, _, password, quality, _ := utils.ParseFlags(args)
+	url, zip, _, password, quality, name := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
 	}
@@ -172,7 +172,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	}
 
 	if quality == "" && (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) {
-		s.showYTDLPQualityMenu(message, url, zip, password, taskType)
+		s.showYTDLPQualityMenu(message, url, name, zip, password, taskType)
 		return
 	}
 
@@ -180,10 +180,16 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	if message.ReplyToMessage != nil {
 		replyID = message.ReplyToMessage.MessageID
 	}
-	task := s.TaskManager.CreateTask(taskType, url, "video", message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0)
+
+	fileName := name
+	if fileName == "" {
+		fileName = utils.GetFileNameFromURL(url)
+	}
+
+	task := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
-	slog.Info("YTDLP task created", "taskID", task.ID, "type", taskType, "url", url)
+	slog.Info("YTDLP task created", "taskID", task.ID, "type", taskType, "url", url, "fileName", fileName)
 }
 
 func (s *BotService) isYTDLPPlaylist(url string) bool {
@@ -195,7 +201,7 @@ func (s *BotService) isYTDLPPlaylist(url string) bool {
 		strings.Contains(url, "&list=")) && !strings.Contains(url, "watch?v=")
 }
 
-func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string, zip bool, password string, taskType TaskType) {
+func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name string, zip bool, password string, taskType TaskType) {
 	if s.isYTDLPPlaylist(url) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nURL yang Anda berikan adalah link Channel atau Playlist\\. Bot ini hanya mendukung download video tunggal untuk saat ini\\.")
 		msg.ParseMode = MarkdownV2
@@ -233,7 +239,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url string,
 
 	sortedHeights := s.getSortedHeights(resMap)
 
-	sessionID := s.createYTDLPSession(url, zip, password, taskType)
+	sessionID := s.createYTDLPSession(url, name, zip, password, taskType)
 	keyboard := s.buildYTDLPKeyboard(sortedHeights, resMap, sessionID)
 
 	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
@@ -310,12 +316,13 @@ func (s *BotService) getSortedHeights(resMap map[int]float64) []int {
 	return heights
 }
 
-func (s *BotService) createYTDLPSession(url string, zip bool, password string, taskType TaskType) string {
+func (s *BotService) createYTDLPSession(url, name string, zip bool, password string, taskType TaskType) string {
 	sessionID := uuid.New().String()[:8]
 	s.TaskManager.Mu.Lock()
 	defer s.TaskManager.Mu.Unlock()
 	s.TaskManager.YTDLPSessions[sessionID] = &YTDLPSession{
 		URL:      url,
+		FileName: name,
 		Zip:      zip,
 		Password: password,
 		Type:     taskType,
@@ -400,7 +407,12 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 	if callback.Message.ReplyToMessage != nil {
 		replyID = callback.Message.ReplyToMessage.MessageID
 	}
-	task := s.TaskManager.CreateTask(session.Type, session.URL, "video", callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
+	fileName := session.FileName
+	if fileName == "" {
+		fileName = utils.GetFileNameFromURL(session.URL)
+	}
+
+	task := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	slog.Info("YTDLP task created from callback", "taskID", task.ID, "type", session.Type, "quality", quality)
 }
