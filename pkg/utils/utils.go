@@ -148,34 +148,54 @@ func ParseFlags(args string) (url string, zip bool, unzip bool, password string,
 	parts := strings.Fields(args)
 
 	for i := 0; i < len(parts); i++ {
-		switch parts[i] {
-		case "-z":
+		part := parts[i]
+		switch {
+		case part == "-z":
 			zip = true
-		case "-uz":
+		case part == "-uz":
 			unzip = true
-		case "-p":
+		case part == "-p":
 			if i+1 < len(parts) {
 				password = parts[i+1]
 				i++
 			}
-		case "-q":
+		case part == "-q":
 			if i+1 < len(parts) {
 				quality = parts[i+1]
 				i++
 			}
-		case "-n", "-name":
-			if i+1 < len(parts) {
-				name = parts[i+1]
-				i++
+		case part == "-n" || part == "-name":
+			var extracted string
+			extracted, i = parseNameArg(parts, i)
+			if extracted != "" {
+				name = extracted
 			}
 		default:
-			if url == "" && (strings.HasPrefix(parts[i], "http") || strings.HasPrefix(parts[i], "magnet:")) {
-				url = parts[i]
+			if url == "" && (strings.HasPrefix(part, "http") || strings.HasPrefix(part, "magnet:")) {
+				url = part
 			}
 		}
 	}
 
 	return
+}
+
+func parseNameArg(parts []string, currentIndex int) (string, int) {
+	var nameParts []string
+	i := currentIndex
+	for i+1 < len(parts) {
+		nextPart := parts[i+1]
+		if strings.HasPrefix(nextPart, "-") {
+			break
+		}
+		if strings.HasPrefix(nextPart, "http") || strings.HasPrefix(nextPart, "magnet:") {
+			break
+		}
+
+		nameParts = append(nameParts, nextPart)
+		i++
+	}
+	return strings.Join(nameParts, " "), i
 }
 
 func IsValidURL(s string) bool {
