@@ -37,53 +37,49 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	url := strings.TrimPrefix(session.URL, "file://")
+	isMagnet := strings.HasPrefix(session.URL, "magnet:")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	var metaFilePath string
 
-	trackers := []string{
-		"http://tracker.opentrackr.org:1337/announce",
-		"udp://tracker.openbittorrent.com:80/announce",
-		"udp://tracker.coppersurfer.tk:6969/announce",
-		"udp://9.rarbg.to:2710/announce",
-		"udp://tracker.leechers-paradise.org:6969/announce",
-		"udp://explodie.org:6969/announce",
-		"udp://p4p.arenabg.com:1337/announce",
-	}
+	if isMagnet {
+		fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer fetchCancel()
 
-	args := []string{
-		"--dir=" + tmpDir,
-		"--seed-time=0",
-		"--quiet=true",
-		"--show-files=true",
-		"--bt-stop-timeout=60",
-		"--dht-entry-point=dht.transmissionbt.com:6881",
-		"--dht-entry-point=router.bittorrent.com:6881",
-		"--dht-entry-point=router.utorrent.com:6881",
-	}
-
-	if strings.HasPrefix(session.URL, "magnet:") {
-		args = append(args, "--bt-metadata-only=true", "--bt-save-metadata=true")
-		for _, t := range trackers {
-			args = append(args, "--bt-tracker="+t)
+		args := []string{
+			"--dir=" + tmpDir,
+			"--seed-time=0",
+			"--bt-stop-timeout=0",
+			"--bt-save-metadata=true",
+			"--bt-metadata-only=true",
+			"--enable-dht=true",
+			"--enable-peer-exchange=true",
+			"--dht-entry-point=dht.transmissionbt.com:6881",
+			"--dht-entry-point=router.bittorrent.com:6881",
+			"--summary-interval=10",
+			url,
 		}
-	}
 
-	args = append(args, url)
+		cmd := exec.CommandContext(fetchCtx, "aria2c", args...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			slog.Warn("Aria2c metadata fetch finished with error", "sessionID", sessionID, "error", err)
+		}
 
-	cmd := exec.CommandContext(ctx, "aria2c", args...)
-	output, _ := cmd.CombinedOutput()
-
-	files := parseTorrentOutput(string(output))
-
-	if len(files) == 0 {
 		metaFiles, _ := filepath.Glob(filepath.Join(tmpDir, "*.torrent"))
-		for _, metaFile := range metaFiles {
-			files = s.parseTorrentMetadataFile(metaFile)
-			if len(files) > 0 {
-				break
-			}
+		if len(metaFiles) > 0 {
+			metaFilePath = metaFiles[0]
+			slog.Info("Found downloaded metadata file", "sessionID", sessionID, "path", metaFilePath)
+		} else {
+			slog.Warn("No .torrent file found after aria2c run", "sessionID", sessionID, "output", string(output))
 		}
+	} else {
+		metaFilePath = url
+		slog.Info("Using local torrent file", "sessionID", sessionID, "path", metaFilePath)
+	}
+
+	var files []domain.TorrentFile
+	if metaFilePath != "" {
+		files = s.parseTorrentMetadataFile(metaFilePath)
 	}
 
 	s.TaskManager.Mu.Lock()
@@ -98,10 +94,11 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	if len(files) > 0 {
 		session.Files = files
 		session.Error = ""
-		slog.Info("Successfully fetched metadata in background", "sessionID", sessionID, "fileCount", len(files))
+		slog.Info("Successfully fetched torrent metadata", "sessionID", sessionID, "files", len(files))
 	} else {
-		session.Error = "Metadata fetching timed out or failed. Please try again or use 'Select All'."
-		slog.Warn("Failed to fetch metadata in background", "sessionID", sessionID)
+		session.Files = nil
+		session.Error = "Gagal mengambil daftar file. Torrent mungkin tidak memiliki seeder atau link tidak valid."
+		slog.Warn("Failed to parse torrent metadata", "sessionID", sessionID)
 	}
 }
 
@@ -115,23 +112,44 @@ func (s *BotService) updateSessionError(sessionID, errMsg string) {
 }
 
 func (s *BotService) parseTorrentMetadataFile(torrentPath string) []domain.TorrentFile {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "aria2c", "--show-files", torrentPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
+	slog.Info("Parsing torrent file", "path", torrentPath)
+
+	if _, err := os.Stat(torrentPath); os.IsNotExist(err) {
+		slog.Error("Torrent file does not exist", "path", torrentPath)
 		return nil
 	}
 
-	return parseTorrentOutput(string(output))
+	cmd := exec.CommandContext(ctx, "aria2c", "--show-files=true", torrentPath)
+	output, err := cmd.CombinedOutput()
+
+	cleanOutput := stripANSI(string(output))
+
+	slog.Debug("aria2c --show-files output", "output", cleanOutput)
+
+	if err != nil {
+		slog.Error("aria2c --show-files failed", "path", torrentPath, "error", err, "output", cleanOutput)
+		return nil
+	}
+
+	files := parseTorrentOutput(cleanOutput)
+	slog.Info("Parsed torrent files", "count", len(files))
+
+	return files
+}
+
+func stripANSI(s string) string {
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	return ansiRegex.ReplaceAllString(s, "")
 }
 
 func parseTorrentOutput(output string) []domain.TorrentFile {
 	var files []domain.TorrentFile
 	lines := strings.Split(output, "\n")
 
-	filePattern := regexp.MustCompile(`^(\d+)\|(.+?)\|(\d+)\|`)
+	filePattern := regexp.MustCompile(`^\s*(\d+)\|(.+?)\|(\d+)\|`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -147,6 +165,7 @@ func parseTorrentOutput(output string) []domain.TorrentFile {
 				Path:  path,
 				Size:  size,
 			})
+			slog.Debug("Parsed file", "index", idx, "name", name, "size", size)
 		}
 	}
 
