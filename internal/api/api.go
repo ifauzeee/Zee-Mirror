@@ -9,9 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"zee-mirror/handlers"
+	"zee-mirror/internal/domain"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
@@ -59,6 +62,14 @@ func (s *APIServer) Start() {
 	mux.HandleFunc("/api/explorer/wipe-orphans", auth(s.handleWipeOrphans))
 	mux.HandleFunc("/api/analytics", auth(s.handleAnalytics))
 	mux.HandleFunc("/api/logs", auth(s.handleLogs))
+
+	mux.HandleFunc("/api/torrent/session", auth(s.handleTorrentSession))
+	mux.HandleFunc("/api/torrent/files", auth(s.handleTorrentFiles))
+	mux.HandleFunc("/api/torrent/start", auth(s.handleTorrentStart))
+
+	mux.HandleFunc("/torrent-select/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./dist/index.html")
+	})
 
 	mux.Handle("/", http.FileServer(http.Dir("./dist")))
 
@@ -340,7 +351,6 @@ func (s *APIServer) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *APIServer) handleLogs(w http.ResponseWriter, r *http.Request) {
-	// Security: cleaner path joining
 	logPath := filepath.Clean(filepath.Join(s.Service.Config.ConfigDir, "zee-mirror.log"))
 	if !strings.HasPrefix(logPath, filepath.Clean(s.Service.Config.ConfigDir)) {
 		http.Error(w, "Access denied", http.StatusForbidden)
@@ -363,5 +373,187 @@ func (s *APIServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"logs": strings.Join(lastLines, "\n"),
+	})
+}
+
+func (s *APIServer) handleTorrentSession(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.URL.Query().Get("id")
+	if sessionID == "" {
+		http.Error(w, "Session ID required", http.StatusBadRequest)
+		return
+	}
+
+	s.Service.TaskManager.Mu.RLock()
+	session, exists := s.Service.TaskManager.TorrentSessions[sessionID]
+	s.Service.TaskManager.Mu.RUnlock()
+
+	if !exists {
+		http.Error(w, "Session not found or expired", http.StatusNotFound)
+		return
+	}
+
+	response := map[string]interface{}{
+		"id":       sessionID,
+		"url":      session.URL,
+		"fileName": session.FileName,
+		"zip":      session.Zip,
+		"unzip":    session.Unzip,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.URL.Query().Get("id")
+	if sessionID == "" {
+		http.Error(w, "Session ID required", http.StatusBadRequest)
+		return
+	}
+
+	s.Service.TaskManager.Mu.RLock()
+	session, exists := s.Service.TaskManager.TorrentSessions[sessionID]
+	s.Service.TaskManager.Mu.RUnlock()
+
+	if !exists {
+		http.Error(w, "Session not found or expired", http.StatusNotFound)
+		return
+	}
+
+	files, err := s.parseTorrentFiles(session.URL)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"files":   []domain.TorrentFile{},
+			"loading": true,
+			"message": "Mengambil metadata torrent... Ini memerlukan waktu beberapa detik.",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"files":   files,
+		"loading": false,
+	})
+}
+
+func (s *APIServer) parseTorrentFiles(magnetURL string) ([]domain.TorrentFile, error) {
+	tmpDir, err := os.MkdirTemp("", "torrent_meta_")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	url := strings.TrimPrefix(magnetURL, "file://")
+
+	args := []string{
+		"--dir=" + tmpDir,
+		"--seed-time=0",
+		"--quiet=true",
+		"--show-files=true",
+	}
+
+	if strings.HasPrefix(magnetURL, "magnet:") {
+		args = append(args, "--bt-metadata-only=true", "--bt-save-metadata=true", "--bt-stop-timeout=30")
+	}
+
+	args = append(args, url)
+
+	cmd := exec.CommandContext(ctx, "aria2c", args...)
+	output, err := cmd.CombinedOutput()
+
+	files := parseTorrentOutput(string(output))
+
+	if len(files) == 0 {
+		metaFiles, _ := filepath.Glob(filepath.Join(tmpDir, "*.torrent"))
+		for _, metaFile := range metaFiles {
+			files = s.parseTorrentMetadataFile(metaFile)
+			if len(files) > 0 {
+				break
+			}
+		}
+	}
+
+	if len(files) == 0 && err != nil {
+		return nil, fmt.Errorf("failed to get torrent info: %v", err)
+	}
+
+	return files, nil
+}
+
+func parseTorrentOutput(output string) []domain.TorrentFile {
+	var files []domain.TorrentFile
+	lines := strings.Split(output, "\n")
+
+	filePattern := regexp.MustCompile(`^(\d+)\|(.+?)\|(\d+)\|`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if matches := filePattern.FindStringSubmatch(line); len(matches) >= 4 {
+			idx, _ := strconv.Atoi(matches[1])
+			size, _ := strconv.ParseInt(matches[3], 10, 64)
+			path := matches[2]
+			name := filepath.Base(path)
+
+			files = append(files, domain.TorrentFile{
+				Index: idx,
+				Name:  name,
+				Path:  path,
+				Size:  size,
+			})
+		}
+	}
+
+	return files
+}
+
+func (s *APIServer) parseTorrentMetadataFile(torrentPath string) []domain.TorrentFile {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "aria2c", "--show-files", torrentPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil
+	}
+
+	return parseTorrentOutput(string(output))
+}
+
+func (s *APIServer) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		SessionID     string `json:"sessionId"`
+		SelectedFiles []int  `json:"selectedFiles"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.SessionID == "" {
+		http.Error(w, "Session ID required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.Service.StartTorrentWithSelectedFiles(request.SessionID, request.SelectedFiles)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Torrent download started",
 	})
 }

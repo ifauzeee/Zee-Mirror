@@ -65,6 +65,10 @@ type TaskSnapshot = domain.TaskSnapshot
 
 type YTDLPSession = domain.YTDLPSession
 
+type TorrentSession = domain.TorrentSession
+
+type TorrentFile = domain.TorrentFile
+
 type TaskManager struct {
 	Tasks                map[string]*Task
 	Queue                chan *Task
@@ -74,6 +78,7 @@ type TaskManager struct {
 	RcloneDest           string
 	ConfigDir            string
 	YTDLPSessions        map[string]*YTDLPSession
+	TorrentSessions      map[string]*TorrentSession
 	Mu                   sync.RWMutex
 	StatusMu             sync.Mutex
 	Wg                   sync.WaitGroup
@@ -98,6 +103,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		RcloneDest:           rcloneDest,
 		ConfigDir:            configDir,
 		YTDLPSessions:        make(map[string]*YTDLPSession),
+		TorrentSessions:      make(map[string]*TorrentSession),
 		ShutdownChan:         make(chan struct{}),
 		Bot:                  bot,
 		DB:                   db,

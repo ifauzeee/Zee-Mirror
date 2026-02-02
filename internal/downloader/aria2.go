@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/parser"
 	"zee-mirror/pkg/utils"
@@ -91,16 +92,34 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 		args = append(args, "--out="+task.FileName)
 	}
 
-	args = append(args, task.URL)
+	// Parse URL for select-file option (format: magnet:?...#select=1,2,3)
+	url := task.URL
+	selectFiles := ""
+	if idx := strings.Index(url, "#select="); idx != -1 {
+		selectFiles = url[idx+8:]
+		url = url[:idx]
+	}
 
-	if utils.IsMagnetLink(task.URL) {
+	args = append(args, url)
+
+	// Add select-file option for torrents
+	if selectFiles != "" {
+		args = append(args, "--select-file="+selectFiles)
+	}
+
+	if utils.IsMagnetLink(url) {
 		args = append(args, "--seed-time=0")
 	}
 
-	if task.Type == domain.TypeTorrent && len(task.URL) > 7 && task.URL[:7] == "file://" {
-		localPath := task.URL[7:]
-		args = args[:len(args)-1]
-		args = append(args, localPath)
+	if task.Type == domain.TypeTorrent && len(url) > 7 && url[:7] == "file://" {
+		localPath := url[7:]
+		// Remove the URL from args and add local path
+		for i, arg := range args {
+			if arg == url {
+				args[i] = localPath
+				break
+			}
+		}
 		args = append(args, "--seed-time=0")
 	}
 

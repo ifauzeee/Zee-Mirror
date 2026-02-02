@@ -1,0 +1,403 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { FileText, Folder, RefreshCcw, Download, Check, X, AlertCircle, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import axios from 'axios';
+
+const formatBytes = (bytes) => {
+    const num = parseFloat(bytes);
+    if (isNaN(num) || num <= 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(num) / Math.log(k));
+    return parseFloat((num / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const TorrentSelect = ({ token }) => {
+    const [sessionId, setSessionId] = useState(null);
+    const [session, setSession] = useState(null);
+    const [files, setFiles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [fileLoading, setFileLoading] = useState(true);
+    const [selectedFiles, setSelectedFiles] = useState(new Set());
+    const [error, setError] = useState(null);
+    const [starting, setStarting] = useState(false);
+    const [success, setSuccess] = useState(false);
+    const [expandedFolders, setExpandedFolders] = useState(new Set());
+
+    // Extract session ID from URL
+    useEffect(() => {
+        const pathParts = window.location.pathname.split('/');
+        const id = pathParts[pathParts.length - 1];
+        if (id && id.length === 8) {
+            setSessionId(id);
+        } else {
+            setError('Invalid session ID');
+            setLoading(false);
+        }
+    }, []);
+
+    // Fetch session info
+    const fetchSession = useCallback(async () => {
+        if (!sessionId) return;
+
+        try {
+            const response = await axios.get(`/api/torrent/session?id=${sessionId}`, {
+                headers: { 'X-API-Key': token }
+            });
+            setSession(response.data);
+            setLoading(false);
+        } catch (err) {
+            if (err.response?.status === 404) {
+                setError('Session tidak ditemukan atau sudah kadaluarsa. Silakan kembali ke bot dan mulai ulang.');
+            } else {
+                setError('Gagal memuat sesi: ' + (err.response?.data || err.message));
+            }
+            setLoading(false);
+        }
+    }, [sessionId, token]);
+
+    // Fetch file list
+    const fetchFiles = useCallback(async () => {
+        if (!sessionId) return;
+
+        try {
+            setFileLoading(true);
+            const response = await axios.get(`/api/torrent/files?id=${sessionId}`, {
+                headers: { 'X-API-Key': token }
+            });
+
+            if (response.data.loading) {
+                // Still loading metadata, retry after delay
+                setTimeout(fetchFiles, 3000);
+            } else {
+                setFiles(response.data.files || []);
+                // Select all files by default
+                const allIndices = new Set((response.data.files || []).map(f => f.index));
+                setSelectedFiles(allIndices);
+                setFileLoading(false);
+            }
+        } catch (err) {
+            console.error('Failed to fetch files:', err);
+            setFileLoading(false);
+        }
+    }, [sessionId, token]);
+
+    useEffect(() => {
+        fetchSession();
+    }, [fetchSession]);
+
+    useEffect(() => {
+        if (session) {
+            fetchFiles();
+        }
+    }, [session, fetchFiles]);
+
+    const toggleFile = (index) => {
+        const newSelected = new Set(selectedFiles);
+        if (newSelected.has(index)) {
+            newSelected.delete(index);
+        } else {
+            newSelected.add(index);
+        }
+        setSelectedFiles(newSelected);
+    };
+
+    const selectAll = () => {
+        setSelectedFiles(new Set(files.map(f => f.index)));
+    };
+
+    const deselectAll = () => {
+        setSelectedFiles(new Set());
+    };
+
+    const handleStartDownload = async () => {
+        if (selectedFiles.size === 0) {
+            setError('Pilih minimal satu file untuk didownload');
+            return;
+        }
+
+        setStarting(true);
+        setError(null);
+
+        try {
+            await axios.post('/api/torrent/start', {
+                sessionId: sessionId,
+                selectedFiles: Array.from(selectedFiles)
+            }, {
+                headers: { 'X-API-Key': token }
+            });
+
+            setSuccess(true);
+
+            // Close window after 3 seconds
+            setTimeout(() => {
+                window.close();
+            }, 3000);
+        } catch (err) {
+            setError('Gagal memulai download: ' + (err.response?.data || err.message));
+            setStarting(false);
+        }
+    };
+
+    // Group files by folder
+    const groupedFiles = files.reduce((acc, file) => {
+        const pathParts = file.path.split('/');
+        if (pathParts.length > 1) {
+            const folder = pathParts.slice(0, -1).join('/');
+            if (!acc[folder]) acc[folder] = [];
+            acc[folder].push(file);
+        } else {
+            if (!acc['_root']) acc['_root'] = [];
+            acc['_root'].push(file);
+        }
+        return acc;
+    }, {});
+
+    const toggleFolder = (folder) => {
+        const newExpanded = new Set(expandedFolders);
+        if (newExpanded.has(folder)) {
+            newExpanded.delete(folder);
+        } else {
+            newExpanded.add(folder);
+        }
+        setExpandedFolders(newExpanded);
+    };
+
+    const selectFolder = (folder) => {
+        const folderFiles = groupedFiles[folder] || [];
+        const allSelected = folderFiles.every(f => selectedFiles.has(f.index));
+
+        const newSelected = new Set(selectedFiles);
+        folderFiles.forEach(f => {
+            if (allSelected) {
+                newSelected.delete(f.index);
+            } else {
+                newSelected.add(f.index);
+            }
+        });
+        setSelectedFiles(newSelected);
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 size={48} className="animate-spin text-blue-500 mx-auto mb-4" />
+                    <p className="text-white/60 text-lg">Memuat sesi torrent...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error && !session) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-8 max-w-md text-center">
+                    <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Error</h2>
+                    <p className="text-white/60">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+                <div className="bg-green-500/10 border border-green-500/30 rounded-3xl p-8 max-w-md text-center">
+                    <Check size={48} className="text-green-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Download Dimulai!</h2>
+                    <p className="text-white/60">Download telah dimulai. Anda dapat menutup halaman ini dan kembali ke bot untuk melihat progress.</p>
+                    <p className="text-white/40 text-sm mt-4">Halaman akan ditutup otomatis...</p>
+                </div>
+            </div>
+        );
+    }
+
+    const totalSelected = selectedFiles.size;
+    const totalSize = files.filter(f => selectedFiles.has(f.index)).reduce((sum, f) => sum + f.size, 0);
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+            <div className="max-w-4xl mx-auto">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center space-x-3 mb-4">
+                        <div className="h-1 w-12 bg-blue-500 rounded-full" />
+                        <span className="text-xs font-bold tracking-widest text-blue-500 uppercase">Torrent File Selection</span>
+                    </div>
+                    <h1 className="text-4xl font-black text-white mb-2">Pilih File untuk Download</h1>
+                    <p className="text-white/60">Pilih file yang ingin Anda download dari torrent ini</p>
+                </div>
+
+                {/* Session Info */}
+                {session && (
+                    <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 mb-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1">Magnet Link</p>
+                                <p className="text-white/80 text-sm font-mono break-all">{session.url?.slice(0, 100)}...</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                {session.zip && <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">ZIP</span>}
+                                {session.unzip && <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full text-xs font-bold">UNZIP</span>}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Error Message */}
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-center space-x-3">
+                        <AlertCircle size={20} className="text-red-500" />
+                        <p className="text-red-400">{error}</p>
+                        <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
+                            <X size={18} />
+                        </button>
+                    </div>
+                )}
+
+                {/* File List */}
+                <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl overflow-hidden mb-6">
+                    {/* Toolbar */}
+                    <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <button
+                                onClick={selectAll}
+                                className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-bold hover:bg-blue-500/30 transition"
+                            >
+                                Select All
+                            </button>
+                            <button
+                                onClick={deselectAll}
+                                className="px-4 py-2 bg-white/5 text-white/60 rounded-lg text-sm font-bold hover:bg-white/10 transition"
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                        <button
+                            onClick={fetchFiles}
+                            className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition"
+                        >
+                            <RefreshCcw size={18} className={`text-white/60 ${fileLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+
+                    {/* Files */}
+                    {fileLoading ? (
+                        <div className="p-12 text-center">
+                            <Loader2 size={32} className="animate-spin text-blue-500 mx-auto mb-4" />
+                            <p className="text-white/60">Mengambil daftar file dari torrent...</p>
+                            <p className="text-white/40 text-sm mt-2">Ini mungkin memerlukan waktu beberapa detik untuk mengunduh metadata</p>
+                        </div>
+                    ) : files.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <AlertCircle size={32} className="text-yellow-500 mx-auto mb-4" />
+                            <p className="text-white/60">Tidak dapat mengambil daftar file</p>
+                            <p className="text-white/40 text-sm mt-2">Torrent mungkin hanya berisi satu file, atau metadata belum tersedia</p>
+                            <button
+                                onClick={handleStartDownload}
+                                className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition"
+                            >
+                                Download Semua File
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="max-h-[400px] overflow-y-auto">
+                            {Object.entries(groupedFiles).map(([folder, folderFiles]) => {
+                                const isRoot = folder === '_root';
+                                const isExpanded = isRoot || expandedFolders.has(folder);
+                                const allSelected = folderFiles.every(f => selectedFiles.has(f.index));
+                                const someSelected = folderFiles.some(f => selectedFiles.has(f.index));
+
+                                return (
+                                    <div key={folder}>
+                                        {!isRoot && (
+                                            <div
+                                                className="flex items-center px-4 py-3 bg-white/[0.02] border-b border-white/5 cursor-pointer hover:bg-white/5 transition"
+                                                onClick={() => toggleFolder(folder)}
+                                            >
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); selectFolder(folder); }}
+                                                    className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition ${allSelected
+                                                            ? 'bg-blue-500 border-blue-500'
+                                                            : someSelected
+                                                                ? 'bg-blue-500/50 border-blue-500'
+                                                                : 'border-white/20'
+                                                        }`}
+                                                >
+                                                    {(allSelected || someSelected) && <Check size={14} className="text-white" />}
+                                                </button>
+                                                {isExpanded ? <ChevronDown size={18} className="text-white/40 mr-2" /> : <ChevronRight size={18} className="text-white/40 mr-2" />}
+                                                <Folder size={18} className="text-yellow-500 mr-3" />
+                                                <span className="text-white/80 font-medium flex-1">{folder}</span>
+                                                <span className="text-white/40 text-sm">{folderFiles.length} files</span>
+                                            </div>
+                                        )}
+                                        {isExpanded && folderFiles.map(file => (
+                                            <div
+                                                key={file.index}
+                                                className={`flex items-center px-4 py-3 border-b border-white/5 hover:bg-white/5 cursor-pointer transition ${!isRoot ? 'pl-12' : ''
+                                                    }`}
+                                                onClick={() => toggleFile(file.index)}
+                                            >
+                                                <button
+                                                    className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition ${selectedFiles.has(file.index)
+                                                            ? 'bg-blue-500 border-blue-500'
+                                                            : 'border-white/20'
+                                                        }`}
+                                                >
+                                                    {selectedFiles.has(file.index) && <Check size={14} className="text-white" />}
+                                                </button>
+                                                <FileText size={18} className="text-blue-400 mr-3" />
+                                                <span className="text-white/80 flex-1 truncate">{file.name}</span>
+                                                <span className="text-white/40 text-sm whitespace-nowrap">{formatBytes(file.size)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Actions */}
+                {files.length > 0 && (
+                    <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-white/60 text-sm">
+                                    <span className="text-white font-bold">{totalSelected}</span> dari <span className="text-white font-bold">{files.length}</span> file dipilih
+                                </p>
+                                <p className="text-white/40 text-sm">
+                                    Total ukuran: <span className="text-white font-bold">{formatBytes(totalSize)}</span>
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleStartDownload}
+                                disabled={starting || totalSelected === 0}
+                                className={`flex items-center space-x-3 px-8 py-4 rounded-2xl font-black uppercase tracking-wider transition ${starting || totalSelected === 0
+                                        ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/25'
+                                    }`}
+                            >
+                                {starting ? (
+                                    <>
+                                        <Loader2 size={20} className="animate-spin" />
+                                        <span>Memulai...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download size={20} />
+                                        <span>Download {totalSelected} File</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default TorrentSelect;

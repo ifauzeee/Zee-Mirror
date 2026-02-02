@@ -7,6 +7,7 @@ import Explorer from './pages/Explorer';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import Logs from './pages/Logs';
+import TorrentSelect from './pages/TorrentSelect';
 import TaskRow from './components/Task/TaskRow';
 
 import useTasks from './hooks/useTasks';
@@ -224,6 +225,17 @@ const Dashboard = () => {
             return () => clearInterval(inv);
         }
     }, [apiToken, loginError, fetchTasks, fetchStats]);
+
+    // Check if this is a torrent selection page
+    const isTorrentSelectPage = window.location.pathname.startsWith('/torrent-select/');
+
+    if (isTorrentSelectPage) {
+        // For torrent select page, show login or the torrent select component
+        if (loginError) {
+            return <LoginScreen setApiToken={setApiToken} setLoginError={setLoginError} />;
+        }
+        return <TorrentSelect token={apiToken} />;
+    }
 
     if (loginError) {
         return <LoginScreen setApiToken={setApiToken} setLoginError={setLoginError} />;

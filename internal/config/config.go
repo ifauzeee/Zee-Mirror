@@ -21,6 +21,7 @@ type Config struct {
 	LogLevel               string
 	SmartAutoOrganization  bool
 	IndexURL               string
+	DashboardURL           string
 }
 
 func LoadConfig() *Config {
@@ -36,6 +37,7 @@ func LoadConfig() *Config {
 		LogLevel:               getEnv("LOG_LEVEL", "info"),
 		SmartAutoOrganization:  getEnvBool("SMART_AUTO_ORGANIZATION", false),
 		IndexURL:               os.Getenv("INDEX_URL"),
+		DashboardURL:           getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

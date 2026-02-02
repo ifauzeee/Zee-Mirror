@@ -300,12 +300,15 @@ func setupCallbackRoutes(r *router.Router) {
 			s.HandleBatchCallback(cb, parts)
 		case "confirm":
 			s.HandleConfirmCallback(cb, parts)
+		case "torrent_sel":
+			s.HandleTorrentSelectionCallback(cb, parts)
 		}
 	}
 	r.RegisterCallback("ytdlp_q", taskActionHandler)
 	r.RegisterCallback("settings", taskActionHandler)
 	r.RegisterCallback("batch", taskActionHandler)
 	r.RegisterCallback("confirm", taskActionHandler)
+	r.RegisterCallback("torrent_sel", taskActionHandler)
 
 	systemHandler := func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
 		parts := strings.Split(cb.Data, ":")
