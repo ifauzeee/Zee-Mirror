@@ -22,6 +22,9 @@ const TorrentSelect = ({ token }) => {
     const [starting, setStarting] = useState(false);
     const [success, setSuccess] = useState(false);
     const [expandedFolders, setExpandedFolders] = useState(new Set());
+    const [statusLogs, setStatusLogs] = useState([]);
+    const [statusMessage, setStatusMessage] = useState('Mengambil daftar file dari torrent...');
+    const [isFetching, setIsFetching] = useState(false);
 
     // Extract session ID from URL
     useEffect(() => {
@@ -60,23 +63,41 @@ const TorrentSelect = ({ token }) => {
         if (!sessionId) return;
 
         try {
-            setFileLoading(true);
             const response = await axios.get(`/api/torrent/files?id=${sessionId}`, {
                 headers: { 'X-API-Key': token }
             });
 
             if (response.data.loading) {
-                // Still loading metadata, retry after delay
-                setTimeout(fetchFiles, 3000);
+                setFileLoading(true);
+                setStatusLogs(response.data.logs || []);
+                setStatusMessage(response.data.message || 'Mengambil metadata torrent...');
+                setIsFetching(response.data.fetching || false);
+
+                if (response.data.error) {
+                    setError(response.data.error);
+                    setFileLoading(false);
+                } else {
+                    // Still loading metadata, retry after delay
+                    setTimeout(fetchFiles, 3000);
+                }
+            } else if (response.data.error) {
+                setError(response.data.error);
+                setFileLoading(false);
             } else {
                 setFiles(response.data.files || []);
                 // Select all files by default
                 const allIndices = new Set((response.data.files || []).map(f => f.index));
                 setSelectedFiles(allIndices);
                 setFileLoading(false);
+                setError(null);
             }
         } catch (err) {
             console.error('Failed to fetch files:', err);
+            if (err.response?.status === 404) {
+                setError('Sesi tidak ditemukan atau sudah kadaluarsa.');
+            } else {
+                setError('Gagal mengambil daftar file: ' + (err.response?.data || err.message));
+            }
             setFileLoading(false);
         }
     }, [sessionId, token]);
@@ -284,10 +305,42 @@ const TorrentSelect = ({ token }) => {
 
                     {/* Files */}
                     {fileLoading ? (
-                        <div className="p-12 text-center">
-                            <Loader2 size={32} className="animate-spin text-blue-500 mx-auto mb-4" />
-                            <p className="text-white/60">Mengambil daftar file dari torrent...</p>
-                            <p className="text-white/40 text-sm mt-2">Ini mungkin memerlukan waktu beberapa detik untuk mengunduh metadata</p>
+                        <div className="p-8">
+                            <div className="text-center mb-8">
+                                <Loader2 size={40} className="animate-spin text-blue-500 mx-auto mb-4" />
+                                <p className="text-white text-lg font-bold">{statusMessage}</p>
+                                <p className="text-white/40 text-sm mt-1">Halaman ini akan diperbarui otomatis saat file ditemukan.</p>
+                            </div>
+
+                            {/* Logs Area */}
+                            <div className="bg-black/40 rounded-xl p-4 font-mono text-xs border border-white/5 max-h-[200px] overflow-y-auto">
+                                <div className="flex items-center space-x-2 mb-3 border-b border-white/5 pb-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                    <span className="text-white/40 uppercase tracking-widest font-bold">Bot Progress Logs</span>
+                                </div>
+                                {statusLogs.length === 0 ? (
+                                    <p className="text-white/20 italic">Menunggu respon dari bot...</p>
+                                ) : (
+                                    statusLogs.map((log, i) => (
+                                        <div key={i} className="text-white/60 mb-1 leading-relaxed">
+                                            <span className="text-blue-400/50 mr-2">➜</span>
+                                            {log}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <div className="mt-8 pt-6 border-t border-white/5 text-center">
+                                <p className="text-white/40 text-sm mb-4 italic">
+                                    "Jika torrent memiliki banyak seeder, metadata biasanya didapat dalam &lt; 30 detik. Namun untuk torrent lama bisa memakan waktu hingga beberapa menit."
+                                </p>
+                                <button
+                                    onClick={() => handleStartDownload()}
+                                    className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white/40 rounded-lg text-xs font-bold transition"
+                                >
+                                    Force Select All & Download
+                                </button>
+                            </div>
                         </div>
                     ) : files.length === 0 ? (
                         <div className="p-12 text-center">
@@ -319,10 +372,10 @@ const TorrentSelect = ({ token }) => {
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); selectFolder(folder); }}
                                                     className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition ${allSelected
-                                                            ? 'bg-blue-500 border-blue-500'
-                                                            : someSelected
-                                                                ? 'bg-blue-500/50 border-blue-500'
-                                                                : 'border-white/20'
+                                                        ? 'bg-blue-500 border-blue-500'
+                                                        : someSelected
+                                                            ? 'bg-blue-500/50 border-blue-500'
+                                                            : 'border-white/20'
                                                         }`}
                                                 >
                                                     {(allSelected || someSelected) && <Check size={14} className="text-white" />}
@@ -342,8 +395,8 @@ const TorrentSelect = ({ token }) => {
                                             >
                                                 <button
                                                     className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition ${selectedFiles.has(file.index)
-                                                            ? 'bg-blue-500 border-blue-500'
-                                                            : 'border-white/20'
+                                                        ? 'bg-blue-500 border-blue-500'
+                                                        : 'border-white/20'
                                                         }`}
                                                 >
                                                     {selectedFiles.has(file.index) && <Check size={14} className="text-white" />}
@@ -376,8 +429,8 @@ const TorrentSelect = ({ token }) => {
                                 onClick={handleStartDownload}
                                 disabled={starting || totalSelected === 0}
                                 className={`flex items-center space-x-3 px-8 py-4 rounded-2xl font-black uppercase tracking-wider transition ${starting || totalSelected === 0
-                                        ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/25'
+                                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/25'
                                     }`}
                             >
                                 {starting ? (

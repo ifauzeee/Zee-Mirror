@@ -442,9 +442,11 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 	// Otherwise, it's still loading
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"files":   []domain.TorrentFile{},
-		"loading": true,
-		"message": "Mengambil metadata torrent di background... Ini mungkin memerlukan waktu beberapa menit untuk magnet link.",
+		"files":    []domain.TorrentFile{},
+		"loading":  true,
+		"fetching": session.IsFetching,
+		"logs":     session.StatusMessages,
+		"message":  "Mengambil metadata torrent di background...",
 	})
 }
 

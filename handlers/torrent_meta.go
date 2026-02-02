@@ -14,6 +14,18 @@ import (
 	"zee-mirror/internal/domain"
 )
 
+func (s *BotService) addSessionStatus(sessionID, message string) {
+	s.TaskManager.Mu.Lock()
+	defer s.TaskManager.Mu.Unlock()
+	if session, exists := s.TaskManager.TorrentSessions[sessionID]; exists {
+		timestamp := time.Now().Format("15:04:05")
+		session.StatusMessages = append(session.StatusMessages, fmt.Sprintf("[%s] %s", timestamp, message))
+		if len(session.StatusMessages) > 10 {
+			session.StatusMessages = session.StatusMessages[len(session.StatusMessages)-10:]
+		}
+	}
+}
+
 func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	s.TaskManager.Mu.RLock()
 	session, exists := s.TaskManager.TorrentSessions[sessionID]
@@ -25,13 +37,16 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 
 	s.TaskManager.Mu.Lock()
 	session.IsFetching = true
+	session.StatusMessages = []string{}
 	s.TaskManager.Mu.Unlock()
 
+	s.addSessionStatus(sessionID, "📡 Memulai pencarian metadata...")
 	slog.Info("Starting background metadata fetch", "sessionID", sessionID, "url", session.URL)
 
 	tmpDir, err := os.MkdirTemp("", "torrent_meta_"+sessionID+"_")
 	if err != nil {
 		s.updateSessionError(sessionID, fmt.Sprintf("failed to create temp dir: %v", err))
+		s.addSessionStatus(sessionID, "❌ Gagal membuat folder temporary.")
 		return
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
@@ -42,13 +57,15 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	var metaFilePath string
 
 	if isMagnet {
+		s.addSessionStatus(sessionID, "🧲 Menghubungkan ke peer (Magnet Link)...")
+
 		fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer fetchCancel()
 
 		args := []string{
 			"--dir=" + tmpDir,
 			"--seed-time=0",
-			"--bt-stop-timeout=0",
+			"--bt-stop-timeout=60",
 			"--bt-save-metadata=true",
 			"--bt-metadata-only=true",
 			"--enable-dht=true",
@@ -60,26 +77,33 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 		}
 
 		cmd := exec.CommandContext(fetchCtx, "aria2c", args...)
-		output, err := cmd.CombinedOutput()
+		outputBytes, err := cmd.CombinedOutput()
+		output := stripANSI(string(outputBytes))
+
 		if err != nil {
 			slog.Warn("Aria2c metadata fetch finished with error", "sessionID", sessionID, "error", err)
+			s.addSessionStatus(sessionID, "⚠️ Aria2c melaporkan masalah saat mencari peer.")
 		}
 
 		metaFiles, _ := filepath.Glob(filepath.Join(tmpDir, "*.torrent"))
 		if len(metaFiles) > 0 {
 			metaFilePath = metaFiles[0]
+			s.addSessionStatus(sessionID, "✅ Metadata berhasil didapatkan.")
 			slog.Info("Found downloaded metadata file", "sessionID", sessionID, "path", metaFilePath)
 		} else {
-			slog.Warn("No .torrent file found after aria2c run", "sessionID", sessionID, "output", string(output))
+			s.addSessionStatus(sessionID, "❌ Gagal mendapatkan file metadata .torrent.")
+			slog.Warn("No .torrent file found after aria2c run", "sessionID", sessionID, "output", output)
 		}
 	} else {
 		metaFilePath = url
+		s.addSessionStatus(sessionID, "📄 Memproses file .torrent lokal...")
 		slog.Info("Using local torrent file", "sessionID", sessionID, "path", metaFilePath)
 	}
 
 	var files []domain.TorrentFile
 	if metaFilePath != "" {
-		files = s.parseTorrentMetadataFile(metaFilePath)
+		s.addSessionStatus(sessionID, "📋 Memparsing daftar file...")
+		files = s.parseTorrentMetadataFile(sessionID, metaFilePath)
 	}
 
 	s.TaskManager.Mu.Lock()
@@ -97,7 +121,7 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 		slog.Info("Successfully fetched torrent metadata", "sessionID", sessionID, "files", len(files))
 	} else {
 		session.Files = nil
-		session.Error = "Gagal mengambil daftar file. Torrent mungkin tidak memiliki seeder atau link tidak valid."
+		session.Error = "Gagal mengambil daftar file. Metadata mungkin korup atau tidak terbaca."
 		slog.Warn("Failed to parse torrent metadata", "sessionID", sessionID)
 	}
 }
@@ -111,7 +135,7 @@ func (s *BotService) updateSessionError(sessionID, errMsg string) {
 	}
 }
 
-func (s *BotService) parseTorrentMetadataFile(torrentPath string) []domain.TorrentFile {
+func (s *BotService) parseTorrentMetadataFile(sessionID, torrentPath string) []domain.TorrentFile {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -119,23 +143,27 @@ func (s *BotService) parseTorrentMetadataFile(torrentPath string) []domain.Torre
 
 	if _, err := os.Stat(torrentPath); os.IsNotExist(err) {
 		slog.Error("Torrent file does not exist", "path", torrentPath)
+		s.addSessionStatus(sessionID, "❌ File metadata tidak ditemukan di sistem.")
 		return nil
 	}
 
 	cmd := exec.CommandContext(ctx, "aria2c", "--show-files=true", torrentPath)
-	output, err := cmd.CombinedOutput()
-
-	cleanOutput := stripANSI(string(output))
-
-	slog.Debug("aria2c --show-files output", "output", cleanOutput)
+	outputBytes, err := cmd.CombinedOutput()
+	cleanOutput := stripANSI(string(outputBytes))
 
 	if err != nil {
 		slog.Error("aria2c --show-files failed", "path", torrentPath, "error", err, "output", cleanOutput)
+		s.addSessionStatus(sessionID, "❌ Perintah show-files gagal dijalankan.")
 		return nil
 	}
 
 	files := parseTorrentOutput(cleanOutput)
-	slog.Info("Parsed torrent files", "count", len(files))
+	if len(files) == 0 {
+		slog.Warn("No files parsed from output", "output", cleanOutput)
+		s.addSessionStatus(sessionID, "⚠️ Daftar file terbaca kosong dari metadata.")
+
+		slog.Info("Raw aria2c output for debugging", "output", cleanOutput)
+	}
 
 	return files
 }
@@ -149,11 +177,17 @@ func parseTorrentOutput(output string) []domain.TorrentFile {
 	var files []domain.TorrentFile
 	lines := strings.Split(output, "\n")
 
-	filePattern := regexp.MustCompile(`^\s*(\d+)\|(.+?)\|(\d+)\|`)
+	pipePattern := regexp.MustCompile(`^\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*\|`)
+
+	spacePattern := regexp.MustCompile(`^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:true|false)`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if matches := filePattern.FindStringSubmatch(line); len(matches) >= 4 {
+		if line == "" {
+			continue
+		}
+
+		if matches := pipePattern.FindStringSubmatch(line); len(matches) >= 4 {
 			idx, _ := strconv.Atoi(matches[1])
 			size, _ := strconv.ParseInt(matches[3], 10, 64)
 			path := matches[2]
@@ -165,7 +199,21 @@ func parseTorrentOutput(output string) []domain.TorrentFile {
 				Path:  path,
 				Size:  size,
 			})
-			slog.Debug("Parsed file", "index", idx, "name", name, "size", size)
+			continue
+		}
+
+		if matches := spacePattern.FindStringSubmatch(line); len(matches) >= 4 {
+			idx, _ := strconv.Atoi(matches[1])
+			size, _ := strconv.ParseInt(matches[3], 10, 64)
+			path := matches[2]
+			name := filepath.Base(path)
+
+			files = append(files, domain.TorrentFile{
+				Index: idx,
+				Name:  name,
+				Path:  path,
+				Size:  size,
+			})
 		}
 	}
 
