@@ -177,13 +177,19 @@ func parseTorrentOutput(output string) []domain.TorrentFile {
 	var files []domain.TorrentFile
 	lines := strings.Split(output, "\n")
 
-	pipePattern := regexp.MustCompile(`^\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*\|`)
+	headerRegex := regexp.MustCompile(`^\s*(\d+)\|(.+)`)
+	sizeRegex := regexp.MustCompile(`^\s*\|.*?\(([\d,]+)\)$`)
 
+	pipePattern := regexp.MustCompile(`^\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*\|`)
 	spacePattern := regexp.MustCompile(`^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:true|false)`)
+
+	var currentIdx int
+	var currentPath string
+	var waitingForSize bool
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "===") || strings.HasPrefix(line, "---") || strings.HasPrefix(line, "idx|") {
 			continue
 		}
 
@@ -199,6 +205,7 @@ func parseTorrentOutput(output string) []domain.TorrentFile {
 				Path:  path,
 				Size:  size,
 			})
+			waitingForSize = false
 			continue
 		}
 
@@ -214,6 +221,34 @@ func parseTorrentOutput(output string) []domain.TorrentFile {
 				Path:  path,
 				Size:  size,
 			})
+			waitingForSize = false
+			continue
+		}
+
+		if waitingForSize {
+			if matches := sizeRegex.FindStringSubmatch(line); len(matches) >= 2 {
+				sizeStr := strings.ReplaceAll(matches[1], ",", "")
+				size, _ := strconv.ParseInt(sizeStr, 10, 64)
+
+				name := filepath.Base(currentPath)
+				files = append(files, domain.TorrentFile{
+					Index: currentIdx,
+					Name:  name,
+					Path:  currentPath,
+					Size:  size,
+				})
+				waitingForSize = false
+				continue
+			}
+		}
+
+		if matches := headerRegex.FindStringSubmatch(line); len(matches) >= 3 {
+			idx, _ := strconv.Atoi(matches[1])
+			path := strings.TrimSpace(matches[2])
+			currentIdx = idx
+			currentPath = path
+			waitingForSize = true
+			continue
 		}
 	}
 
