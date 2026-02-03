@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useUsers } from '../hooks/useUsers';
 import { formatBytes } from '../utils/format';
+import { usePopups } from '../context/PopupContext';
 
 const Users = ({ apiToken }) => {
     const { users, loading, error, updateUser, deleteUser, fetchUsers } = useUsers(apiToken);
+    const { showConfirm, showAlert, showToast } = usePopups();
     const [editingUser, setEditingUser] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -36,16 +38,19 @@ const Users = ({ apiToken }) => {
         if (result.success) {
             setIsModalOpen(false);
             setEditingUser(null);
+            showToast('User settings updated successfully', 'success');
         } else {
-            alert(result.error);
+            showAlert('Update Failed', result.error, { type: 'error' });
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this user?')) {
+        if (await showConfirm('Delete User', 'Are you sure you want to permanently delete this user? This action cannot be undone.')) {
             const result = await deleteUser(id);
-            if (!result.success) {
-                alert(result.error);
+            if (result.success) {
+                showToast('User deleted successfully', 'success');
+            } else {
+                showAlert('Delete Failed', result.error, { type: 'error' });
             }
         }
     };
@@ -57,7 +62,7 @@ const Users = ({ apiToken }) => {
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
                         User Management
                     </h1>
-                    <p className="text-gray-400 mt-1">Manage bot access, roles, and daily quotas.</p>
+                    <p className="text-slate-500 dark:text-gray-400 mt-1">Manage bot access, roles, and daily quotas.</p>
                 </div>
                 <button
                     onClick={fetchUsers}
@@ -83,13 +88,13 @@ const Users = ({ apiToken }) => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-white/5 bg-white/5">
-                                <th className="px-6 py-4 font-semibold text-gray-300">User</th>
-                                <th className="px-6 py-4 font-semibold text-gray-300">Role</th>
-                                <th className="px-6 py-4 font-semibold text-gray-300">Quotas (Tasks/BW)</th>
-                                <th className="px-6 py-4 font-semibold text-gray-300">Expires At</th>
-                                <th className="px-6 py-4 font-semibold text-gray-300">Created</th>
-                                <th className="px-6 py-4 font-semibold text-gray-300 text-right">Actions</th>
+                            <tr className="border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5">
+                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">User</th>
+                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Role</th>
+                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Quotas (Tasks/BW)</th>
+                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Expires At</th>
+                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Created</th>
+                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -111,12 +116,12 @@ const Users = ({ apiToken }) => {
                                     <tr key={user.id} className="hover:bg-white/5 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-blue-400 font-bold border border-white/10">
+                                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-blue-500 dark:text-blue-400 font-bold border border-slate-200 dark:border-white/10">
                                                     {user.username?.[0]?.toUpperCase() || 'U'}
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-200">{user.username || 'Unknown User'}</p>
-                                                    <p className="text-xs text-gray-500 family-mono">ID: {user.id}</p>
+                                                    <p className="font-extrabold text-slate-900 dark:text-gray-200">{user.username || 'Unknown User'}</p>
+                                                    <p className="text-xs text-slate-500 dark:text-gray-500 family-mono">ID: {user.id}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -131,27 +136,27 @@ const Users = ({ apiToken }) => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="text-sm">
-                                                <p className="text-gray-300">
-                                                    <span className="text-gray-500">Tasks:</span> {user.maxDailyTasks === -1 ? '∞' : user.maxDailyTasks}
+                                                <p className="text-slate-700 dark:text-gray-300">
+                                                    <span className="text-slate-500 dark:text-gray-500">Tasks:</span> {user.maxDailyTasks === -1 ? '∞' : user.maxDailyTasks}
                                                 </p>
-                                                <p className="text-gray-300">
-                                                    <span className="text-gray-500">BW:</span> {user.maxDailyBandwidth === -1 ? '∞' : formatBytes(user.maxDailyBandwidth)}
+                                                <p className="text-slate-700 dark:text-gray-300">
+                                                    <span className="text-slate-500 dark:text-gray-500">BW:</span> {user.maxDailyBandwidth === -1 ? '∞' : formatBytes(user.maxDailyBandwidth)}
                                                 </p>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`text-sm ${!user.isActive ? 'text-red-400 line-through' : 'text-gray-300'}`}>
+                                            <span className={`text-sm ${!user.isActive ? 'text-red-500 line-through' : 'text-slate-700 dark:text-gray-300'}`}>
                                                 {user.expiresAt?.Valid ? new Date(user.expiresAt.Time).toLocaleDateString() : 'Never'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-400 lowercase">
+                                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-gray-400 lowercase">
                                             {new Date(user.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => handleEdit(user)}
-                                                    className="p-2 hover:bg-white/10 rounded-lg text-blue-400 transition-colors"
+                                                    className="p-2 hover:bg-blue-500/10 rounded-lg text-blue-500 dark:text-blue-400 transition-colors"
                                                     title="Edit User"
                                                 >
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,7 +166,7 @@ const Users = ({ apiToken }) => {
                                                 {user.role !== 'owner' && (
                                                     <button
                                                         onClick={() => handleDelete(user.id)}
-                                                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-400 transition-colors"
+                                                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 dark:text-red-400 transition-colors"
                                                         title="Delete User"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,11 +188,11 @@ const Users = ({ apiToken }) => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="glass-card w-full max-w-lg overflow-hidden shadow-2xl animate-scale-in">
-                        <div className="bg-white/5 px-6 py-4 border-b border-white/5 flex justify-between items-center">
-                            <h2 className="text-xl font-semibold text-gray-100">Edit User: {editingUser?.username || editingUser?.id}</h2>
+                        <div className="bg-slate-50 dark:bg-white/5 px-6 py-4 border-b border-slate-200 dark:border-white/5 flex justify-between items-center">
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Edit User: {editingUser?.username || editingUser?.id}</h2>
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="text-gray-500 hover:text-white transition-colors"
+                                className="text-slate-400 hover:text-primary transition-colors"
                                 title="Close"
                             >
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,7 +208,7 @@ const Users = ({ apiToken }) => {
                                         value={role}
                                         onChange={(e) => setRole(e.target.value)}
                                         disabled={editingUser?.role === 'owner'}
-                                        className="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
+                                        className="w-full bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
                                     >
                                         <option value="user">User</option>
                                         <option value="authorized">Authorized</option>
@@ -217,9 +222,9 @@ const Users = ({ apiToken }) => {
                                         type="number"
                                         value={maxTasks}
                                         onChange={(e) => setMaxTasks(e.target.value)}
-                                        className="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
+                                        className="w-full bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
                                     />
-                                    <p className="text-[10px] text-gray-600">-1 for unlimited</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-600 font-bold">-1 for unlimited</p>
                                 </div>
                             </div>
 
@@ -230,9 +235,9 @@ const Users = ({ apiToken }) => {
                                         type="number"
                                         value={maxBW}
                                         onChange={(e) => setMaxBW(parseInt(e.target.value))}
-                                        className="flex-1 bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
+                                        className="flex-1 bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
                                     />
-                                    <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-lg text-gray-400 text-sm whitespace-nowrap">
+                                    <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg text-slate-500 dark:text-gray-400 text-sm whitespace-nowrap">
                                         {maxBW === -1 ? 'Unlimited' : formatBytes(maxBW)}
                                     </div>
                                 </div>
@@ -244,7 +249,7 @@ const Users = ({ apiToken }) => {
                                     type="date"
                                     value={expiresAt}
                                     onChange={(e) => setExpiresAt(e.target.value)}
-                                    className="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
+                                    className="w-full bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
                                 />
                             </div>
 
@@ -252,7 +257,7 @@ const Users = ({ apiToken }) => {
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors font-medium"
+                                    className="flex-1 px-4 py-2 rounded-lg bg-slate-200 dark:bg-gray-800 hover:bg-slate-300 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 transition-colors font-black uppercase text-xs tracking-widest"
                                 >
                                     Cancel
                                 </button>

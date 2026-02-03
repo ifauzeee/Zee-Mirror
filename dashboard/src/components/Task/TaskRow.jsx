@@ -28,7 +28,7 @@ const TaskRow = ({ task, formatBytes, onCancel }) => (
             </div>
             <button
                 onClick={() => onCancel(task.id)}
-                className="p-4 text-slate-300 hover:text-white hover:bg-red-500 rounded-2xl transition-all shrink-0 active:scale-90 border border-transparent hover:border-red-500/20 shadow-sm"
+                className="p-4 text-slate-400 dark:text-slate-500 hover:text-white hover:bg-red-500 rounded-2xl transition-all shrink-0 active:scale-90 border border-slate-200 dark:border-white/5 hover:border-red-500/20 shadow-sm bg-white dark:bg-transparent"
             >
                 <Trash2 size={24} />
             </button>
@@ -38,14 +38,14 @@ const TaskRow = ({ task, formatBytes, onCancel }) => (
             <div className="flex items-end justify-between px-1">
                 <div className="flex items-center space-x-12">
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Bandwidth</p>
-                        <div className="flex items-center text-sm font-black text-slate-800 dark:text-slate-200">
-                            <TrendingUp size={16} className="mr-2 text-primary" /> {formatBytes(task.speed || 0)}<span className="text-[10px] font-bold opacity-60 ml-1">/s</span>
+                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Bandwidth</p>
+                        <div className="flex items-center text-sm font-black text-slate-900 dark:text-slate-200">
+                            <TrendingUp size={16} className="mr-2 text-primary" /> {formatBytes(task.speed || 0)}<span className="text-[10px] font-bold opacity-70 ml-1">/s</span>
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Time Buffer</p>
-                        <div className="flex items-center text-sm font-black text-slate-800 dark:text-slate-200">
+                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Time Buffer</p>
+                        <div className="flex items-center text-sm font-black text-slate-900 dark:text-slate-200">
                             <Clock size={16} className="mr-2 text-indigo-400" /> {task.eta ? `${Math.floor(task.eta / 1e9 / 60)}m ${Math.floor(task.eta / 1e9) % 60}s` : 'Stable'}
                         </div>
                     </div>

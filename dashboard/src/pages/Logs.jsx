@@ -19,9 +19,9 @@ const Logs = ({ token }) => {
                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mt-1">Direct Engine Output Interface</p>
                     </div>
                 </div>
-                <button onClick={fetchLogs} className="p-4 bg-slate-50 dark:bg-zinc-900 text-slate-400 hover:text-primary rounded-2xl transition-all shadow-sm border border-slate-100 dark:border-white/5"><RefreshCcw size={24} /></button>
+                <button onClick={fetchLogs} className="p-4 bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-slate-400 hover:text-primary rounded-2xl transition-all shadow-sm border border-slate-100 dark:border-white/5"><RefreshCcw size={24} /></button>
             </div>
-            <div className="bg-[#0c0c0c] rounded-[3rem] p-10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] border border-white/5 overflow-hidden relative group">
+            <div className="bg-slate-50 dark:bg-[#0c0c0c] rounded-[3rem] p-10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] dark:shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] border border-slate-200 dark:border-white/5 overflow-hidden relative group">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-indigo-600 to-primary opacity-30 group-hover:opacity-100 transition-opacity duration-1000" />
                 <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/5">
                     <div className="flex space-x-2.5">
@@ -31,14 +31,14 @@ const Logs = ({ token }) => {
                     </div>
                     <div className="flex items-center space-x-4">
                         <span className="px-3 py-1 bg-primary/20 text-primary text-[9px] font-black rounded-lg uppercase tracking-widest">Buffer Live</span>
-                        <span className="text-[10px] font-black text-zinc-600 tracking-[0.2em]">RUNTIME.ZEE — {logsContent.split('\n').length} ENTRIES</span>
+                        <span className="text-[10px] font-black text-slate-500 dark:text-zinc-600 tracking-[0.2em] uppercase">RUNTIME.ZEE — {logsContent.split('\n').length} ENTRIES</span>
                     </div>
                 </div>
                 <div className="font-mono text-[14px] text-zinc-300 overflow-y-auto max-h-[650px] scrollbar-hide space-y-2 leading-relaxed selection:bg-primary selection:text-white">
                     {logsContent.split('\n').map((line, i) => (
-                        <div key={i} className="hover:bg-white/[0.03] px-4 py-0.5 rounded-lg transition-colors group/line flex items-start gap-8 font-mono">
-                            <span className="text-zinc-800 select-none group-hover/line:text-primary transition-colors text-right font-black text-[11px] shrink-0 mt-0.5 w-10">{(i + 1).toString().padStart(3, '0')}</span>
-                            <span className={`break-words tracking-tight ${line.includes('ERROR') || line.includes('❌') ? 'text-red-400/90 font-bold' : line.includes('WARN') ? 'text-yellow-400/80' : 'text-zinc-400'}`}>
+                        <div key={i} className="hover:bg-slate-200/50 dark:hover:bg-white/[0.03] px-4 py-0.5 rounded-lg transition-colors group/line flex items-start gap-8 font-mono">
+                            <span className="text-slate-400 dark:text-zinc-800 select-none group-hover/line:text-primary transition-colors text-right font-black text-[11px] shrink-0 mt-0.5 w-10">{(i + 1).toString().padStart(3, '0')}</span>
+                            <span className={`break-words tracking-tight ${line.includes('ERROR') || line.includes('❌') ? 'text-red-500/90 dark:text-red-400/90 font-bold' : line.includes('WARN') ? 'text-yellow-600 dark:text-yellow-400/80' : 'text-slate-600 dark:text-zinc-400'}`}>
                                 {line || ' '}
                             </span>
                         </div>

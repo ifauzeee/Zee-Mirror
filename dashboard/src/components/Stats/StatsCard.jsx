@@ -7,11 +7,11 @@ const StatsCard = ({ icon: Icon, label, value, subLabel, color }) => (
             {color === 'primary' ? <Icon size={32} className="text-primary" /> : <Icon size={32} />}
         </div>
         <div className="space-y-1 relative z-10">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.4em] mb-1 group-hover:text-primary transition-colors">{label}</p>
+            <p className="text-[9px] font-black text-slate-500 dark:text-zinc-500 uppercase tracking-[0.4em] mb-1 group-hover:text-primary transition-colors">{label}</p>
             <p className="text-4xl lg:text-5xl font-black tracking-[-0.05em] text-slate-900 dark:text-white leading-none mb-2">{value}</p>
             <div className="flex items-center space-x-2">
                 <div className={`w-3 h-1 rounded-full bg-${color}-500 ${color === 'primary' ? 'bg-primary' : ''} group-hover:w-6 transition-all`} />
-                <p className="text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest opacity-60 transition-opacity group-hover:opacity-100">{subLabel}</p>
+                <p className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest opacity-70 transition-opacity group-hover:opacity-100">{subLabel}</p>
             </div>
         </div>
     </div>

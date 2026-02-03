@@ -48,7 +48,7 @@ const Sidebar = ({ activeTab, setActiveTab, tasksCount, onLogout }) => {
                             onClick={() => setActiveTab(item.id)}
                             className={`flex items-center space-x-4 w-full px-6 py-4 rounded-[1.75rem] transition-all duration-500 font-black text-xs uppercase tracking-wider group ${activeTab === item.id
                                 ? 'bg-primary text-white shadow-[0_12px_24px_-8px_rgba(59,130,246,0.4)] scale-[1.03]'
-                                : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-primary dark:hover:text-primary transition-all'
+                                : 'text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-primary dark:hover:text-primary transition-all'
                                 }`}
                         >
                             <item.icon size={18} className={`${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'} transition-all`} />
@@ -72,7 +72,7 @@ const Sidebar = ({ activeTab, setActiveTab, tasksCount, onLogout }) => {
                 >
                     <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white shadow-lg group-hover/credit:scale-110 transition-transform"><Github size={20} /></div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Maintained By</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">Maintained By</p>
                         <p className="text-sm font-black text-slate-800 dark:text-white group-hover/credit:text-primary transition-colors">ifauzee</p>
                     </div>
                 </a>

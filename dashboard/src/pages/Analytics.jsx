@@ -26,7 +26,7 @@ const Analytics = ({ token, isDarkMode }) => {
         if (active && payload && payload.length) {
             return (
                 <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl p-4 border border-slate-200 dark:border-white/5 rounded-2xl shadow-2xl shadow-black/20">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                    <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">{label}</p>
                     <p className="text-lg font-black text-primary">{payload[0].value} <span className="text-[10px] uppercase">Tasks</span></p>
                 </div>
             );
@@ -57,7 +57,7 @@ const Analytics = ({ token, isDarkMode }) => {
                                         dataKey="Date"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
+                                        tick={{ fill: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 10, fontWeight: 900 }}
                                         tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { weekday: 'short' })}
                                     />
                                     <YAxis hide />
@@ -85,7 +85,7 @@ const Analytics = ({ token, isDarkMode }) => {
                                         dataKey="Date"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
+                                        tick={{ fill: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 10, fontWeight: 900 }}
                                         tickFormatter={(str) => new Date(str).getDate()}
                                     />
                                     <Tooltip content={<CustomTooltip />} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />

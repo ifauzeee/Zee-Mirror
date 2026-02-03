@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Folder, TrendingUp, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
+import { usePopups } from '../context/PopupContext';
 
 const Settings = ({ token, initialSettings }) => {
+    const { showAlert, showToast } = usePopups();
     const [settings, setSettings] = useState(initialSettings || { AutoDeleteMessages: false, DefaultMode: 'mirror' });
 
     useEffect(() => {
@@ -14,9 +16,9 @@ const Settings = ({ token, initialSettings }) => {
         try {
             const config = { headers: { 'X-API-Key': token } };
             await axios.post('/api/settings', settings, config);
-            alert('Settings updated!');
+            showToast('Settings successfully synchronized', 'success');
         } catch (err) {
-            alert('Failed to update settings');
+            showAlert('Core Error', 'Failed to synchronize system settings with the cloud engine.', { type: 'error' });
         }
     };
 
@@ -40,7 +42,7 @@ const Settings = ({ token, initialSettings }) => {
                                 <div className="w-1.5 h-4 bg-primary rounded-full" />
                                 <h4 className="font-black text-xl text-slate-900 dark:text-white">Ephemeral Buffer</h4>
                             </div>
-                            <p className="text-sm text-slate-400 font-bold mt-2 leading-relaxed tracking-tight">Cascade delete Telegram status packets immediately after distribution cycle completes.</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 font-bold mt-2 leading-relaxed tracking-tight">Cascade delete Telegram status packets immediately after distribution cycle completes.</p>
                         </div>
                         <button
                             type="button"
@@ -66,13 +68,13 @@ const Settings = ({ token, initialSettings }) => {
                                     onClick={() => setSettings({ ...settings, DefaultMode: mode })}
                                     className={`p-10 rounded-[3rem] border-2 transition-all duration-500 text-left relative overflow-hidden group/btn ${settings.DefaultMode === mode ? 'border-primary bg-primary/5 shadow-2xl' : 'border-slate-100 dark:border-white/5 hover:border-primary/20 bg-white/5'}`}
                                 >
-                                    <div className={`w-14 h-14 rounded-2xl mb-8 flex items-center justify-center transition-all duration-700 ${settings.DefaultMode === mode ? 'bg-primary text-white scale-110 rotate-3 shadow-xl' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 group-hover/btn:scale-110'}`}>
+                                    <div className={`w-14 h-14 rounded-2xl mb-8 flex items-center justify-center transition-all duration-700 ${settings.DefaultMode === mode ? 'bg-primary text-white scale-110 rotate-3 shadow-xl' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 group-hover/btn:scale-110'}`}>
                                         {mode === 'mirror' ? <Folder size={28} /> : <TrendingUp size={28} />}
                                     </div>
                                     <div className="relative z-10">
-                                        <p className={`font-black uppercase text-xs tracking-[0.2em] mb-2 ${settings.DefaultMode === mode ? 'text-primary' : 'text-slate-400'}`}>{mode} protocol</p>
+                                        <p className={`font-black uppercase text-xs tracking-[0.2em] mb-2 ${settings.DefaultMode === mode ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>{mode} protocol</p>
                                         <p className="text-xl font-black text-slate-900 dark:text-white tracking-tighter capitalize">{mode === 'mirror' ? 'Cloud Mirroring' : 'Resilient Leech'}</p>
-                                        <p className="text-[10px] text-slate-400 mt-2 font-bold leading-relaxed">{mode === 'mirror' ? 'Execute high-speed upload to configured cloud storage providers.' : 'Deliver files directly back to Telegram encrypted data clusters.'}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-bold leading-relaxed">{mode === 'mirror' ? 'Execute high-speed upload to configured cloud storage providers.' : 'Deliver files directly back to Telegram encrypted data clusters.'}</p>
                                     </div>
                                     {settings.DefaultMode === mode && <div className="absolute top-6 right-6 p-2 bg-primary/10 rounded-full text-primary"><ShieldCheck size={20} /></div>}
                                 </button>

@@ -2,7 +2,7 @@ import React from 'react';
 
 const HealthBar = ({ label, value, color }) => (
     <div className="space-y-4 group">
-        <div className="flex justify-between text-[11px] font-[900] text-slate-400 dark:text-zinc-500 uppercase tracking-[0.3em] group-hover:text-primary transition-colors px-1">
+        <div className="flex justify-between text-[11px] font-[900] text-slate-500 dark:text-zinc-500 uppercase tracking-[0.3em] group-hover:text-primary transition-colors px-1">
             <span>{label}</span>
             <span className="text-slate-900 dark:text-white font-black tracking-widest">{value}<span className="text-[8px] ml-0.5 opacity-40">%</span></span>
         </div>

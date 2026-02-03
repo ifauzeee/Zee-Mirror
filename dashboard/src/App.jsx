@@ -4,6 +4,7 @@ import { RefreshCcw, Sun, Moon, ArrowRight, Bot, Activity, ShieldCheck, Lock } f
 import Sidebar from './components/Sidebar/Sidebar';
 import Overview from './pages/Overview';
 import Explorer from './pages/Explorer';
+import { usePopups } from './context/PopupContext';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import Logs from './pages/Logs';
@@ -160,6 +161,7 @@ const Dashboard = () => {
 
     const { tasks, fetchTasks, cancelTask, setTasks } = useTasks(apiToken);
     const { stats, system, fetchStats, setSystem } = useSystemStats(apiToken);
+    const { showConfirm } = usePopups();
     const [settings, setSettings] = useState(null);
 
 
@@ -281,7 +283,12 @@ const Dashboard = () => {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 tasksCount={tasks.length}
-                onLogout={() => { if (confirm('Disconnect from Cloud Engine?')) { localStorage.clear(); window.location.reload(); } }}
+                onLogout={async () => {
+                    if (await showConfirm('Secure Disconnect', 'Are you sure you want to disconnect from the Cloud Engine? Active sessions will be terminated.')) {
+                        localStorage.clear();
+                        window.location.reload();
+                    }
+                }}
             />
 
             <main className="flex-1 overflow-y-auto p-12 scroll-smooth scrollbar-hide relative">

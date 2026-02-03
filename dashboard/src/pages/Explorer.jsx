@@ -44,11 +44,11 @@ const Explorer = ({ token }) => {
                         <p className="text-[10px] font-black text-primary/60 mt-1.5 truncate max-w-md italic tracking-widest uppercase">root:/{explorerPath || ''}</p>
                     </div>
                 </div>
-                <button onClick={() => fetchExplorer(explorerPath)} className="p-4 bg-slate-50 dark:bg-white/5 text-slate-400 hover:text-primary rounded-2xl transition-all shadow-sm border border-slate-100 dark:border-white/5"><RefreshCcw size={24} /></button>
+                <button onClick={() => fetchExplorer(explorerPath)} className="p-4 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-primary rounded-2xl transition-all shadow-sm border border-slate-100 dark:border-white/5"><RefreshCcw size={24} /></button>
             </div>
 
             <div className="glass-card rounded-[3.5rem] overflow-hidden shadow-2xl border border-slate-100 dark:border-white/5 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-3xl px-2">
-                <div className="grid grid-cols-12 gap-4 px-10 py-8 bg-slate-50/20 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <div className="grid grid-cols-12 gap-4 px-10 py-8 bg-slate-50/20 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                     <div className="col-span-6 md:col-span-7">Node Identifier</div>
                     <div className="col-span-3 md:col-span-2 text-center text-primary">Allocation</div>
                     <div className="col-span-3 text-right">Operations</div>
@@ -65,9 +65,9 @@ const Explorer = ({ token }) => {
                                         {file.displayName || file.name}
                                     </p>
                                     <div className="flex items-center space-x-3 mt-1.5">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">Edge Link</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Edge Link</span>
                                         <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-white/10" />
-                                        <span className="text-[10px] font-bold text-slate-400 truncate opacity-60 font-mono italic">NODE-ID: {file.name.slice(0, 8).toUpperCase()}</span>
+                                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate opacity-70 font-mono italic">NODE-ID: {file.name.slice(0, 8).toUpperCase()}</span>
                                     </div>
                                 </div>
                             </div>
@@ -83,10 +83,10 @@ const Explorer = ({ token }) => {
                                     </button>
                                 ) : (
                                     <div className="flex items-center space-x-3">
-                                        <button onClick={() => getExternalLink(file.name)} className="p-4 text-slate-400 hover:text-primary transition-all rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 hidden md:flex border border-transparent hover:border-primary/20">
+                                        <button onClick={() => getExternalLink(file.name)} className="p-4 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 hidden md:flex border border-transparent hover:border-primary/20">
                                             <ExternalLink size={22} />
                                         </button>
-                                        <button onClick={() => deleteFile(file.name)} className="p-4 text-red-400 hover:text-white hover:bg-red-500 rounded-2xl transition-all shadow-xl hover:shadow-red-500/30 active:scale-95">
+                                        <button onClick={() => deleteFile(file.name)} className="p-4 text-red-500 hover:text-white hover:bg-red-500 rounded-2xl transition-all shadow-xl hover:shadow-red-500/30 active:scale-95">
                                             <Trash2 size={22} />
                                         </button>
                                     </div>

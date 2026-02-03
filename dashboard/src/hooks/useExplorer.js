@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { usePopups } from '../context/PopupContext';
 
 const useExplorer = (token) => {
     const [explorerPath, setExplorerPath] = useState('');
     const [explorerFiles, setExplorerFiles] = useState([]);
+    const { showConfirm, showAlert, showToast } = usePopups();
 
     const fetchExplorer = useCallback(async (path = '') => {
         if (!token) return;
@@ -35,19 +37,24 @@ const useExplorer = (token) => {
             if (res.data.link) {
                 window.open(res.data.link, '_blank');
             } else {
-                alert('No public link available');
+                showAlert('Link Unavailable', 'No public distribution link is currently available for this resource.', { type: 'alert' });
             }
-        } catch (err) { alert('Failed to generate cloud link'); }
+        } catch (err) {
+            showAlert('Extraction Error', 'Failed to generate a secure cloud link for this resource.', { type: 'error' });
+        }
     };
 
     const deleteFile = async (name) => {
-        if (confirm(`Permanently delete ${name}?`)) {
+        if (await showConfirm('Delete Resource', `Permanently delete ${name}? This action will wipe the data from the cloud engine.`)) {
             try {
                 const config = { headers: { 'X-API-Key': token } };
                 const path = explorerPath ? `${explorerPath}/${name}` : name;
                 await axios.delete(`/api/explorer/remote?path=${encodeURIComponent(path)}`, config);
+                showToast('Resource deleted successfully', 'success');
                 fetchExplorer(explorerPath);
-            } catch (err) { alert('Failed to delete cloud item'); }
+            } catch (err) {
+                showAlert('Elimination error', 'Failed to delete the specified cloud item from the storage matrix.', { type: 'error' });
+            }
         }
     };
 

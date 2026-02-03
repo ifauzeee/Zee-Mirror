@@ -45,10 +45,10 @@ const Overview = ({ tasks, stats, system, onCancelTask, setActiveTab }) => {
                             </div>
                         ) : (
                             <div className="glass-card py-32 rounded-[3.5rem] flex flex-col items-center justify-center text-center group border-dashed border-2 border-slate-200 dark:border-white/10">
-                                <div className="p-12 bg-slate-100 dark:bg-white/5 rounded-full mb-8 group-hover:scale-110 transition-all duration-700 shadow-inner">
-                                    <Activity size={72} className="text-slate-300 dark:text-zinc-800 opacity-60" />
+                                <div className="p-12 bg-slate-100 dark:bg-white/5 rounded-full mb-8 group-hover:scale-110 transition-all duration-700 shadow-inner border border-slate-200 dark:border-transparent">
+                                    <Activity size={72} className="text-slate-400 dark:text-zinc-800 opacity-60" />
                                 </div>
-                                <h4 className="text-2xl font-black text-slate-400 dark:text-zinc-600 uppercase tracking-[0.2em] leading-relaxed">Cluster Idle<br /><span className="text-[10px] text-primary/40 tracking-[0.5em]">Waiting for distribution protocols</span></h4>
+                                <h4 className="text-2xl font-black text-slate-600 dark:text-zinc-600 uppercase tracking-[0.2em] leading-relaxed">Cluster Idle<br /><span className="text-[10px] text-primary/60 tracking-[0.5em]">Waiting for distribution protocols</span></h4>
                             </div>
                         )}
                     </div>
@@ -69,7 +69,7 @@ const Overview = ({ tasks, stats, system, onCancelTask, setActiveTab }) => {
 
                         <div className="pt-12 border-t border-slate-100 dark:border-white/5 space-y-7 relative z-10">
                             <StatusItem label="Edge Service" value="Operational" dot="bg-green-500" />
-                            <StatusItem label="Architecture" value={`${system.os || 'Linux'} ${system.arch || 'x64'}`} color="text-slate-500" />
+                            <StatusItem label="Architecture" value={`${system.os || 'Linux'} ${system.arch || 'x64'}`} color="text-slate-600" />
                             <StatusItem label="Active Uptime" value={system.uptime ? `${Math.floor(system.uptime / 3600)}h ${Math.floor((system.uptime % 3600) / 60)}m` : 'Stable'} color="text-primary" />
                         </div>
                     </div>

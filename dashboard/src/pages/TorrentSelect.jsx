@@ -200,10 +200,10 @@ const TorrentSelect = ({ token }) => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 dark:bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
                 <div className="text-center">
                     <Loader2 size={48} className="animate-spin text-blue-500 mx-auto mb-4" />
-                    <p className="text-white/60 text-lg">Memuat sesi torrent...</p>
+                    <p className="text-slate-600 dark:text-white/60 text-lg">Memuat sesi torrent...</p>
                 </div>
             </div>
         );
@@ -211,11 +211,11 @@ const TorrentSelect = ({ token }) => {
 
     if (error && !session) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
-                <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-8 max-w-md text-center">
+            <div className="min-h-screen bg-slate-50 dark:bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+                <div className="bg-white dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-3xl p-8 max-w-md text-center shadow-2xl">
                     <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-white mb-2">Error</h2>
-                    <p className="text-white/60">{error}</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Error</h2>
+                    <p className="text-slate-600 dark:text-white/60">{error}</p>
                 </div>
             </div>
         );
@@ -223,12 +223,12 @@ const TorrentSelect = ({ token }) => {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
-                <div className="bg-green-500/10 border border-green-500/30 rounded-3xl p-8 max-w-md text-center">
+            <div className="min-h-screen bg-slate-50 dark:bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+                <div className="bg-white dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-3xl p-8 max-w-md text-center shadow-2xl">
                     <Check size={48} className="text-green-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-white mb-2">Download Dimulai!</h2>
-                    <p className="text-white/60">Download telah dimulai. Anda dapat menutup halaman ini dan kembali ke bot untuk melihat progress.</p>
-                    <p className="text-white/40 text-sm mt-4">Halaman akan ditutup otomatis...</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Download Dimulai!</h2>
+                    <p className="text-slate-600 dark:text-white/60">Download telah dimulai. Anda dapat menutup halaman ini dan kembali ke bot untuk melihat progress.</p>
+                    <p className="text-slate-400 dark:text-white/40 text-sm mt-4">Halaman akan ditutup otomatis...</p>
                 </div>
             </div>
         );
@@ -238,7 +238,7 @@ const TorrentSelect = ({ token }) => {
     const totalSize = files.filter(f => selectedFiles.has(f.index)).reduce((sum, f) => sum + f.size, 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+        <div className="min-h-screen bg-slate-50 dark:bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 transition-colors duration-500">
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
@@ -246,21 +246,21 @@ const TorrentSelect = ({ token }) => {
                         <div className="h-1 w-12 bg-blue-500 rounded-full" />
                         <span className="text-xs font-bold tracking-widest text-blue-500 uppercase">Torrent File Selection</span>
                     </div>
-                    <h1 className="text-4xl font-black text-white mb-2">Pilih File untuk Download</h1>
-                    <p className="text-white/60">Pilih file yang ingin Anda download dari torrent ini</p>
+                    <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-2">Pilih File untuk Download</h1>
+                    <p className="text-slate-600 dark:text-white/60">Pilih file yang ingin Anda download dari torrent ini</p>
                 </div>
 
                 {/* Session Info */}
                 {session && (
-                    <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 mb-6">
+                    <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-6 mb-6 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1">Magnet Link</p>
-                                <p className="text-white/80 text-sm font-mono break-all">{session.url?.slice(0, 100)}...</p>
+                                <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">Magnet Link</p>
+                                <p className="text-slate-700 dark:text-white/80 text-sm font-mono break-all">{session.url?.slice(0, 100)}...</p>
                             </div>
                             <div className="flex items-center space-x-2">
-                                {session.zip && <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">ZIP</span>}
-                                {session.unzip && <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full text-xs font-bold">UNZIP</span>}
+                                {session.zip && <span className="px-3 py-1 bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-full text-xs font-bold">ZIP</span>}
+                                {session.unzip && <span className="px-3 py-1 bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-full text-xs font-bold">UNZIP</span>}
                             </div>
                         </div>
                     </div>
@@ -278,28 +278,28 @@ const TorrentSelect = ({ token }) => {
                 )}
 
                 {/* File List */}
-                <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl overflow-hidden mb-6">
+                <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden mb-6 shadow-xl">
                     {/* Toolbar */}
-                    <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                    <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-transparent">
                         <div className="flex items-center space-x-4">
                             <button
                                 onClick={selectAll}
-                                className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-bold hover:bg-blue-500/30 transition"
+                                className="px-4 py-2 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-black hover:bg-blue-500/20 dark:hover:bg-blue-500/30 transition uppercase tracking-wider"
                             >
                                 Select All
                             </button>
                             <button
                                 onClick={deselectAll}
-                                className="px-4 py-2 bg-white/5 text-white/60 rounded-lg text-sm font-bold hover:bg-white/10 transition"
+                                className="px-4 py-2 bg-slate-200/50 dark:bg-white/5 text-slate-600 dark:text-white/60 rounded-lg text-sm font-black hover:bg-slate-200 dark:hover:bg-white/10 transition uppercase tracking-wider"
                             >
                                 Deselect All
                             </button>
                         </div>
                         <button
                             onClick={fetchFiles}
-                            className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition"
+                            className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 transition"
                         >
-                            <RefreshCcw size={18} className={`text-white/60 ${fileLoading ? 'animate-spin' : ''}`} />
+                            <RefreshCcw size={18} className={`text-slate-500 dark:text-white/60 ${fileLoading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
 
@@ -308,35 +308,35 @@ const TorrentSelect = ({ token }) => {
                         <div className="p-8">
                             <div className="text-center mb-8">
                                 <Loader2 size={40} className="animate-spin text-blue-500 mx-auto mb-4" />
-                                <p className="text-white text-lg font-bold">{statusMessage}</p>
-                                <p className="text-white/40 text-sm mt-1">Halaman ini akan diperbarui otomatis saat file ditemukan.</p>
+                                <p className="text-slate-900 dark:text-white text-lg font-black">{statusMessage}</p>
+                                <p className="text-slate-500 dark:text-white/40 text-sm mt-1">Halaman ini akan diperbarui otomatis saat file ditemukan.</p>
                             </div>
 
                             {/* Logs Area */}
-                            <div className="bg-black/40 rounded-xl p-4 font-mono text-xs border border-white/5 max-h-[200px] overflow-y-auto">
-                                <div className="flex items-center space-x-2 mb-3 border-b border-white/5 pb-2">
+                            <div className="bg-slate-100 dark:bg-black/40 rounded-xl p-4 font-mono text-xs border border-slate-200 dark:border-white/5 max-h-[200px] overflow-y-auto">
+                                <div className="flex items-center space-x-2 mb-3 border-b border-slate-200 dark:border-white/5 pb-2">
                                     <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                    <span className="text-white/40 uppercase tracking-widest font-bold">Bot Progress Logs</span>
+                                    <span className="text-slate-500 dark:text-white/40 uppercase tracking-widest font-bold">Bot Progress Logs</span>
                                 </div>
                                 {statusLogs.length === 0 ? (
-                                    <p className="text-white/20 italic">Menunggu respon dari bot...</p>
+                                    <p className="text-slate-400 dark:text-white/20 italic">Menunggu respon dari bot...</p>
                                 ) : (
                                     statusLogs.map((log, i) => (
-                                        <div key={i} className="text-white/60 mb-1 leading-relaxed">
-                                            <span className="text-blue-400/50 mr-2">➜</span>
+                                        <div key={i} className="text-slate-600 dark:text-white/60 mb-1 leading-relaxed">
+                                            <span className="text-blue-500 dark:text-blue-400/50 mr-2">➜</span>
                                             {log}
                                         </div>
                                     ))
                                 )}
                             </div>
 
-                            <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                                <p className="text-white/40 text-sm mb-4 italic">
+                            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5 text-center">
+                                <p className="text-slate-500 dark:text-white/40 text-sm mb-4 italic">
                                     "Jika torrent memiliki banyak seeder, metadata biasanya didapat dalam &lt; 30 detik. Namun untuk torrent lama bisa memakan waktu hingga beberapa menit."
                                 </p>
                                 <button
                                     onClick={() => handleStartDownload()}
-                                    className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white/40 rounded-lg text-xs font-bold transition"
+                                    className="px-6 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/40 rounded-lg text-xs font-black transition uppercase tracking-widest"
                                 >
                                     Force Select All & Download
                                 </button>
@@ -344,12 +344,12 @@ const TorrentSelect = ({ token }) => {
                         </div>
                     ) : files.length === 0 ? (
                         <div className="p-12 text-center">
-                            <AlertCircle size={32} className="text-yellow-500 mx-auto mb-4" />
-                            <p className="text-white/60">Tidak dapat mengambil daftar file</p>
-                            <p className="text-white/40 text-sm mt-2">Torrent mungkin hanya berisi satu file, atau metadata belum tersedia</p>
+                            <AlertCircle size={32} className="text-yellow-600 dark:text-yellow-500 mx-auto mb-4" />
+                            <p className="text-slate-900 dark:text-white/60 font-black">Tidak dapat mengambil daftar file</p>
+                            <p className="text-slate-500 dark:text-white/40 text-sm mt-2">Torrent mungkin hanya berisi satu file, atau metadata belum tersedia</p>
                             <button
                                 onClick={handleStartDownload}
-                                className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition"
+                                className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-500/20"
                             >
                                 Download Semua File
                             </button>
@@ -366,7 +366,7 @@ const TorrentSelect = ({ token }) => {
                                     <div key={folder}>
                                         {!isRoot && (
                                             <div
-                                                className="flex items-center px-4 py-3 bg-white/[0.02] border-b border-white/5 cursor-pointer hover:bg-white/5 transition"
+                                                className="flex items-center px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
                                                 onClick={() => toggleFolder(folder)}
                                             >
                                                 <button
@@ -375,35 +375,35 @@ const TorrentSelect = ({ token }) => {
                                                         ? 'bg-blue-500 border-blue-500'
                                                         : someSelected
                                                             ? 'bg-blue-500/50 border-blue-500'
-                                                            : 'border-white/20'
+                                                            : 'border-slate-300 dark:border-white/20'
                                                         }`}
                                                 >
                                                     {(allSelected || someSelected) && <Check size={14} className="text-white" />}
                                                 </button>
-                                                {isExpanded ? <ChevronDown size={18} className="text-white/40 mr-2" /> : <ChevronRight size={18} className="text-white/40 mr-2" />}
+                                                {isExpanded ? <ChevronDown size={18} className="text-slate-400 dark:text-white/40 mr-2" /> : <ChevronRight size={18} className="text-slate-400 dark:text-white/40 mr-2" />}
                                                 <Folder size={18} className="text-yellow-500 mr-3" />
-                                                <span className="text-white/80 font-medium flex-1">{folder}</span>
-                                                <span className="text-white/40 text-sm">{folderFiles.length} files</span>
+                                                <span className="text-slate-900 dark:text-white/80 font-black tracking-tight flex-1">{folder}</span>
+                                                <span className="text-slate-500 dark:text-white/40 text-xs font-bold uppercase">{folderFiles.length} files</span>
                                             </div>
                                         )}
                                         {isExpanded && folderFiles.map(file => (
                                             <div
                                                 key={file.index}
-                                                className={`flex items-center px-4 py-3 border-b border-white/5 hover:bg-white/5 cursor-pointer transition ${!isRoot ? 'pl-12' : ''
+                                                className={`flex items-center px-4 py-3 border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition ${!isRoot ? 'pl-12' : ''
                                                     }`}
                                                 onClick={() => toggleFile(file.index)}
                                             >
                                                 <button
                                                     className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition ${selectedFiles.has(file.index)
                                                         ? 'bg-blue-500 border-blue-500'
-                                                        : 'border-white/20'
+                                                        : 'border-slate-300 dark:border-white/20'
                                                         }`}
                                                 >
                                                     {selectedFiles.has(file.index) && <Check size={14} className="text-white" />}
                                                 </button>
-                                                <FileText size={18} className="text-blue-400 mr-3" />
-                                                <span className="text-white/80 flex-1 truncate">{file.name}</span>
-                                                <span className="text-white/40 text-sm whitespace-nowrap">{formatBytes(file.size)}</span>
+                                                <FileText size={18} className="text-blue-500 dark:text-blue-400 mr-3" />
+                                                <span className="text-slate-800 dark:text-white/80 flex-1 truncate font-medium">{file.name}</span>
+                                                <span className="text-slate-500 dark:text-white/40 text-xs font-black">{formatBytes(file.size)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -415,22 +415,22 @@ const TorrentSelect = ({ token }) => {
 
                 {/* Footer Actions */}
                 {files.length > 0 && (
-                    <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6">
+                    <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-white/60 text-sm">
-                                    <span className="text-white font-bold">{totalSelected}</span> dari <span className="text-white font-bold">{files.length}</span> file dipilih
+                                <p className="text-slate-600 dark:text-white/60 text-sm">
+                                    <span className="text-slate-900 dark:text-white font-black">{totalSelected}</span> dari <span className="text-slate-900 dark:text-white font-black">{files.length}</span> file dipilih
                                 </p>
-                                <p className="text-white/40 text-sm">
-                                    Total ukuran: <span className="text-white font-bold">{formatBytes(totalSize)}</span>
+                                <p className="text-slate-500 dark:text-white/40 text-sm mt-1">
+                                    Total ukuran: <span className="text-primary font-black">{formatBytes(totalSize)}</span>
                                 </p>
                             </div>
                             <button
                                 onClick={handleStartDownload}
                                 disabled={starting || totalSelected === 0}
                                 className={`flex items-center space-x-3 px-8 py-4 rounded-2xl font-black uppercase tracking-wider transition ${starting || totalSelected === 0
-                                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/25'
+                                    ? 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-white/30 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-500 hover:to-blue-400 shadow-xl shadow-blue-500/25'
                                     }`}
                             >
                                 {starting ? (
