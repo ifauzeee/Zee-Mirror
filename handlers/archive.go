@@ -42,7 +42,6 @@ func (s *BotService) extractArchive(task *Task) error {
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
-	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "7z", args...)
 
 	output, err := cmd.CombinedOutput()
@@ -101,7 +100,6 @@ func (s *BotService) createZipArchive(task *Task) error {
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
-	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "7z", args...)
 
 	output, err := cmd.CombinedOutput()

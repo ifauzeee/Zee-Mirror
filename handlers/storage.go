@@ -111,7 +111,7 @@ func (s *BotService) HandleStorages(message *tgbotapi.Message) {
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	text.WriteString("*Current:* `" + utils.EscapeMarkdownV2(s.TaskManager.RcloneDest) + "`\n\n")
+	text.WriteString("*Current:* `" + utils.EscapeMarkdownV2Code(s.TaskManager.RcloneDest) + "`\n\n")
 	text.WriteString("Pilih storage untuk upload\\:")
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
@@ -205,7 +205,7 @@ func (s *BotService) handleStorageBrowse(callback *tgbotapi.CallbackQuery, stora
 		if f.IsDir {
 			icon = "📁"
 		}
-		text.WriteString(fmt.Sprintf("%s `%s`\n", icon, utils.EscapeMarkdownV2(utils.TruncateString(f.Name, 40))))
+		text.WriteString(fmt.Sprintf("%s `%s`\n", icon, utils.EscapeMarkdownV2Code(utils.TruncateString(f.Name, 40))))
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -239,13 +239,13 @@ func (s *BotService) handleStorageInfo(callback *tgbotapi.CallbackQuery, storage
 		var info map[string]interface{}
 		if jsonErr := json.Unmarshal(output, &info); jsonErr == nil {
 			if total, ok := info["total"].(float64); ok {
-				text.WriteString(fmt.Sprintf("📊 *Total:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(int64(total)))))
+				text.WriteString(fmt.Sprintf("📊 *Total:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(total)))))
 			}
 			if used, ok := info["used"].(float64); ok {
-				text.WriteString(fmt.Sprintf("💾 *Used:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(int64(used)))))
+				text.WriteString(fmt.Sprintf("💾 *Used:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(used)))))
 			}
 			if free, ok := info["free"].(float64); ok {
-				text.WriteString(fmt.Sprintf("✅ *Free:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(int64(free)))))
+				text.WriteString(fmt.Sprintf("✅ *Free:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(free)))))
 			}
 		}
 	}
@@ -298,5 +298,5 @@ func (s *BotService) HandleSetStorage(message *tgbotapi.Message, args string) {
 	ctx := context.Background()
 	_ = s.DB.Set(ctx, "rclone_dest", args)
 
-	s.reply(message, fmt.Sprintf("✅ *Storage Updated*\n\n📂 Destination: `%s`", utils.EscapeMarkdownV2(args)))
+	s.reply(message, fmt.Sprintf("✅ *Storage Updated*\n\n📂 Destination: `%s`", utils.EscapeMarkdownV2Code(args)))
 }

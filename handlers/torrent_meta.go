@@ -43,61 +43,10 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	s.addSessionStatus(sessionID, "📡 Memulai pencarian metadata...")
 	slog.Info("Starting background metadata fetch", "sessionID", sessionID, "url", session.URL)
 
-	tmpDir, err := os.MkdirTemp("", "torrent_meta_"+sessionID+"_")
+	metaFilePath, err := s.getMetadataFilePath(sessionID, session.URL)
 	if err != nil {
-		s.updateSessionError(sessionID, fmt.Sprintf("failed to create temp dir: %v", err))
-		s.addSessionStatus(sessionID, "❌ Gagal membuat folder temporary.")
+		s.updateSessionError(sessionID, err.Error())
 		return
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	url := strings.TrimPrefix(session.URL, "file://")
-	isMagnet := strings.HasPrefix(session.URL, "magnet:")
-
-	var metaFilePath string
-
-	if isMagnet {
-		s.addSessionStatus(sessionID, "🧲 Menghubungkan ke peer (Magnet Link)...")
-
-		fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer fetchCancel()
-
-		args := []string{
-			"--dir=" + tmpDir,
-			"--seed-time=0",
-			"--bt-stop-timeout=60",
-			"--bt-save-metadata=true",
-			"--bt-metadata-only=true",
-			"--enable-dht=true",
-			"--enable-peer-exchange=true",
-			"--dht-entry-point=dht.transmissionbt.com:6881",
-			"--dht-entry-point=router.bittorrent.com:6881",
-			"--summary-interval=10",
-			url,
-		}
-
-		cmd := exec.CommandContext(fetchCtx, "aria2c", args...)
-		outputBytes, err := cmd.CombinedOutput()
-		output := stripANSI(string(outputBytes))
-
-		if err != nil {
-			slog.Warn("Aria2c metadata fetch finished with error", "sessionID", sessionID, "error", err)
-			s.addSessionStatus(sessionID, "⚠️ Aria2c melaporkan masalah saat mencari peer.")
-		}
-
-		metaFiles, _ := filepath.Glob(filepath.Join(tmpDir, "*.torrent"))
-		if len(metaFiles) > 0 {
-			metaFilePath = metaFiles[0]
-			s.addSessionStatus(sessionID, "✅ Metadata berhasil didapatkan.")
-			slog.Info("Found downloaded metadata file", "sessionID", sessionID, "path", metaFilePath)
-		} else {
-			s.addSessionStatus(sessionID, "❌ Gagal mendapatkan file metadata .torrent.")
-			slog.Warn("No .torrent file found after aria2c run", "sessionID", sessionID, "output", output)
-		}
-	} else {
-		metaFilePath = url
-		s.addSessionStatus(sessionID, "📄 Memproses file .torrent lokal...")
-		slog.Info("Using local torrent file", "sessionID", sessionID, "path", metaFilePath)
 	}
 
 	var files []domain.TorrentFile
@@ -106,10 +55,69 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 		files = s.parseTorrentMetadataFile(sessionID, metaFilePath)
 	}
 
+	s.finalizeMetadataFetch(sessionID, files)
+}
+
+func (s *BotService) getMetadataFilePath(sessionID, sessionURL string) (string, error) {
+	tmpDir, err := os.MkdirTemp("", "torrent_meta_"+sessionID+"_")
+	if err != nil {
+		s.addSessionStatus(sessionID, "❌ Gagal membuat folder temporary.")
+		return "", fmt.Errorf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	urlStr := strings.TrimPrefix(sessionURL, "file://")
+	if strings.HasPrefix(sessionURL, "magnet:") {
+		return s.fetchMagnetMetadata(sessionID, urlStr, tmpDir)
+	}
+
+	s.addSessionStatus(sessionID, "📄 Memproses file .torrent lokal...")
+	slog.Info("Using local torrent file", "sessionID", sessionID, "path", urlStr)
+	return urlStr, nil
+}
+
+func (s *BotService) fetchMagnetMetadata(sessionID, urlStr, tmpDir string) (string, error) {
+	s.addSessionStatus(sessionID, "🧲 Menghubungkan ke peer (Magnet Link)...")
+
+	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer fetchCancel()
+
+	args := []string{
+		"--dir=" + tmpDir,
+		"--seed-time=0",
+		"--bt-stop-timeout=60",
+		"--bt-save-metadata=true",
+		"--bt-metadata-only=true",
+		"--enable-dht=true",
+		"--enable-peer-exchange=true",
+		"--dht-entry-point=dht.transmissionbt.com:6881",
+		"--dht-entry-point=router.bittorrent.com:6881",
+		"--summary-interval=10",
+		urlStr,
+	}
+
+	cmd := exec.CommandContext(fetchCtx, "aria2c", args...)
+	outputBytes, _ := cmd.CombinedOutput()
+	output := stripANSI(string(outputBytes))
+
+	metaFiles, _ := filepath.Glob(filepath.Join(tmpDir, "*.torrent"))
+	if len(metaFiles) > 0 {
+		metaFilePath := metaFiles[0]
+		s.addSessionStatus(sessionID, "✅ Metadata berhasil didapatkan.")
+		slog.Info("Found downloaded metadata file", "sessionID", sessionID, "path", metaFilePath)
+		return metaFilePath, nil
+	}
+
+	s.addSessionStatus(sessionID, "❌ Gagal mendapatkan file metadata .torrent.")
+	slog.Warn("No .torrent file found after aria2c run", "sessionID", sessionID, "output", output)
+	return "", fmt.Errorf("metadata fetch failed")
+}
+
+func (s *BotService) finalizeMetadataFetch(sessionID string, files []domain.TorrentFile) {
 	s.TaskManager.Mu.Lock()
 	defer s.TaskManager.Mu.Unlock()
 
-	session, exists = s.TaskManager.TorrentSessions[sessionID]
+	session, exists := s.TaskManager.TorrentSessions[sessionID]
 	if !exists {
 		return
 	}
@@ -121,48 +129,52 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 		slog.Info("Successfully fetched torrent metadata", "sessionID", sessionID, "files", len(files))
 
 		if session.FileName == "" {
-			commonRoot := ""
-			for _, f := range files {
-				path := f.Path
-				for strings.HasPrefix(path, "./") || strings.HasPrefix(path, "/") {
-					path = strings.TrimPrefix(path, "./")
-					path = strings.TrimPrefix(path, "/")
-				}
-				parts := strings.Split(filepath.ToSlash(path), "/")
-				if len(parts) > 1 {
-					root := parts[0]
-					if root == "." || root == ".." {
-						if len(parts) > 2 {
-							root = parts[1]
-						} else {
-							continue
-						}
-					}
-
-					if commonRoot == "" {
-						commonRoot = root
-					} else if commonRoot != root {
-						commonRoot = ""
-						break
-					}
-				} else {
-					if len(files) > 1 {
-						commonRoot = ""
-						break
-					}
-				}
-			}
-			if commonRoot != "" && commonRoot != "." {
-				session.FileName = commonRoot
-			} else if len(files) == 1 {
-				session.FileName = files[0].Name
-			}
+			session.FileName = s.determineTorrentName(files)
 		}
 	} else {
 		session.Files = nil
 		session.Error = "Gagal mengambil daftar file. Metadata mungkin korup atau tidak terbaca."
 		slog.Warn("Failed to parse torrent metadata", "sessionID", sessionID)
 	}
+}
+
+func (s *BotService) determineTorrentName(files []domain.TorrentFile) string {
+	commonRoot := ""
+	for _, f := range files {
+		path := f.Path
+		for strings.HasPrefix(path, "./") || strings.HasPrefix(path, "/") {
+			path = strings.TrimPrefix(path, "./")
+			path = strings.TrimPrefix(path, "/")
+		}
+		parts := strings.Split(filepath.ToSlash(path), "/")
+		if len(parts) > 1 {
+			root := parts[0]
+			if root == "." || root == ".." {
+				if len(parts) > 2 {
+					root = parts[1]
+				} else {
+					continue
+				}
+			}
+
+			if commonRoot == "" {
+				commonRoot = root
+			} else if commonRoot != root {
+				commonRoot = ""
+				break
+			}
+		} else if len(files) > 1 {
+			commonRoot = ""
+			break
+		}
+	}
+
+	if commonRoot != "" && commonRoot != "." {
+		return commonRoot
+	} else if len(files) == 1 {
+		return files[0].Name
+	}
+	return ""
 }
 
 func (s *BotService) updateSessionError(sessionID, errMsg string) {

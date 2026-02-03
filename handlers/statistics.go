@@ -85,27 +85,27 @@ func (s *BotService) formatStatsMessage(stats map[string]interface{}, userStats 
 	text.WriteString(fmt.Sprintf("✅ Completed: `%d`\n", completedTasks))
 	text.WriteString(fmt.Sprintf("❌ Failed: `%d`\n", failedTasks))
 	text.WriteString(fmt.Sprintf("📊 Success Rate: `%.1f%%`\n", calculateSuccessRate(completedTasks, totalTasks)))
-	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n\n", utils.EscapeMarkdownV2(utils.FormatBytes(totalBandwidth))))
+	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(totalBandwidth))))
 
 	if dailyStats != nil {
 		text.WriteString("📅 *HARI INI \\(GLOBAL\\)*\n")
 		text.WriteString(fmt.Sprintf("📥 Tasks: `%d`\n", dailyStats.TotalTasks))
 		text.WriteString(fmt.Sprintf("✅ Completed: `%d`\n", dailyStats.CompletedTasks))
-		text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n\n", utils.EscapeMarkdownV2(utils.FormatBytes(dailyStats.TotalBandwidth))))
+		text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(dailyStats.TotalBandwidth))))
 	}
 
 	if userDailyStats != nil && userDailyStats.TotalTasks > 0 {
 		text.WriteString("👤 *MY TODAY*\n")
 		text.WriteString(fmt.Sprintf("📥 Tasks: `%d`\n", userDailyStats.TotalTasks))
-		text.WriteString(fmt.Sprintf("📊 Bandwidth: `%s`\n\n", utils.EscapeMarkdownV2(utils.FormatBytes(userDailyStats.TotalBandwidth))))
+		text.WriteString(fmt.Sprintf("📊 Bandwidth: `%s`\n\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(userDailyStats.TotalBandwidth))))
 	}
 
 	if userStats != nil {
 		text.WriteString("👤 *MY ALL\\-TIME STATS*\n")
 		text.WriteString(fmt.Sprintf("📥 Total Tasks: `%d`\n", userStats.TotalDownloads))
-		text.WriteString(fmt.Sprintf("📊 Bandwidth: `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(userStats.TotalBandwidth))))
+		text.WriteString(fmt.Sprintf("📊 Bandwidth: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(userStats.TotalBandwidth))))
 		if !userStats.LastActive.IsZero() {
-			text.WriteString(fmt.Sprintf("🕐 Active: `%s`\n", utils.EscapeMarkdownV2(userStats.LastActive.Format("15:04"))))
+			text.WriteString(fmt.Sprintf("🕐 Active: `%s`\n", utils.EscapeMarkdownV2Code(userStats.LastActive.Format("15:04"))))
 		}
 	}
 
@@ -126,7 +126,7 @@ func (s *BotService) formatUserStatsDetailed(stats *UserStats) string {
 	text.WriteString(fmt.Sprintf("👤 Name: @%s\n", utils.EscapeMarkdownV2(stats.Username)))
 	text.WriteString(fmt.Sprintf("🆔 ID: `%d`\n", stats.UserID))
 	if !stats.LastActive.IsZero() {
-		text.WriteString(fmt.Sprintf("🕐 Last Active: `%s`\n", utils.EscapeMarkdownV2(stats.LastActive.Format("02 Jan 15:04"))))
+		text.WriteString(fmt.Sprintf("🕐 Last Active: `%s`\n", utils.EscapeMarkdownV2Code(stats.LastActive.Format("02 Jan 15:04"))))
 	}
 	text.WriteString("\n")
 
@@ -134,7 +134,7 @@ func (s *BotService) formatUserStatsDetailed(stats *UserStats) string {
 	text.WriteString(fmt.Sprintf("📥 Total Tasks: `%d`\n", stats.TotalDownloads))
 	text.WriteString(fmt.Sprintf("✅ Success: `%d`\n", stats.SuccessfulTasks))
 	text.WriteString(fmt.Sprintf("❌ Failed: `%d`\n", stats.FailedTasks))
-	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(stats.TotalBandwidth))))
+	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(stats.TotalBandwidth))))
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
 	return text.String()
@@ -156,9 +156,9 @@ func (s *BotService) formatDailyStatsDetailed(stats *DailyStats, title string, u
 	text.WriteString(fmt.Sprintf("✅ Completed: `%d`\n", stats.CompletedTasks))
 	text.WriteString(fmt.Sprintf("❌ Failed: `%d`\n", stats.FailedTasks))
 	text.WriteString(fmt.Sprintf("📊 Success Rate: `%.1f%%`\n", calculateSuccessRate(stats.CompletedTasks, stats.TotalTasks)))
-	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(stats.TotalBandwidth))))
+	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(stats.TotalBandwidth))))
 	if stats.AverageSpeed > 0 {
-		text.WriteString(fmt.Sprintf("⚡ Avg Speed: `%s`\n", utils.EscapeMarkdownV2(utils.FormatSpeed(stats.AverageSpeed))))
+		text.WriteString(fmt.Sprintf("⚡ Avg Speed: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatSpeed(stats.AverageSpeed))))
 	}
 	if stats.PeakConcurrent > 0 {
 		text.WriteString(fmt.Sprintf("🔥 Peak Concurrent: `%d`\n", stats.PeakConcurrent))
@@ -169,7 +169,7 @@ func (s *BotService) formatDailyStatsDetailed(stats *DailyStats, title string, u
 		text.WriteString(fmt.Sprintf("📥 Total Tasks: `%d`\n", userStats.TotalTasks))
 		text.WriteString(fmt.Sprintf("✅ Success: `%d`\n", userStats.CompletedTasks))
 		text.WriteString(fmt.Sprintf("❌ Failed: `%d`\n", userStats.FailedTasks))
-		text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(userStats.TotalBandwidth))))
+		text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(userStats.TotalBandwidth))))
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
@@ -208,7 +208,7 @@ func (s *BotService) formatWeeklyStats(stats []DailyStats) string {
 	text.WriteString("\n📊 *SUMMARY*\n")
 	text.WriteString(fmt.Sprintf("📥 Total: `%d` tasks\n", totalTasks))
 	text.WriteString(fmt.Sprintf("✅ Completed: `%d`\n", totalCompleted))
-	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(totalBandwidth))))
+	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(totalBandwidth))))
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
 	return text.String()
@@ -257,13 +257,13 @@ func (s *BotService) formatMonthlyStats(stats []DailyStats) string {
 		text.WriteString(fmt.Sprintf("Week %d: `%d` tasks\n└ `%s`\n",
 			week,
 			ws.tasks,
-			utils.EscapeMarkdownV2(utils.FormatBytes(ws.bandwidth))))
+			utils.EscapeMarkdownV2Code(utils.FormatBytes(ws.bandwidth))))
 	}
 
 	text.WriteString("\n📊 *SUMMARY*\n")
 	text.WriteString(fmt.Sprintf("📥 Total: `%d` tasks\n", totalTasks))
 	text.WriteString(fmt.Sprintf("✅ Completed: `%d`\n", totalCompleted))
-	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(totalBandwidth))))
+	text.WriteString(fmt.Sprintf("📈 Bandwidth: `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(totalBandwidth))))
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
 	return text.String()

@@ -23,8 +23,8 @@ func NewYTDLPEngine(configDir string) *YTDLPEngine {
 }
 
 func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
-	//nolint:gosec
-	if err := os.MkdirAll(outputDir, 0777); err != nil {
+
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		return fmt.Errorf("failed to create output dir: %v", err)
 	}
 

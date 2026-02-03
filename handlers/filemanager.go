@@ -185,7 +185,7 @@ func (s *BotService) formatDriveFileList(path string, files []DriveFile) string 
 
 	text.WriteString("📂 *FILE MANAGER \\- GDRIVE*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	text.WriteString(fmt.Sprintf("📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2(path)))
+	text.WriteString(fmt.Sprintf("📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2Code(path)))
 
 	if len(files) == 0 {
 		text.WriteString("📭 _Folder ini kosong_\n")
@@ -197,7 +197,7 @@ func (s *BotService) formatDriveFileList(path string, files []DriveFile) string 
 		for _, f := range files {
 			if f.IsDir {
 				folderCount++
-				folders = append(folders, fmt.Sprintf("%s `%s`", IconFolder, utils.EscapeMarkdownV2(utils.TruncateString(f.Name, 40))))
+				folders = append(folders, fmt.Sprintf("%s `%s`", IconFolder, utils.EscapeMarkdownV2Code(utils.TruncateString(f.Name, 40))))
 			}
 		}
 
@@ -217,7 +217,7 @@ func (s *BotService) formatDriveFileList(path string, files []DriveFile) string 
 				size := utils.FormatBytes(f.Size)
 				fileList = append(fileList, fmt.Sprintf("%s `%s` \\(%s\\)",
 					icon,
-					utils.EscapeMarkdownV2(utils.TruncateString(f.Name, 35)),
+					utils.EscapeMarkdownV2Code(utils.TruncateString(f.Name, 35)),
 					utils.EscapeMarkdownV2(size)))
 			}
 		}

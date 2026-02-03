@@ -75,7 +75,7 @@ func (s *BotService) HandleSearchCallback(callback *tgbotapi.CallbackQuery, part
 
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔍 Mencari..."))
 
-	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("🔍 Mencari `%s` di *%s*...", utils.EscapeMarkdownV2(query), provider))
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fmt.Sprintf("🔍 Mencari `%s` • *%s*...", utils.EscapeMarkdownV2(query), provider))
 	editMsg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(editMsg)
 
@@ -165,7 +165,7 @@ func (s *BotService) showSearchResults(chatID int64, messageID int, sessionID st
 
 	visibleItems := session.Results[start:end]
 
-	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", session.Provider, utils.EscapeMarkdownV2(session.Query))
+	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", utils.EscapeMarkdownV2(session.Provider), utils.EscapeMarkdownV2Code(session.Query))
 	text += fmt.Sprintf("📄 Halaman %d/%d\n\n", session.Page+1, totalPages)
 
 	var rows [][]tgbotapi.InlineKeyboardButton
@@ -173,7 +173,7 @@ func (s *BotService) showSearchResults(chatID int64, messageID int, sessionID st
 
 	for i, item := range visibleItems {
 		idx := start + i + 1
-		text += fmt.Sprintf("%d\\. *%s*\n📦 %s \\| 👤 %s\n\n",
+		text += fmt.Sprintf("%d\\. *%s*\n📦 %s • 👤 %s\n\n",
 			idx,
 			utils.EscapeMarkdownV2(utils.TruncateString(item.Title, 40)),
 			utils.EscapeMarkdownV2(item.Size),
@@ -314,11 +314,11 @@ func (s *BotService) HandleSearchNavCallback(callback *tgbotapi.CallbackQuery, p
 			"*Source:* `%s`\n\n"+
 			"🧲 *Magnet Link:*\n`%s`\n\n"+
 			"Klik link di atas untuk menyalin atau reply dengan /mirror",
-			utils.EscapeMarkdownV2(item.Title),
-			utils.EscapeMarkdownV2(item.Size),
-			utils.EscapeMarkdownV2(item.Seeders),
-			utils.EscapeMarkdownV2(item.Source),
-			cleanMagnet,
+			utils.EscapeMarkdownV2Code(item.Title),
+			utils.EscapeMarkdownV2Code(item.Size),
+			utils.EscapeMarkdownV2Code(item.Seeders),
+			utils.EscapeMarkdownV2Code(item.Source),
+			utils.EscapeMarkdownV2Code(cleanMagnet),
 		)
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(

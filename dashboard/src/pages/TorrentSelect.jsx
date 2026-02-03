@@ -233,7 +233,7 @@ const TorrentSelect = ({ token }) => {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 transition-colors duration-500">
             <div className="max-w-4xl mx-auto">
-                {/* Header */}
+                {}
                 <div className="mb-8">
                     <div className="flex items-center space-x-3 mb-4">
                         <div className="h-1 w-12 bg-blue-500 rounded-full" />
@@ -243,7 +243,7 @@ const TorrentSelect = ({ token }) => {
                     <p className="text-slate-600 dark:text-white/60">Pilih file yang ingin Anda download dari torrent ini</p>
                 </div>
 
-                {/* Session Info */}
+                {}
                 {session && (
                     <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-6 mb-6 shadow-sm">
                         <div className="flex items-center justify-between">
@@ -259,7 +259,7 @@ const TorrentSelect = ({ token }) => {
                     </div>
                 )}
 
-                {/* Error Message */}
+                {}
                 {error && (
                     <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-center space-x-3">
                         <AlertCircle size={20} className="text-red-500" />
@@ -270,9 +270,9 @@ const TorrentSelect = ({ token }) => {
                     </div>
                 )}
 
-                {/* File List */}
+                {}
                 <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden mb-6 shadow-xl">
-                    {/* Toolbar */}
+                    {}
                     <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-transparent">
                         <div className="flex items-center space-x-4">
                             <button
@@ -296,7 +296,7 @@ const TorrentSelect = ({ token }) => {
                         </button>
                     </div>
 
-                    {/* Files */}
+                    {}
                     {fileLoading ? (
                         <div className="p-8">
                             <div className="text-center mb-8">
@@ -305,7 +305,7 @@ const TorrentSelect = ({ token }) => {
                                 <p className="text-slate-500 dark:text-white/40 text-sm mt-1">Halaman ini akan diperbarui otomatis saat file ditemukan.</p>
                             </div>
 
-                            {/* Logs Area */}
+                            {}
                             <div className="bg-slate-100 dark:bg-black/40 rounded-xl p-4 font-mono text-xs border border-slate-200 dark:border-white/5 max-h-[200px] overflow-y-auto">
                                 <div className="flex items-center space-x-2 mb-3 border-b border-slate-200 dark:border-white/5 pb-2">
                                     <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
@@ -406,7 +406,7 @@ const TorrentSelect = ({ token }) => {
                     )}
                 </div>
 
-                {/* Footer Actions */}
+                {}
                 {files.length > 0 && (
                     <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
                         <div className="flex items-center justify-between">

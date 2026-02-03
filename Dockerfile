@@ -1,4 +1,4 @@
-# Dashboard Build Stage
+
 FROM node:18-alpine AS dashboard-builder
 WORKDIR /dashboard
 COPY dashboard/package*.json ./
@@ -6,7 +6,7 @@ RUN npm install
 COPY dashboard/ ./
 RUN npm run build
 
-# Go Build Stage
+
 FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zee-mirror ./cmd/zee-mirror
 
-# Runtime Stage
+
 FROM alpine:3.19
 LABEL maintainer="Zee-Mirror Bot"
 LABEL description="Telegram Mirror/Leech Bot"
@@ -41,7 +41,7 @@ RUN apk add --no-cache \
 
 RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli
 
-# Import rclone from official image
+
 COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
 RUN chmod 755 /usr/bin/rclone
 

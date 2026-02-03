@@ -792,8 +792,8 @@ func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
 	task.Mu.Unlock()
 	s.updateTaskStatus(task)
 
-	//nolint:gosec
-	source, err := os.Open(sourcePath)
+	cleanedSource := filepath.Clean(sourcePath)
+	source, err := os.Open(cleanedSource)
 	if err != nil {
 		task.SetError(fmt.Sprintf("Failed to open source file: %v", err))
 		s.updateTaskStatus(task)
@@ -801,8 +801,8 @@ func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
 	}
 	defer func() { _ = source.Close() }()
 
-	//nolint:gosec
-	dest, err := os.Create(destPath)
+	cleanedDest := filepath.Clean(destPath)
+	dest, err := os.Create(cleanedDest)
 	if err != nil {
 		task.SetError(fmt.Sprintf("Failed to create destination file: %v", err))
 		s.updateTaskStatus(task)
@@ -834,8 +834,8 @@ func (s *BotService) downloadWithAria2(task *Task) {
 	s.updateTaskStatus(task)
 
 	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
-	//nolint:gosec
-	if err := os.MkdirAll(outputDir, 0777); err != nil {
+
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
 		s.updateTaskStatus(task)
 		return
@@ -973,8 +973,8 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 	s.updateTaskStatus(task)
 
 	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
-	//nolint:gosec
-	if err := os.MkdirAll(outputDir, 0777); err != nil {
+
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
 		s.updateTaskStatus(task)
 		return

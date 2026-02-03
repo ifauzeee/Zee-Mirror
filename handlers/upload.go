@@ -90,7 +90,6 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 	ctx, cancel := context.WithCancel(task.Ctx)
 	defer cancel()
 
-	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "rclone", args...)
 
 	stderr, err := cmd.StderrPipe()
@@ -255,7 +254,7 @@ func (s *BotService) generateDirectLink(ctx context.Context, task *Task, configP
 		"--config", configPath,
 		currentRemotePath,
 	}
-	//nolint:gosec
+
 	linkCmd := exec.CommandContext(ctx, "rclone", linkArgs...)
 	linkOutput, linkErr := linkCmd.Output()
 	if linkErr == nil {

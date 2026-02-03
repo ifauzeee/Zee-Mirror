@@ -13,8 +13,8 @@ func (s *BotService) getDiskUsageOS() float64 {
 	if err := syscall.Statfs(wd, &stat); err != nil {
 		return 0
 	}
-	total := stat.Blocks * uint64(stat.Bsize) //nolint:gosec
-	free := stat.Bfree * uint64(stat.Bsize)   //nolint:gosec
+	total := stat.Blocks * uint64(stat.Bsize)
+	free := stat.Bfree * uint64(stat.Bsize)
 	if total == 0 {
 		return 0
 	}

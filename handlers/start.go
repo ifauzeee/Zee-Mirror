@@ -121,14 +121,14 @@ func (s *BotService) handleDashboardAction(callback *tgbotapi.CallbackQuery, act
 }
 
 func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
-	content := "Operasi media untuk video/audio:\\n\\n" +
-		"• `/extractaudio` ─ Ambil audio dari video\\n" +
-		"• `/compress` ─ Kompres ukuran video\\n" +
-		"• `/thumbnail` ─ Generate thumbnail\\n" +
-		"• `/screenshots` ─ Multi screenshot\\n" +
-		"• `/subtitle` ─ Embed subtitle ke video\\n" +
-		"• `/convert` ─ Konversi format file\\n" +
-		"• `/mediainfo` ─ Info detail file\\n\\n" +
+	content := "Operasi media untuk video/audio:\n\n" +
+		"• `/extractaudio` ─ Ambil audio dari video\n" +
+		"• `/compress` ─ Kompres ukuran video\n" +
+		"• `/thumbnail` ─ Generate thumbnail\n" +
+		"• `/screenshots` ─ Multi screenshot\n" +
+		"• `/subtitle` ─ Embed subtitle ke video\n" +
+		"• `/convert` ─ Konversi format file\n" +
+		"• `/mediainfo` ─ Info detail file\n\n" +
 		"💡 *Cara pakai:* Reply ke file video dengan command"
 
 	text := ProfessionalMessage("MEDIA PROCESSING", content)
@@ -207,30 +207,30 @@ func (s *BotService) getDashboardModeText(action string) string {
 		return ProfessionalMessage("LEECH MODE",
 			"Download file dari URL ke server\\.\n\n"+
 				"✅ *SUPPORT*\n"+
-				"• HTTP/HTTPS \\| FTP \\| Magnet\n\n"+
+				"• HTTP/HTTPS • FTP • Magnet\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/leech <URL\\>`")
+				"• `/leech` \\<URL\\>")
 
 	case "ytdlp":
 		return ProfessionalMessage("YT-DLP MODE",
-			"Download video dari 1000+ situs\\.\n\n"+
+			"Download video dari 1000\\+ situs\\.\n\n"+
 				"✅ *SUPPORT*\n"+
-				"• YouTube \\| Twitter \\| TikTok \\| etc.\n\n"+
+				"• YouTube • Twitter • TikTok • etc\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/ytdlp <URL\\>`")
+				"• `/ytdlp` \\<URL\\>")
 
 	case "torrent":
 		return ProfessionalMessage("TORRENT MODE",
 			"Download via magnet atau file torrent\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/torrent magnet_link`\n"+
+				"• `/torrent` \\<magnet\\_link\\>\n"+
 				"• Reply ke file `.torrent` dengan `/torrent`")
 
 	case "clone":
 		return ProfessionalMessage("CLONE MODE",
 			"Clone file/folder Google Drive\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/clone <GDRIVE_URL\\>`")
+				"• `/clone` \\<GDRIVE\\_URL\\>")
 
 	case "batch":
 		return ProfessionalMessage("BATCH MODE",
@@ -244,7 +244,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 		return ProfessionalMessage("SEARCH MODE",
 			"Cari torrent dari berbagai sumber\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
-				"• `/search <keyword\\>`")
+				"• `/search` \\<keyword\\>")
 
 	case "back":
 		return ""

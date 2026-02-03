@@ -131,7 +131,7 @@ func (s *BotService) HandleRecoveryStatus(message *tgbotapi.Message) {
 			text.WriteString(fmt.Sprintf("\n_\\.\\.\\. dan %d task lainnya_", len(tasks)-10))
 			break
 		}
-		text.WriteString(fmt.Sprintf("• `%s` \\| %s\n", t.ID, utils.EscapeMarkdownV2(t.Type)))
+		text.WriteString(fmt.Sprintf("• `%s` • %s\n", t.ID, utils.EscapeMarkdownV2(t.Type)))
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")

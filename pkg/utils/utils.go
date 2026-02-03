@@ -87,27 +87,30 @@ func FormatDuration(d time.Duration) string {
 }
 
 func EscapeMarkdownV2(text string) string {
-	replacer := strings.NewReplacer(
-		"_", "\\_",
-		"*", "\\*",
-		"[", "\\[",
-		"]", "\\]",
-		"(", "\\(",
-		")", "\\)",
-		"~", "\\~",
-		"`", "\\`",
-		">", "\\>",
-		"#", "\\#",
-		"+", "\\+",
-		"-", "\\-",
-		"=", "\\=",
-		"|", "\\|",
-		"{", "\\{",
-		"}", "\\}",
-		".", "\\.",
-		"!", "\\!",
-	)
-	return replacer.Replace(text)
+	reserved := "_*[]()~`>#+-=|{}.!\\"
+	var result strings.Builder
+	runes := []rune(text)
+	for i := 0; i < len(runes); i++ {
+		char := runes[i]
+
+		if char == '\\' && i+1 < len(runes) {
+			next := runes[i+1]
+			if strings.ContainsRune(reserved, next) {
+				result.WriteRune('\\')
+				result.WriteRune(next)
+				i++
+				continue
+			}
+		}
+
+		if strings.ContainsRune(reserved, char) {
+			result.WriteRune('\\')
+			result.WriteRune(char)
+		} else {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
 }
 
 func EscapeMarkdownV2Code(text string) string {
@@ -305,20 +308,7 @@ func getFileNameFromPixelDrain(u *url.URL) string {
 
 func GetFileNameFromURL(urlStr string) string {
 	if strings.HasPrefix(urlStr, "magnet:?") {
-		if u, err := url.Parse(strings.Replace(urlStr, "magnet:?", "http://localhost/?", 1)); err == nil {
-			if name := getFileNameFromQuery(u); name != "" {
-				return name
-			}
-		}
-		if idx := strings.Index(urlStr, "dn="); idx != -1 {
-			name := urlStr[idx+3:]
-			if endIdx := strings.Index(name, "&"); endIdx != -1 {
-				name = name[:endIdx]
-			}
-			if unescaped, err := url.QueryUnescape(name); err == nil {
-				return SanitizeFileName(unescaped)
-			}
-		}
+		return getMagnetFileName(urlStr)
 	}
 
 	u, err := url.Parse(urlStr)
@@ -329,22 +319,50 @@ func GetFileNameFromURL(urlStr string) string {
 		if name := getFileNameFromPixelDrain(u); name != "" {
 			return name
 		}
-
-		path := u.Path
-		if path != "" && path != "/" {
-			parts := strings.Split(path, "/")
-			for i := len(parts) - 1; i >= 0; i-- {
-				if parts[i] != "" {
-					name := parts[i]
-					if i > 0 && isIgnoredFileName(name) {
-						continue
-					}
-					return SanitizeFileName(name)
-				}
-			}
+		if name := getPathFileName(u.Path); name != "" {
+			return name
 		}
 	}
 
+	return getFallbackFileName(urlStr)
+}
+
+func getMagnetFileName(urlStr string) string {
+	if u, err := url.Parse(strings.Replace(urlStr, "magnet:?", "http://localhost/?", 1)); err == nil {
+		if name := getFileNameFromQuery(u); name != "" {
+			return name
+		}
+	}
+	if idx := strings.Index(urlStr, "dn="); idx != -1 {
+		name := urlStr[idx+3:]
+		if endIdx := strings.Index(name, "&"); endIdx != -1 {
+			name = name[:endIdx]
+		}
+		if unescaped, err := url.QueryUnescape(name); err == nil {
+			return SanitizeFileName(unescaped)
+		}
+	}
+	return "unknown_magnet"
+}
+
+func getPathFileName(path string) string {
+	if path == "" || path == "/" {
+		return ""
+	}
+	parts := strings.Split(path, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i] != "" {
+			name := parts[i]
+			if i > 0 && isIgnoredFileName(name) {
+				continue
+			}
+			return SanitizeFileName(name)
+		}
+	}
+	return ""
+}
+
+func getFallbackFileName(urlStr string) string {
 	if idx := strings.Index(urlStr, "?"); idx != -1 {
 		urlStr = urlStr[:idx]
 	}

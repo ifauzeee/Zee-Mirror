@@ -111,16 +111,17 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	for _, batch := range visibleBatches {
 		batch.Mu.RLock()
 		emoji := utils.StatusEmoji(string(batch.Status))
-		text += fmt.Sprintf("📦 *Batch:* `%s` \\| %s *%s*\n"+
+		batchID := utils.EscapeMarkdownV2(batch.ID)
+		text += fmt.Sprintf("📦 *Batch:* `%s` • %s *%s*\n"+
 			"📈 *Progres:* `%.1f%%` \\(%d/%d\\)\n"+
 			"🚫 *Cancel:* /cancel\\_%s\n\n",
-			batch.ID,
+			batchID,
 			emoji,
 			utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),
 			batch.Progress,
 			batch.Completed,
 			len(batch.SubTasks),
-			batch.ID,
+			batchID,
 		)
 		batch.Mu.RUnlock()
 	}
@@ -133,7 +134,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	totalPages := calculateTotalPages(totalTasks)
 	text += CompactSeparator + "\n"
 	if totalPages > 1 {
-		text += fmt.Sprintf("📄 *Halaman:* %d/%d \\| ", page+1, totalPages)
+		text += fmt.Sprintf("📄 *Halaman:* %d/%d • ", page+1, totalPages)
 	}
 
 	if len(batches) > 0 {

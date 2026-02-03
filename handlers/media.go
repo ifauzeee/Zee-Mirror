@@ -99,11 +99,11 @@ func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) 
 	if err != nil {
 		s.editMessage(sent.Chat.ID, sent.MessageID, GetErrorMessage("FFMPEG ERROR", fmt.Sprintf("Gagal extract audio: %s\n\nOutput \\(tail\\):\n`%s`",
 			utils.EscapeMarkdownV2(err.Error()),
-			utils.EscapeMarkdownV2(utils.GetLastLines(string(output), 15)))))
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15)))))
 		return
 	}
 
-	content := fmt.Sprintf("🎵 Output: `%s`\\!\n\nKlik tombol di bawah untuk upload ke Drive\\.", utils.EscapeMarkdownV2(filepath.Base(outputPath)))
+	content := fmt.Sprintf("🎵 Output: `%s`\\!\n\nKlik tombol di bawah untuk upload ke Drive\\.", utils.EscapeMarkdownV2Code(filepath.Base(outputPath)))
 	pathID := s.StorePath(outputPath)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -184,12 +184,12 @@ func (s *BotService) HandleCompressVideo(message *tgbotapi.Message, args string)
 	if err != nil {
 		s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal compress video*\n\nError: %s\n\nOutput \\(tail\\):\n`%s`",
 			utils.EscapeMarkdownV2(err.Error()),
-			utils.EscapeMarkdownV2(utils.GetLastLines(string(output), 15))))
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15))))
 		return
 	}
 
 	content := fmt.Sprintf("🎬 Output: `%s`\\!\n📊 Quality: %s\n\nKlik tombol di bawah untuk upload ke Drive\\.",
-		utils.EscapeMarkdownV2(filepath.Base(outputPath)),
+		utils.EscapeMarkdownV2Code(filepath.Base(outputPath)),
 		utils.EscapeMarkdownV2(quality))
 	pathID := s.StorePath(outputPath)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -264,12 +264,12 @@ func (s *BotService) HandleGenerateThumbnail(message *tgbotapi.Message, args str
 	if err != nil {
 		s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal generate thumbnail*\n\nError: %s\n\nOutput \\(tail\\):\n`%s`",
 			utils.EscapeMarkdownV2(err.Error()),
-			utils.EscapeMarkdownV2(utils.GetLastLines(string(output), 15))))
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15))))
 		return
 	}
 
 	photo := tgbotapi.NewPhoto(message.Chat.ID, tgbotapi.FilePath(outputPath))
-	photo.Caption = fmt.Sprintf("🖼️ Thumbnail from `%s` at %s", utils.EscapeMarkdownV2(filepath.Base(inputPath)), timestamp)
+	photo.Caption = fmt.Sprintf("🖼️ Thumbnail from `%s` at %s", utils.EscapeMarkdownV2Code(filepath.Base(inputPath)), utils.EscapeMarkdownV2(timestamp))
 	photo.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(photo)
 
@@ -335,12 +335,12 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 	if err != nil {
 		s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal embed subtitle*\n\nError: %s\n\nOutput \\(tail\\):\n`%s`",
 			utils.EscapeMarkdownV2(err.Error()),
-			utils.EscapeMarkdownV2(utils.GetLastLines(string(output), 15))))
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15))))
 		return
 	}
 
 	content := fmt.Sprintf("🎬 Output: `%s`\\!\n\nKlik tombol di bawah untuk upload ke Drive\\.",
-		utils.EscapeMarkdownV2(filepath.Base(outputPath)))
+		utils.EscapeMarkdownV2Code(filepath.Base(outputPath)))
 	pathID := s.StorePath(outputPath)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -416,12 +416,12 @@ func (s *BotService) HandleConvertFormat(message *tgbotapi.Message, args string)
 	if err != nil {
 		s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal convert format*\n\nError: %s\n\nOutput \\(tail\\):\n`%s`",
 			utils.EscapeMarkdownV2(err.Error()),
-			utils.EscapeMarkdownV2(utils.GetLastLines(string(output), 15))))
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15))))
 		return
 	}
 
 	content := fmt.Sprintf("📄 Output: `%s`\\!\n\nKlik tombol di bawah untuk upload ke Drive\\.",
-		utils.EscapeMarkdownV2(filepath.Base(outputPath)))
+		utils.EscapeMarkdownV2Code(filepath.Base(outputPath)))
 	pathID := s.StorePath(outputPath)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -477,17 +477,17 @@ func (s *BotService) HandleMediaInfo(message *tgbotapi.Message, args string) {
 func (s *BotService) formatMediaInfo(filename string, info FFProbeOutput) string {
 	var content strings.Builder
 
-	content.WriteString(fmt.Sprintf("📄 *File:* `%s`\n", utils.EscapeMarkdownV2(filename)))
+	content.WriteString(fmt.Sprintf("📄 *File:* `%s`\n", utils.EscapeMarkdownV2Code(filename)))
 	size, _ := strconv.ParseInt(info.Format.Size, 10, 64)
-	content.WriteString(fmt.Sprintf("⚖️ *Size:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(size))))
+	content.WriteString(fmt.Sprintf("⚖️ *Size:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(size))))
 
 	durationSec, _ := strconv.ParseFloat(info.Format.Duration, 64)
 	duration := time.Duration(durationSec * float64(time.Second))
-	content.WriteString(fmt.Sprintf("🕒 *Duration:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatDuration(duration))))
+	content.WriteString(fmt.Sprintf("🕒 *Duration:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatDuration(duration))))
 
 	bitrate, _ := strconv.ParseInt(info.Format.BitRate, 10, 64)
-	content.WriteString(fmt.Sprintf("📊 *Overall Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(bitrate/8))))
-	content.WriteString(fmt.Sprintf("📦 *Format:* `%s`\n", utils.EscapeMarkdownV2(info.Format.FormatName)))
+	content.WriteString(fmt.Sprintf("📊 *Overall Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(bitrate/8))))
+	content.WriteString(fmt.Sprintf("📦 *Format:* `%s`\n", utils.EscapeMarkdownV2Code(info.Format.FormatName)))
 
 	videoCount := 0
 	audioCount := 0
@@ -496,12 +496,12 @@ func (s *BotService) formatMediaInfo(filename string, info FFProbeOutput) string
 		case "video":
 			videoCount++
 			content.WriteString(fmt.Sprintf("\n🎬 *VIDEO STREAM \\#%d*\n", videoCount))
-			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2(st.CodecName)))
+			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2Code(st.CodecName)))
 			content.WriteString(fmt.Sprintf(" • *Resolution:* `%dx%d`\n", st.Width, st.Height))
 			if st.DisplayAspectRatio != "" {
-				content.WriteString(fmt.Sprintf(" • *Aspect Ratio:* `%s`\n", utils.EscapeMarkdownV2(st.DisplayAspectRatio)))
+				content.WriteString(fmt.Sprintf(" • *Aspect Ratio:* `%s`\n", utils.EscapeMarkdownV2Code(st.DisplayAspectRatio)))
 			}
-			content.WriteString(fmt.Sprintf(" • *Pixel Format:* `%s`\n", utils.EscapeMarkdownV2(st.PixFmt)))
+			content.WriteString(fmt.Sprintf(" • *Pixel Format:* `%s`\n", utils.EscapeMarkdownV2Code(st.PixFmt)))
 			fpsParts := strings.Split(st.RFrameRate, "/")
 			if len(fpsParts) == 2 {
 				f1, _ := strconv.ParseFloat(fpsParts[0], 64)
@@ -513,13 +513,13 @@ func (s *BotService) formatMediaInfo(filename string, info FFProbeOutput) string
 		case "audio":
 			audioCount++
 			content.WriteString(fmt.Sprintf("\n🎵 *AUDIO STREAM \\#%d*\n", audioCount))
-			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2(st.CodecName)))
+			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2Code(st.CodecName)))
 			content.WriteString(fmt.Sprintf(" • *Channels:* `%d` \\(%s\\)\n", st.Channels, utils.EscapeMarkdownV2(st.ChannelLayout)))
 			sampleRate, _ := strconv.ParseInt(st.SampleRate, 10, 64)
 			content.WriteString(fmt.Sprintf(" • *Sample Rate:* `%.1f kHz`\n", float64(sampleRate)/1000.0))
 			if st.BitRate != "" {
 				abr, _ := strconv.ParseInt(st.BitRate, 10, 64)
-				content.WriteString(fmt.Sprintf(" • *Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(abr/8))))
+				content.WriteString(fmt.Sprintf(" • *Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(abr/8))))
 			}
 		}
 	}

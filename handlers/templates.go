@@ -26,19 +26,19 @@ func HelpDetailMessage(title, kegunaan, caraPakai, contoh, extra string) string 
 	content := ""
 
 	if kegunaan != "" {
-		content += "📝 *KEGUNAAN*\n" + kegunaan + "\n\n"
+		content += "📝 *KEGUNAAN*\n" + utils.EscapeMarkdownV2(kegunaan) + "\n\n"
 	}
 
 	if caraPakai != "" {
-		content += "📌 *CARA PAKAI*\n" + caraPakai + "\n\n"
+		content += "📌 *CARA PAKAI*\n" + utils.EscapeMarkdownV2(caraPakai) + "\n\n"
 	}
 
 	if contoh != "" {
-		content += "💡 *CONTOH*\n" + contoh
+		content += "💡 *CONTOH*\n" + utils.EscapeMarkdownV2(contoh)
 	}
 
 	if extra != "" {
-		content += "\n\n" + extra
+		content += "\n\n" + utils.EscapeMarkdownV2(extra)
 	}
 
 	return ProfessionalMessage(title, content)
@@ -73,11 +73,11 @@ func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
 	}
 
 	return fmt.Sprintf(
-		"🏷️ *ID:* `%s` \\| %s *%s*\n"+
+		"🏷️ *ID:* `%s` • %s *%s*\n"+
 			"%s\n"+
 			"📄 *File:* `%s`\n"+
 			"📦 *Size:* `%s / %s`\n"+
-			"⚡ *Speed:* `%s` \\| ⏱️ *ETA:* `%s`\n"+
+			"⚡ *Speed:* `%s` • ⏱️ *ETA:* `%s`\n"+
 			"🚫 *Cancel:* /cancel\\_%s\n",
 		utils.EscapeMarkdownV2Code(taskSnapshot.ID),
 		emoji,
@@ -96,14 +96,14 @@ func GetSuccessMessage(title, text string) string {
 	return fmt.Sprintf("✅ *%s*\n%s\n\n%s",
 		utils.EscapeMarkdownV2(title),
 		LineSeparator,
-		text)
+		utils.EscapeMarkdownV2(text))
 }
 
 func GetErrorMessage(title, text string) string {
 	return fmt.Sprintf("❌ *%s*\n%s\n\n%s",
 		utils.EscapeMarkdownV2(title),
 		LineSeparator,
-		text)
+		utils.EscapeMarkdownV2(text))
 }
 
 func GetStartKeyboard() tgbotapi.InlineKeyboardMarkup {

@@ -27,7 +27,11 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	url := utils.ExtractURLFromText(args)
+	url, _, _, _, _, name := utils.ParseFlags(args)
+	if url == "" {
+		url = utils.ExtractURLFromText(args)
+	}
+
 	if url == "" {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL Google Drive untuk di\\-clone\\.")
 		msg.ParseMode = MarkdownV2
@@ -46,10 +50,15 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 	if message.ReplyToMessage != nil {
 		replyID = message.ReplyToMessage.MessageID
 	}
-	task := s.TaskManager.CreateTask(TypeClone, url, "cloning...", message.Chat.ID, message.MessageID, replyID, message.From.ID, false, false, "", "", 0)
+	fileName := name
+	if fileName == "" {
+		fileName = "cloning..."
+	}
+
+	task := s.TaskManager.CreateTask(TypeClone, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, false, false, "", "", 0)
 	s.handleAutoDelete(task)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
-	slog.Info("Clone task created", "taskID", task.ID, "url", url)
+	slog.Info("Clone task created", "taskID", task.ID, "url", url, "name", name)
 }
 
 func (s *BotService) cloneWithRclone(task *Task) {
@@ -69,7 +78,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
 	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
 
-	name, isDir, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	driveName, isDir, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
 	if err != nil {
 		task.SetError(fmt.Sprintf("Gagal mendapatkan info Google Drive: %v", err))
 		s.updateTaskStatus(task)
@@ -77,7 +86,10 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	}
 
 	task.Mu.Lock()
-	task.FileName = name
+	if task.FileName == "cloning..." || task.FileName == "" {
+		task.FileName = driveName
+	}
+	name := task.FileName
 	task.Mu.Unlock()
 	s.updateTaskStatus(task)
 

@@ -134,11 +134,11 @@ func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 
 	quota := UnlimitedStr
 	if s.Config.DefaultMaxDailyTasks != -1 || s.Config.DefaultMaxDailyBandwidth != -1 {
-		tasks := "∞"
+		tasks := UnlimitedStr
 		if s.Config.DefaultMaxDailyTasks != -1 {
 			tasks = fmt.Sprintf("%d", s.Config.DefaultMaxDailyTasks)
 		}
-		bw := "∞"
+		bw := UnlimitedStr
 		if s.Config.DefaultMaxDailyBandwidth != -1 {
 			bw = utils.FormatBytes(s.Config.DefaultMaxDailyBandwidth)
 		}
@@ -207,8 +207,8 @@ func (s *BotService) HandleUsers(message *tgbotapi.Message) {
 			limits = "♾️"
 		}
 
-		content.WriteString(fmt.Sprintf("%s `%d` | %s (*%s*) [%s]\n",
-			status, u.ID, utils.EscapeMarkdownV2(u.Username), strings.ToUpper(role), limits))
+		content.WriteString(fmt.Sprintf("%s `%d` \\| %s \\(*%s*\\) \\[%s\\]\n",
+			status, u.ID, utils.EscapeMarkdownV2(u.Username), strings.ToUpper(role), utils.EscapeMarkdownV2(limits)))
 	}
 
 	s.reply(message, ProfessionalMessage("DAFTAR PENGGUNA", content.String()))

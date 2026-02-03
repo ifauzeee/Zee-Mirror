@@ -59,3 +59,24 @@ func TestSanitizeFileName(t *testing.T) {
 		}
 	}
 }
+func TestEscapeMarkdownV2(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"hello", "hello"},
+		{"file_1.txt", "file\\_1\\.txt"},
+		{"[progress]", "\\[progress\\]"},
+		{"already\\_escaped", "already\\_escaped"},
+		{"lone\\backslash", "lone\\\\backslash"},
+		{"mixed *bold* and _italic_", "mixed \\*bold\\* and \\_italic\\_"},
+		{"| pipes |", "\\| pipes \\|"},
+	}
+
+	for _, test := range tests {
+		result := EscapeMarkdownV2(test.input)
+		if result != test.expected {
+			t.Errorf("EscapeMarkdownV2(%s) = %s; want %s", test.input, result, test.expected)
+		}
+	}
+}

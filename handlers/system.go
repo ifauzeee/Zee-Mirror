@@ -41,7 +41,7 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 		cmd := exec.Command("speedtest-cli", "--simple")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			text := fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2(err.Error()))
+			text := fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2Code(err.Error()))
 			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
 			editMsg.ParseMode = MarkdownV2
 			_, _ = s.Bot.Send(editMsg)
@@ -52,7 +52,7 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 		var result strings.Builder
 		result.WriteString("🚀 *Speedtest Result*\n\n")
 		for _, line := range lines {
-			result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2(line)))
+			result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2Code(line)))
 		}
 
 		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())

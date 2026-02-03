@@ -4,8 +4,8 @@ func getHelpMirror() string {
 	return HelpDetailMessage(
 		"📥 MIRROR",
 		"Upload file dari URL langsung ke Google Drive\\.\nFile akan disimpan di cloud storage tanpa menyimpan di server\\.",
-		"• `/mirror` atau `/m` <URL\\> ─ Download \\& upload ke Drive\n• Reply ke file dengan `/mirror`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-z` ─ Zip file sebelum upload\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass\\>` ─ Password zip/unzip",
-		"`/mirror https://example\\.com/file\\.zip`\n`/mirror \\-z https://example\\.com/folder`\n`/mirror \\-uz \\-p secret https://file\\.rar`",
+		"• `/mirror` atau `/m` <URL\\> ─ Download dan upload ke Drive\n• Reply ke file dengan `/mirror`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-n <nama\\>` ─ Rename file\n• `\\-z` ─ Zip file sebelum upload\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass\\>` ─ Password zip/unzip",
+		"`/mirror https://example\\.com/file\\.zip`\n`/mirror \\-n \"My File\\.zip\" https://example\\.com/file\\.zip`\n`/mirror \\-z https://example\\.com/folder`\n`/mirror \\-uz \\-p secret https://file\\.rar`",
 		"",
 	)
 }
@@ -14,8 +14,8 @@ func getHelpLeech() string {
 	return HelpDetailMessage(
 		"📤 LEECH",
 		"Download file dari URL ke server bot\\.\nFile akan dikirim langsung ke chat Telegram setelah selesai\\.",
-		"• `/leech` atau `/l` <URL\\> ─ Download ke server\n• Reply ke file dengan `/leech`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-z` ─ Zip file sebelum kirim\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass\\>` ─ Password zip/unzip",
-		"`/leech https://example\\.com/video\\.mp4`\n`/leech \\-uz https://archive\\.rar`",
+		"• `/leech` atau `/l` <URL\\> ─ Download ke server\n• Reply ke file dengan `/leech`\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-n <nama\\>` ─ Rename file\n• `\\-z` ─ Zip file sebelum kirim\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass\\>` ─ Password zip/unzip",
+		"`/leech https://example\\.com/video\\.mp4`\n`/leech \\-n \"My Video\\.mp4\" https://example\\.com/video\\.mp4`\n`/leech \\-uz https://archive\\.rar`",
 		"",
 	)
 }
@@ -24,8 +24,8 @@ func getHelpYTDLP() string {
 	return HelpDetailMessage(
 		"🎬 YT-DLP MIRROR",
 		"Download video/audio dari 1000\\+ situs langsung ke Drive\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
-		"• `/ytdlp` atau `/y` <URL\\> ─ Download dengan pilihan kualitas\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Download audio only \\(MP3\\)\n• Subtitle otomatis",
-		"`/ytdlp https://youtube\\.com/watch?v=xxxxx`\n`/ytdlp https://tiktok\\.com/@user/video/123`",
+		"• `/ytdlp` atau `/y` <URL\\> ─ Download dengan pilihan kualitas\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-q <quality\\>` ─ Pilih kualitas \\(best, 1080p, 720p\\)\n• `\\-n <nama\\>` ─ Rename file\n• `\\-z` ─ Zip file\n• `\\-p <pass\\>` ─ Password zip\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-8K\\)\n• Download audio only \\(MP3\\)\n• Subtitle otomatis",
+		"`/ytdlp https://youtube\\.com/watch?v=xxxxx`\n`/ytdlp \\-q 1080p https://tiktok\\.com/@user/video/123`",
 		"",
 	)
 }
@@ -34,7 +34,7 @@ func getHelpYTDLPLeech() string {
 	return HelpDetailMessage(
 		"🎬 YT-DLP LEECH",
 		"Download video/audio dari 1000\\+ situs langsung ke Telegram\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
-		"• `/ytdlpleech` atau `/yl` <URL\\> ─ Download ke Telegram\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-4K\\)\n• Kirim sebagai video Telegram",
+		"• `/ytdlpleech` atau `/yl` <URL\\> ─ Download ke Telegram\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-q <quality\\>` ─ Pilih kualitas \\(best, 1080p, 720p\\)\n• `\\-n <nama\\>` ─ Rename file\n• `\\-z` ─ Zip file\n• `\\-p <pass\\>` ─ Password zip\n\n✨ *FITUR*\n• Pilih kualitas video \\(360p\\-8K\\)\n• Kirim sebagai video Telegram",
 		"`/ytdlpleech https://youtube\\.com/watch?v=xxxxx`",
 		"",
 	)
@@ -44,8 +44,8 @@ func getHelpTorrent() string {
 	return HelpDetailMessage(
 		"🧲 TORRENT",
 		"Download file via magnet link atau file torrent \\(\\.torrent\\)\\.\nBot akan otomatis mendeteksi jika Anda mengirim magnet link tanpa command\\.",
-		"• `/torrent` atau `/t` <magnet\\> ─ Download dari magnet\n• Reply ke \\.torrent dengan `/torrent`\n• Kirim magnet link langsung \\(Auto\\-Detect\\)\n\n✨ *FITUR*\n• Support magnet link \\& file \\.torrent\n• Multi\\-connection download\n• Resume download",
-		"`/torrent magnet:?xt=urn:btih:xxxxx`",
+		"• `/torrent` atau `/t` <magnet\\> ─ Download dari magnet\n• Reply ke \\.torrent dengan `/torrent`\n• Kirim magnet link langsung \\(Auto\\-Detect\\)\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-n <nama\\>` ─ Rename file/folder\n• `\\-z` ─ Zip file sebelum upload\n• `\\-uz` ─ Unzip setelah download\n• `\\-p <pass\\>` ─ Password zip/unzip\n\n✨ *FITUR*\n• Support magnet link dan file \\.torrent\n• Multi\\-connection download\n• Resume download",
+		"`/torrent magnet:?xt=urn:btih:xxxxx`\n`/torrent \\-z magnet:?xt=urn:btih:xxxxx`",
 		"💡 *AUTO\\-DETECT:* Anda bisa langsung mengirim magnet link, bot akan otomatis memprosesnya\\.",
 	)
 }
@@ -54,7 +54,7 @@ func getHelpClone() string {
 	return HelpDetailMessage(
 		"📋 CLONE",
 		"Clone/salin file atau folder dari Google Drive ke Drive tujuan\\.",
-		"• `/clone` atau `/cl` <drive_url\\> ─ Clone ke storage aktif\n\n🔗 *URL YANG DIDUKUNG*\n• `drive\\.google\\.com/file/d/xxx`\n• `drive\\.google\\.com/drive/folders/xxx`\n• `drive\\.google\\.com/open?id=xxx`",
+		"• `/clone` atau `/cl` <drive\\_url\\> ─ Clone ke storage aktif\n\n🔗 *URL YANG DIDUKUNG*\n• `drive\\.google\\.com/file/d/xxx`\n• `drive\\.google\\.com/drive/folders/xxx`\n• `drive\\.google\\.com/open?id=xxx`",
 		"`/clone https://drive\\.google\\.com/file/d/abc123`",
 		"",
 	)
@@ -64,8 +64,8 @@ func getHelpBatch() string {
 	return HelpDetailMessage(
 		"📦 BATCH",
 		"Download multiple URLs sekaligus dalam satu batch\\.",
-		"/batch\nURL1\nURL2\nURL3\n\n✨ *FITUR*\n• Download parallel\n• Progress tracking per URL\n• Auto retry jika gagal",
-		"/batch\nhttps://file1\\.com/a\\.zip\nhttps://file2\\.com/b\\.zip",
+		"/batch\nURL1\nURL2\nURL3\n\n⚙️ *FLAGS OPSIONAL* \\(First Line\\)\n• `\\-name <name\\>` ─ Set nama batch\n• `\\-z` / `\\-zip` ─ Zip semua hasil\n• `\\-p <pass\\>` ─ Password zip\n• `\\-priority <1\\-10\\>` ─ Set prioritas\n\n✨ *FITUR*\n• Download parallel\n• Progress tracking per URL\n• Auto retry jika gagal",
+		"/batch\nhttps://file1\\.com/a\\.zip\nhttps://file2\\.com/b\\.zip\n\n`/batch \\-name Liburan \\-z`\n`https://photo\\.com/a\\.jpg`\n`https://photo\\.com/b\\.jpg`",
 		"",
 	)
 }
@@ -164,7 +164,7 @@ func getHelpMkdir() string {
 	return HelpDetailMessage(
 		"📁 MKDIR",
 		"Membuat folder baru di cloud storage\\.",
-		"• `/mkdir <nama_folder\\>` ─ Buat folder",
+		"• `/mkdir <nama\\_folder\\>` ─ Buat folder",
 		"`/mkdir Movies`\n`/mkdir Backup/2024`",
 		"",
 	)
@@ -174,7 +174,7 @@ func getHelpRm() string {
 	return HelpDetailMessage(
 		"🗑️ REMOVE (RM)",
 		"Menghapus file atau folder di cloud storage\\.",
-		"• `/rm <path\\>` ─ Hapus file/folder\n\n⚠️ *PERINGATAN*\nPenghapusan bersifat permanen\\!",
+		"• `/rm <nama\\>` ─ Hapus file/folder\n\n⚠️ *PERINGATAN*\nPenghapusan bersifat permanen\\!",
 		"`/rm old_file\\.zip`\n`/rm Temp/cache`",
 		"",
 	)
@@ -183,9 +183,9 @@ func getHelpRm() string {
 func getHelpMv() string {
 	return HelpDetailMessage(
 		"📦 MOVE (MV)",
-		"Memindahkan file/folder ke lokasi lain\\.",
+		"Memindahkan file/folder ke lokasi lain atau ganti nama\\.",
 		"• `/mv <source\\> <destination\\>`",
-		"`/mv file\\.zip Backup/`\n`/mv OldFolder NewFolder`",
+		"`/mv file\\.zip Backup/`\n`/mv old\\.mp4 new\\.mp4`",
 		"",
 	)
 }
@@ -194,7 +194,7 @@ func getHelpShare() string {
 	return HelpDetailMessage(
 		"🔗 SHARE",
 		"Membuat link berbagi untuk file/folder\\.",
-		"• `/share <path\\>` ─ Generate share link",
+		"• `/share <nama\\>` ─ Generate share link",
 		"`/share movie\\.mp4`\n`/share SharedFolder`",
 		"",
 	)
@@ -203,7 +203,7 @@ func getHelpShare() string {
 func getHelpFind() string {
 	return HelpDetailMessage(
 		"🔍 FIND",
-		"Mencari file di cloud storage\\.",
+		"Mencari file di cloud storage secara rekursif\\.",
 		"• `/find <keyword\\>` ─ Cari file",
 		"`/find movie`\n`/find \\.mp4` ─ Cari semua MP4",
 		"",
@@ -214,7 +214,7 @@ func getHelpExtractAudio() string {
 	return HelpDetailMessage(
 		"🎵 EXTRACT AUDIO",
 		"Mengekstrak audio dari file video\\.",
-		"• Reply ke video dengan `/extractaudio`\n\n📋 *FORMAT OUTPUT*\nMP3, AAC, FLAC, WAV",
+		"• Reply ke video dengan `/extractaudio`\n\n📋 *FORMAT OUTPUT*\nMP3 \\(LAME Codec\\)",
 		"Reply ke video lalu ketik `/extractaudio`",
 		"",
 	)
@@ -223,9 +223,9 @@ func getHelpExtractAudio() string {
 func getHelpCompress() string {
 	return HelpDetailMessage(
 		"🗜️ COMPRESS",
-		"Mengkompresi ukuran file video\\.",
-		"• Reply ke video dengan `/compress`\n\n✨ *FITUR*\n• Kurangi ukuran file\n• Pertahankan kualitas\n• Support berbagai format",
-		"Reply ke video lalu ketik `/compress`",
+		"Mengkompresi ukuran file video dengan FFmpeg\\.",
+		"• Reply ke video dengan `/compress [low|medium|high]`\n\n✨ *FITUR*\n• Kurangi bitrate video\n• Auto scale audio",
+		"`/compress` \\(Default medium\\)\n`/compress high` \\(Kualitas lebih baik\\)",
 		"",
 	)
 }
@@ -233,9 +233,9 @@ func getHelpCompress() string {
 func getHelpThumbnail() string {
 	return HelpDetailMessage(
 		"🖼️ THUMBNAIL",
-		"Generate thumbnail dari video\\.",
-		"• Reply ke video dengan `/thumbnail`\n\n✨ *FITUR*\n• Auto generate dari frame terbaik\n• Output format JPG/PNG",
-		"Reply ke video lalu ketik `/thumbnail`",
+		"Generate thumbnail dari video pada detik tertentu\\.",
+		"• Reply ke video dengan `/thumbnail [HH:MM:SS]`\n\n✨ *FITUR*\n• Default: Detik ke-5",
+		"`/thumbnail` ─ Detik ke-5\n`/thumbnail 00:01:30` ─ Menit 1\\.5",
 		"",
 	)
 }
@@ -243,9 +243,9 @@ func getHelpThumbnail() string {
 func getHelpScreenshots() string {
 	return HelpDetailMessage(
 		"📸 SCREENSHOTS",
-		"Membuat multiple screenshot dari video\\.",
-		"• Reply ke video dengan `/screenshots`\n• `/screenshots <jumlah\\>`\n\n✨ *FITUR*\n• Auto interval\n• Pilih jumlah screenshot\n• High quality output",
-		"`/screenshots` ─ Default 9 screenshot\n`/screenshots 6` ─ 6 screenshot",
+		"Membuat multiple screenshot dari video secara otomatis\\.",
+		"• Reply ke video dengan `/screenshots [jumlah]`\n\n✨ *FITUR*\n• Antara 1 s/d 10 screenshot",
+		"`/screenshots` ─ Default 4 SS\n`/screenshots 10` ─ Maksimum 10 SS",
 		"",
 	)
 }
@@ -253,8 +253,8 @@ func getHelpScreenshots() string {
 func getHelpSubtitle() string {
 	return HelpDetailMessage(
 		"💬 SUBTITLE",
-		"Embed/hardcode subtitle ke video\\.",
-		"1\\. Reply ke video dengan `/subtitle`\n2\\. Kirim file subtitle \\(\\.srt/\\.ass\\)\n\n📋 *FORMAT SUBTITLE*\nSRT, ASS, SSA, VTT",
+		"Embed subtitle track ke dalam container video \\(Softsub\\)\\.",
+		"1\\. Kirim subtitle \\(\\.srt/\\.vtt\\)\n2\\. Reply ke video dengan `/subtitle`",
 		"Reply ke video lalu ketik `/subtitle`",
 		"",
 	)
@@ -263,9 +263,9 @@ func getHelpSubtitle() string {
 func getHelpConvert() string {
 	return HelpDetailMessage(
 		"🔄 CONVERT",
-		"Konversi format file video/audio\\.",
-		"• Reply ke file dengan `/convert <format\\>`\n\n🎬 *FORMAT VIDEO*\nMP4, MKV, AVI, WEBM, MOV\n\n🎵 *FORMAT AUDIO*\nMP3, AAC, FLAC, WAV, OGG",
-		"`/convert mp4`\n`/convert mkv`\n`/convert mp3`",
+		"Konversi format file video/audio tanpa mengganti kualitas \\(Remux\\)\\.",
+		"• Reply ke file dengan `/convert <format\\>`\n\n📋 *SUPPORT*\nmp4, mkv, avi, mov, webm, mp3, aac, flac, wav",
+		"`/convert mp4`\n`/convert mp3`",
 		"",
 	)
 }
@@ -273,8 +273,8 @@ func getHelpConvert() string {
 func getHelpMediaInfo() string {
 	return HelpDetailMessage(
 		"ℹ️ MEDIA INFO",
-		"Melihat informasi detail file media\\.",
-		"• Reply ke file dengan `/mediainfo`\n\n📋 *INFO DITAMPILKAN*\n• Format/Codec\n• Resolusi\n• Bitrate\n• Duration\n• Audio tracks\n• Subtitle tracks",
+		"Melihat informasi detail teknis file media menggunakan ffprobe\\.",
+		"• Reply ke file dengan `/mediainfo`\n\n📋 *INFO*\nCodec, Resolusi, Bitrate, Duration, Streams",
 		"Reply ke video lalu ketik `/mediainfo`",
 		"",
 	)
@@ -284,7 +284,7 @@ func getHelpCancel() string {
 	return HelpDetailMessage(
 		"❌ CANCEL",
 		"Membatalkan task tertentu\\.",
-		"• `/cancel` atau `/c` <task_id\\> ─ Batalkan task\n• Klik tombol Cancel di status",
+		"• `/cancel` atau `/c` <task\\_id\\> ─ Batalkan task\n• Klik tombol Cancel di status",
 		"`/cancel abc123`",
 		"💡 *TIP:* Lihat task ID dengan `/status`",
 	)
@@ -304,7 +304,7 @@ func getHelpStorages() string {
 	return HelpDetailMessage(
 		"📋 STORAGES",
 		"Melihat daftar cloud storage yang tersedia\\.",
-		"• `/storages` ─ Lihat semua storage\n\n📋 *INFO DITAMPILKAN*\n• Nama storage\n• Type \\(GDrive, OneDrive, dll\\)\n• Space tersedia\n• Status \\(aktif/tidak\\)",
+		"• `/storages` ─ Lihat semua storage",
 		"`/storages`",
 		"",
 	)
@@ -313,10 +313,10 @@ func getHelpStorages() string {
 func getHelpSetStorage() string {
 	return HelpDetailMessage(
 		"⚙️ SET STORAGE",
-		"Mengatur storage aktif untuk upload\\.",
+		"Mengatur storage aktif untuk proses Mirror/Clone\\.",
 		"• `/setstorage <nama\\>` ─ Set storage",
-		"`/setstorage gdrive`\n`/setstorage onedrive`",
-		"💡 *TIP:* Lihat nama storage dengan `/storages`",
+		"`/setstorage gdrive`",
+		"",
 	)
 }
 
@@ -324,8 +324,8 @@ func getHelpAuthorize() string {
 	return HelpDetailMessage(
 		"✅ AUTHORIZE",
 		"Menambahkan user baru yang diizinkan menggunakan bot\\.",
-		"• `/authorize <user_id\\>` ─ Tambah user\n• `/authorize <user_id\\> <role\\>` ─ Dengan role\n\n👤 *ROLE*\n• `user` ─ User biasa \\(default\\)\n• `admin` ─ Administrator",
-		"`/authorize 123456789`\n`/authorize 123456789 admin`",
+		"• `/authorize <user\\_id\\> [nama]` ─ Tambah user\n• Reply ke user dengan `/authorize`",
+		"`/authorize 123456789 Zee`",
 		"",
 	)
 }
@@ -334,17 +334,17 @@ func getHelpUnauthorize() string {
 	return HelpDetailMessage(
 		"❌ UNAUTHORIZE",
 		"Menghapus akses user dari bot\\.",
-		"• `/unauthorize <user_id\\>` ─ Hapus akses",
+		"• `/unauthorize <user\\_id\\>` ─ Hapus akses",
 		"`/unauthorize 123456789`",
-		"⚠️ User tidak akan bisa menggunakan bot lagi",
+		"",
 	)
 }
 
 func getHelpUsers() string {
 	return HelpDetailMessage(
 		"👥 USERS",
-		"Melihat daftar semua user yang terdaftar\\.",
-		"• `/users` ─ Lihat semua user\n\n📋 *INFO DITAMPILKAN*\n• User ID\n• Username\n• Role\n• Status",
+		"Melihat daftar semua user yang terdaftar di database\\.",
+		"• `/users` ─ Lihat semua user",
 		"`/users`",
 		"",
 	)
@@ -353,18 +353,28 @@ func getHelpUsers() string {
 func getHelpSetAlertChannel() string {
 	return HelpDetailMessage(
 		"🚨 SET ALERT CHANNEL",
-		"Mengatur channel untuk menerima alert/notifikasi penting\\.",
-		"• `/setalertchannel <channel_id\\>` ─ Set channel\n\n🔔 *ALERT YANG DIKIRIM*\n• Task completed\n• Task failed\n• System warnings",
+		"Mengatur channel untuk notifikasi log error/penting\\.",
+		"• `/setalertchannel <channel\\_id\\>`",
 		"`/setalertchannel \\-1001234567890`",
 		"",
+	)
+}
+
+func getHelpSetLogChannel() string {
+	return HelpDetailMessage(
+		"📜 SET LOG CHANNEL",
+		"Mengatur channel khusus untuk dump log aktivitas\\.",
+		"• `/setlogchannel <channel\\_id\\>`",
+		"`/setlogchannel -1001234567890`",
+		"💡 *CATATAN:* ID channel biasanya dimulai dengan \\-100\\.",
 	)
 }
 
 func getHelpRecover() string {
 	return HelpDetailMessage(
 		"🔄 RECOVER",
-		"Memulihkan task yang gagal atau terhenti\\.",
-		"• `/recover` ─ Pulihkan semua task gagal\n\n✨ *FITUR*\n• Resume download yang gagal\n• Retry upload yang error\n• Restore dari checkpoint",
+		"Memulihkan task yang terhenti akibat restart bot\\.",
+		"• `/recover` ─ Pulihkan task",
 		"`/recover`",
 		"",
 	)
@@ -373,8 +383,8 @@ func getHelpRecover() string {
 func getHelpRecoveryStatus() string {
 	return HelpDetailMessage(
 		"📊 RECOVERY STATUS",
-		"Melihat status proses recovery\\.",
-		"• `/recoverystatus` ─ Lihat status\n\n📋 *INFO DITAMPILKAN*\n• Task yang bisa di\\-recover\n• Progress recovery\n• Error messages",
+		"Melihat statistik task yang bisa dipulihkan\\.",
+		"• `/recoverystatus` ─ Lihat status",
 		"`/recoverystatus`",
 		"",
 	)
@@ -384,19 +394,9 @@ func getHelpSettings() string {
 	return HelpDetailMessage(
 		"⚙️ SETTINGS",
 		"Mengatur preferensi dan konfigurasi bot\\.",
-		"• `/settings` ─ Buka menu pengaturan\n\n📋 *PENGATURAN TERSEDIA*\n• **Auto Delete Messages**\n  Hapus otomatis pesan perintah dan bot setelah 60s\\.\n• **Default Mode**\n  Pilih antara Mirror atau Leech sebagai mode default\\.",
+		"• `/settings` ─ Buka menu pengaturan\n\n📋 *OPSI*\n• Auto Delete\n• Default Mode",
 		"`/settings`",
-		"💡 Pengaturan ini bersifat global dan mempengaruhi cara bot berinteraksi dengan Anda\\.",
-	)
-}
-
-func getHelpSetLogChannel() string {
-	return HelpDetailMessage(
-		"📜 SET LOG CHANNEL",
-		"Mengatur channel khusus untuk menerima log real-time aktivitas bot\\.",
-		"• `/setlogchannel <channel_id\\>` ─ Set channel log",
-		"`/setlogchannel -1001234567890`",
-		"⚠️ Pastikan bot sudah menjadi admin di channel tersebut\\.",
+		"",
 	)
 }
 
@@ -410,10 +410,8 @@ func getHelpAllCommands() string {
 		"• `/torrent` \\(/t\\) ─ Torrent Download\n" +
 		"• `/clone` \\(/cl\\) ─ Clone GDrive\n" +
 		"• `/batch` ─ Batch Download\n" +
-		"• `/batchstatus` ─ Status Batch\n" +
-		"• `/cancelbatch` ─ Batal Batch\n" +
 		"• `/search` ─ Cari Torrent\n\n" +
-		"📊 *MONITOR & SYSTEM*\n" +
+		"📊 *MONITOR and SYSTEM*\n" +
 		"• `/status` \\(/st\\) ─ Status Aktif\n" +
 		"• `/stats` ─ Statistik Bot\n" +
 		"• `/system` ─ Info System\n" +
@@ -421,11 +419,11 @@ func getHelpAllCommands() string {
 		"• `/logs` ─ Lihat Log Bot\n" +
 		"• `/ping` ─ Cek Latency\n" +
 		"• `/speed` ─ Test Kecepatan\n\n" +
-		"📁 *STORAGE & FILES*\n" +
-		"• `/ls` / `/dir` ─ List File \\(Drive\\)\n" +
+		"📁 *STORAGE and FILES*\n" +
+		"• `/ls` / `/dir` ─ List File Drive\n" +
 		"• `/mkdir` ─ Buat Folder\n" +
-		"• `/rm` ─ Hapus File/Folder\n" +
-		"• `/mv` ─ Pindah/Rename\n" +
+		"• `/rm` ─ Hapus File atau Folder\n" +
+		"• `/mv` ─ Pindah atau Rename\n" +
 		"• `/share` ─ Share Link\n" +
 		"• `/find` ─ Cari File Drive\n" +
 		"• `/storages` ─ Daftar Storage\n" +
@@ -444,12 +442,9 @@ func getHelpAllCommands() string {
 		"• `/users` ─ Daftar User\n" +
 		"• `/setlogchannel` ─ Set Log\n" +
 		"• `/setalertchannel` ─ Set Alert\n\n" +
-		"🛠️ *SETTINGS & GENERAL*\n" +
+		"🛠️ *GENERAL*\n" +
 		"• `/settings` ─ Menu Pengaturan\n" +
-		"• `/start` ─ Pesan Awal\n" +
-		"• `/help` ─ Menu Bantuan\n" +
 		"• `/recover` ─ Pulihkan Task\n" +
-		"• `/recoverystatus` ─ Status Recovery\n" +
 		"• `/cancel` \\(/c\\) ─ Batal Task ID\n" +
 		"• `/cancelall` ─ Batal Semua"
 

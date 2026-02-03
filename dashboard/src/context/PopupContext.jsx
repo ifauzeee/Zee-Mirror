@@ -64,7 +64,7 @@ export const PopupProvider = ({ children }) => {
         <PopupContext.Provider value={{ showConfirm, showAlert, showToast }}>
             {children}
 
-            {/* Modal Render */}
+            {}
             <Dialog
                 isOpen={!!modal}
                 onClose={modal?.onClose}
@@ -78,7 +78,7 @@ export const PopupProvider = ({ children }) => {
                 {modal?.content}
             </Dialog>
 
-            {/* Toasts Render */}
+            {}
             <div className="fixed bottom-8 right-8 z-[110] flex flex-col items-end space-y-4 pointer-events-none">
                 <AnimatePresence>
                     {toasts.map((toast) => (

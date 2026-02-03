@@ -179,10 +179,10 @@ URL3
 ` + "```" + `
 
 *Flags Opsional:*
-• ` + "`-name <nama>`" + ` \\- Nama batch
+• ` + "`-name <nama\\>`" + ` \\- Nama batch
 • ` + "`-z`" + ` atau ` + "`-zip`" + ` \\- Zip semua hasil
-• ` + "`-p <password>`" + ` \\- Password untuk zip
-• ` + "`-priority <1-10>`" + ` \\- Prioritas \\(default: 5\\)
+• ` + "`-p <password\\>`" + ` \\- Password untuk zip
+• ` + "`-priority <1\\-10\\>`" + ` \\- Prioritas \\(default: 5\\)
 
 *Contoh:*
 ` + "```" + `
