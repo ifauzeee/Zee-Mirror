@@ -34,17 +34,24 @@ func TestUserOperations(t *testing.T) {
 	username := "testuser"
 	role := "authorized"
 
-	err := db.Upsert(ctx, userID, username, role)
+	err := db.Upsert(ctx, domain.User{
+		ID:                userID,
+		Username:          username,
+		Role:              role,
+		CreatedAt:         time.Now(),
+		MaxDailyTasks:     -1,
+		MaxDailyBandwidth: -1,
+	})
 	if err != nil {
 		t.Errorf("Upsert failed: %v", err)
 	}
 
-	gotUsername, gotRole, err := db.GetByID(ctx, userID)
+	user, err := db.GetByID(ctx, userID)
 	if err != nil {
 		t.Errorf("GetByID failed: %v", err)
 	}
-	if gotUsername != username || gotRole != role {
-		t.Errorf("GetByID got %s, %s; want %s, %s", gotUsername, gotRole, username, role)
+	if user.Username != username || user.Role != role {
+		t.Errorf("GetByID got %s, %s; want %s, %s", user.Username, user.Role, username, role)
 	}
 
 	newRole := "admin"
@@ -53,9 +60,9 @@ func TestUserOperations(t *testing.T) {
 		t.Errorf("SetRole failed: %v", err)
 	}
 
-	_, gotRole, _ = db.GetByID(ctx, userID)
-	if gotRole != newRole {
-		t.Errorf("SetRole failed to update role, got %s want %s", gotRole, newRole)
+	user, _ = db.GetByID(ctx, userID)
+	if user.Role != newRole {
+		t.Errorf("SetRole failed to update role, got %s want %s", user.Role, newRole)
 	}
 
 	count, err := db.GetCount(ctx)

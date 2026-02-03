@@ -25,7 +25,7 @@ const useTasks = (token) => {
         }
     };
 
-    return { tasks, fetchTasks, cancelTask };
+    return { tasks, fetchTasks, cancelTask, setTasks };
 };
 
 export default useTasks;

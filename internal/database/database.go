@@ -56,7 +56,10 @@ func (db *DB) migrate() error {
 			id INTEGER PRIMARY KEY,
 			username TEXT,
 			role TEXT NOT NULL DEFAULT 'user',
-			created_at DATETIME NOT NULL
+			created_at DATETIME NOT NULL,
+			max_daily_tasks INTEGER DEFAULT -1,
+			max_daily_bandwidth INTEGER DEFAULT -1,
+			expires_at DATETIME
 		);`,
 		`CREATE TABLE IF NOT EXISTS tasks (
 			id TEXT PRIMARY KEY,
@@ -95,24 +98,51 @@ func (db *DB) migrate() error {
 		}
 	}
 
+	_ = db.addColumnIfNotExists("users", "max_daily_tasks", "INTEGER DEFAULT -1")
+	_ = db.addColumnIfNotExists("users", "max_daily_bandwidth", "INTEGER DEFAULT -1")
+	_ = db.addColumnIfNotExists("users", "expires_at", "DATETIME")
+
 	return nil
 }
 
-// User Methods
-func (db *DB) GetByID(ctx context.Context, id int64) (string, string, error) {
-	var username, role string
-	err := db.QueryRowContext(ctx, "SELECT username, role FROM users WHERE id = ?", id).Scan(&username, &role)
-	return username, role, err
+func (db *DB) addColumnIfNotExists(table, column, definition string) error {
+	_, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition))
+	return err
 }
 
-func (db *DB) Upsert(ctx context.Context, id int64, username, role string) error {
+func (db *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
+	u := &domain.User{ID: id}
+	var expiresAt sql.NullTime
+
+	err := db.QueryRowContext(ctx, `
+		SELECT username, role, max_daily_tasks, max_daily_bandwidth, expires_at, created_at 
+		FROM users WHERE id = ?
+	`, id).Scan(&u.Username, &u.Role, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+	u.ExpiresAt = expiresAt
+
+	u.IsActive = true
+	if u.ExpiresAt.Valid && u.ExpiresAt.Time.Before(time.Now()) {
+		u.IsActive = false
+	}
+
+	return u, nil
+}
+
+func (db *DB) Upsert(ctx context.Context, u domain.User) error {
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO users (id, username, role, created_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO users (id, username, role, created_at, max_daily_tasks, max_daily_bandwidth, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			username = excluded.username,
-			role = CASE WHEN users.role = 'owner' THEN 'owner' ELSE excluded.role END
-	`, id, username, role, time.Now())
+			role = CASE WHEN users.role = 'owner' THEN 'owner' ELSE excluded.role END,
+			max_daily_tasks = excluded.max_daily_tasks,
+			max_daily_bandwidth = excluded.max_daily_bandwidth,
+			expires_at = excluded.expires_at
+	`, u.ID, u.Username, u.Role, u.CreatedAt, u.MaxDailyTasks, u.MaxDailyBandwidth, u.ExpiresAt)
 	return err
 }
 
@@ -121,25 +151,36 @@ func (db *DB) SetRole(ctx context.Context, id int64, role string) error {
 	return err
 }
 
-func (db *DB) GetAll(ctx context.Context) ([]map[string]interface{}, error) {
-	rows, err := db.QueryContext(ctx, "SELECT id, username, role FROM users")
+func (db *DB) SetLimits(ctx context.Context, id int64, maxTasks int, maxBandwidth int64) error {
+	_, err := db.ExecContext(ctx, "UPDATE users SET max_daily_tasks = ?, max_daily_bandwidth = ? WHERE id = ?", maxTasks, maxBandwidth, id)
+	return err
+}
+
+func (db *DB) SetExpiration(ctx context.Context, id int64, expiresAt time.Time) error {
+	_, err := db.ExecContext(ctx, "UPDATE users SET expires_at = ? WHERE id = ?", expiresAt, id)
+	return err
+}
+
+func (db *DB) GetAll(ctx context.Context) ([]domain.User, error) {
+	rows, err := db.QueryContext(ctx, "SELECT id, username, role, max_daily_tasks, max_daily_bandwidth, expires_at, created_at FROM users")
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
-	var users []map[string]interface{}
+	var users []domain.User
 	for rows.Next() {
-		var id int64
-		var username, role string
-		if err := rows.Scan(&id, &username, &role); err != nil {
+		var u domain.User
+		var expiresAt sql.NullTime
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt); err != nil {
 			return nil, err
 		}
-		users = append(users, map[string]interface{}{
-			"id":       id,
-			"username": username,
-			"role":     role,
-		})
+		u.ExpiresAt = expiresAt
+		u.IsActive = true
+		if u.ExpiresAt.Valid && u.ExpiresAt.Time.Before(time.Now()) {
+			u.IsActive = false
+		}
+		users = append(users, u)
 	}
 	return users, nil
 }
@@ -150,7 +191,11 @@ func (db *DB) GetCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
-// Task Methods
+func (db *DB) Delete(ctx context.Context, id int64) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
+	return err
+}
+
 type TaskRecord = domain.TaskRecord
 
 func (db *DB) Save(ctx context.Context, t TaskRecord) error {
@@ -317,7 +362,6 @@ func (db *DB) GetMonthlyStats(ctx context.Context) ([]DailyStats, error) {
 	return stats, nil
 }
 
-// Settings Methods
 func (db *DB) Get(ctx context.Context, key string) (string, error) {
 	var value string
 	err := db.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", key).Scan(&value)

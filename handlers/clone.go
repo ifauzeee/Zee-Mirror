@@ -22,6 +22,11 @@ import (
 )
 
 func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
 	url := utils.ExtractURLFromText(args)
 	if url == "" {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL Google Drive untuk di\\-clone\\.")

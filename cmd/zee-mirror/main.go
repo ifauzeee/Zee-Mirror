@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -144,8 +143,6 @@ func processUpdates(updates tgbotapi.UpdatesChannel, service *handlers.BotServic
 				slog.Warn("Unauthorized access", "userID", update.Message.From.ID, "username", update.Message.From.UserName)
 				continue
 			}
-			ctx := context.Background()
-			_ = service.UserRepo.Upsert(ctx, update.Message.From.ID, update.Message.From.UserName, "user")
 			go r.HandleMessage(update.Message)
 		} else if update.CallbackQuery != nil {
 			if !service.IsAuthorized(update.CallbackQuery.From.ID) {
@@ -200,6 +197,10 @@ func setupAdminRoutes(r *router.Router) {
 	r.RegisterCommand("batch", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleBatch(m, m.CommandArguments()) })
 	r.RegisterCommand("authorize", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleAuthorize(m, m.CommandArguments()) })
 	r.RegisterCommand("unauthorize", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleUnauthorize(m, m.CommandArguments()) })
+	r.RegisterCommand("removeuser", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleRemoveUser(m, m.CommandArguments()) })
+	r.RegisterCommand("setrole", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetRole(m, m.CommandArguments()) })
+	r.RegisterCommand("setlimit", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetLimit(m, m.CommandArguments()) })
+	r.RegisterCommand("setexpire", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetExpire(m, m.CommandArguments()) })
 	r.RegisterCommand("users", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleUsers(m) })
 	r.RegisterCommand("setalertchannel", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetAlertChannel(m, m.CommandArguments()) })
 	r.RegisterCommand(handlers.CmdSystem, func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSystem(m) })

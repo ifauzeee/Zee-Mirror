@@ -5,39 +5,44 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"zee-mirror/pkg/utils"
 )
 
 type Config struct {
-	BotToken               string
-	TelegramAPI            string
-	OwnerID                int64
-	AuthorizedUsers        []int64
-	RcloneDest             string
-	MaxConcurrentDownloads int
-	DownloadDir            string
-	ConfigDir              string
-	DashboardToken         string
-	DashboardPort          int
-	LogLevel               string
-	SmartAutoOrganization  bool
-	IndexURL               string
-	DashboardURL           string
+	BotToken                 string
+	TelegramAPI              string
+	OwnerID                  int64
+	AuthorizedUsers          []int64
+	RcloneDest               string
+	MaxConcurrentDownloads   int
+	DownloadDir              string
+	ConfigDir                string
+	DashboardToken           string
+	DashboardPort            int
+	LogLevel                 string
+	SmartAutoOrganization    bool
+	IndexURL                 string
+	DashboardURL             string
+	DefaultMaxDailyTasks     int
+	DefaultMaxDailyBandwidth int64
 }
 
 func LoadConfig() *Config {
 	cfg := &Config{
-		BotToken:               os.Getenv("BOT_TOKEN"),
-		TelegramAPI:            os.Getenv("TELEGRAM_API"),
-		RcloneDest:             os.Getenv("RCLONE_DEST"),
-		DownloadDir:            getEnv("DOWNLOAD_DIR", "/app/downloads"),
-		ConfigDir:              getEnv("CONFIG_DIR", "/app/config"),
-		MaxConcurrentDownloads: getEnvInt("MAX_CONCURRENT_DOWNLOADS", 3),
-		DashboardToken:         getEnv("WEB_DASHBOARD_TOKEN", "zee-mirror-secret"),
-		DashboardPort:          getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
-		LogLevel:               getEnv("LOG_LEVEL", "info"),
-		SmartAutoOrganization:  getEnvBool("SMART_AUTO_ORGANIZATION", false),
-		IndexURL:               os.Getenv("INDEX_URL"),
-		DashboardURL:           getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
+		BotToken:                 os.Getenv("BOT_TOKEN"),
+		TelegramAPI:              os.Getenv("TELEGRAM_API"),
+		RcloneDest:               os.Getenv("RCLONE_DEST"),
+		DownloadDir:              getEnv("DOWNLOAD_DIR", "/app/downloads"),
+		ConfigDir:                getEnv("CONFIG_DIR", "/app/config"),
+		MaxConcurrentDownloads:   getEnvInt("MAX_CONCURRENT_DOWNLOADS", 3),
+		DashboardToken:           getEnv("WEB_DASHBOARD_TOKEN", "zee-mirror-secret"),
+		DashboardPort:            getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
+		LogLevel:                 getEnv("LOG_LEVEL", "info"),
+		SmartAutoOrganization:    getEnvBool("SMART_AUTO_ORGANIZATION", false),
+		IndexURL:                 os.Getenv("INDEX_URL"),
+		DashboardURL:             getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
+		DefaultMaxDailyTasks:     getEnvInt("DEFAULT_MAX_DAILY_TASKS", -1),
+		DefaultMaxDailyBandwidth: utils.ParseBytesString(getEnv("DEFAULT_MAX_DAILY_BANDWIDTH", "-1")),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

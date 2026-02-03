@@ -42,6 +42,7 @@ const (
 	StatusHeaderText = "📊 *Status Task Aktif*\n\n"
 	UnknownFile      = "unknown_file"
 	UnknownSize      = "Unknown"
+	UnlimitedStr     = "Unlimited"
 
 	ModeLeech  = "leech"
 	CmdRefresh = "refresh"
@@ -217,7 +218,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 			CreatedAt:      time.Now(),
 			Ctx:            ctx,
 			CancelFunc:     cancel,
-			TotalSize:      expectedTotalSize, // Set total size if known
+			TotalSize:      expectedTotalSize,
 		},
 		DB: tm.DB,
 	}

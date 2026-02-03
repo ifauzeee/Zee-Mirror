@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -23,12 +23,14 @@ import (
 type APIServer struct {
 	Service *handlers.BotService
 	Port    int
+	Hub     *Hub
 }
 
 func NewAPIServer(service *handlers.BotService, port int) *APIServer {
 	return &APIServer{
 		Service: service,
 		Port:    port,
+		Hub:     NewHub(),
 	}
 }
 
@@ -60,6 +62,11 @@ func (s *APIServer) Start() {
 	mux.HandleFunc("/api/explorer/wipe-orphans", auth(s.handleWipeOrphans))
 	mux.HandleFunc("/api/analytics", auth(s.handleAnalytics))
 	mux.HandleFunc("/api/logs", auth(s.handleLogs))
+	mux.HandleFunc("/api/users", auth(s.handleGetUsers))
+	mux.HandleFunc("/api/users/update", auth(s.handleUpdateUser))
+	mux.HandleFunc("/api/users/delete", auth(s.handleDeleteUser))
+
+	mux.HandleFunc("/api/ws", s.handleWebsocket)
 
 	mux.HandleFunc("/api/torrent/session", auth(s.handleTorrentSession))
 	mux.HandleFunc("/api/torrent/files", auth(s.handleTorrentFiles))
@@ -72,7 +79,7 @@ func (s *APIServer) Start() {
 	mux.Handle("/", http.FileServer(http.Dir("./dist")))
 
 	addr := fmt.Sprintf(":%d", s.Port)
-	log.Printf("🌐 Web Dashboard API starting on %s", addr)
+	slog.Info("Web Dashboard API starting", "addr", addr)
 
 	server := &http.Server{
 		Addr:              addr,
@@ -80,11 +87,55 @@ func (s *APIServer) Start() {
 		ReadHeaderTimeout: 3 * time.Second,
 	}
 
+	go s.Hub.Run()
+	go s.broadcastLoop()
+
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
-			log.Printf("❌ API Server failed: %v", err)
+			slog.Error("API Server failed", "error", err)
 		}
 	}()
+}
+
+func (s *APIServer) broadcastLoop() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		tasks := s.Service.TaskManager.GetActiveTasks()
+		var taskSnapshots []interface{}
+		for _, t := range tasks {
+			taskSnapshots = append(taskSnapshots, t.GetSnapshot())
+		}
+
+		v, _ := mem.VirtualMemory()
+		c, _ := cpu.Percent(time.Second, false)
+		d, _ := disk.Usage("/")
+		h, _ := host.Info()
+		cpuUsage := 0.0
+		if len(c) > 0 {
+			cpuUsage = c[0]
+		}
+		sysInfo := map[string]interface{}{
+			"cpu":    cpuUsage,
+			"ram":    v.UsedPercent,
+			"disk":   d.UsedPercent,
+			"uptime": h.Uptime,
+		}
+
+		update := map[string]interface{}{
+			"type": "update",
+			"data": map[string]interface{}{
+				"tasks":  taskSnapshots,
+				"system": sysInfo,
+			},
+		}
+
+		payload, err := json.Marshal(update)
+		if err == nil {
+			s.Hub.Broadcast(payload)
+		}
+	}
 }
 
 func (s *APIServer) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -418,7 +469,6 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If metadata is already fetched, return it
 	if len(session.Files) > 0 {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -428,7 +478,6 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If fetching failed with an error, return it
 	if session.Error != "" {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -439,7 +488,6 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Otherwise, it's still loading
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"files":    []domain.TorrentFile{},
@@ -449,10 +497,6 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		"message":  "Mengambil metadata torrent di background...",
 	})
 }
-
-// Remove old parseTorrentFiles, parseTorrentOutput, parseTorrentMetadataFile as they are now in handlers package
-// The following functions are now survivors or cleanup targets:
-// - handleTorrentStart (KEEP)
 
 func (s *APIServer) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -486,4 +530,101 @@ func (s *APIServer) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"message": "Torrent download started",
 	})
+}
+
+func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	users, err := s.Service.DB.GetAll(ctx)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(users)
+}
+
+func (s *APIServer) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID                int64  `json:"id"`
+		Role              string `json:"role"`
+		MaxDailyTasks     int    `json:"maxDailyTasks"`
+		MaxDailyBandwidth int64  `json:"maxDailyBandwidth"`
+		ExpiresAt         string `json:"expiresAt"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	ctx := r.Context()
+
+	if req.Role != "" {
+		if err := s.Service.DB.SetRole(ctx, req.ID, req.Role); err != nil {
+			slog.Error("Failed to update role", "error", err)
+		}
+	}
+
+	if err := s.Service.DB.SetLimits(ctx, req.ID, req.MaxDailyTasks, req.MaxDailyBandwidth); err != nil {
+		slog.Error("Failed to update limits", "error", err)
+	}
+
+	if req.ExpiresAt != "" {
+		exp, err := time.Parse(time.RFC3339, req.ExpiresAt)
+		if err == nil {
+			if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
+				slog.Error("Failed to update expiration", "error", err)
+			}
+		} else {
+			exp, err = time.Parse("2006-01-02", req.ExpiresAt)
+			if err == nil {
+				if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
+					slog.Error("Failed to update expiration", "error", err)
+				}
+			}
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (s *APIServer) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID int64 `json:"id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if s.Service.IsOwner(req.ID) {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete owner"})
+		return
+	}
+
+	ctx := r.Context()
+	if err := s.Service.DB.Delete(ctx, req.ID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }

@@ -9,7 +9,8 @@ import {
     Bot,
     ShieldCheck,
     LogOut,
-    Github
+    Github,
+    Users
 } from 'lucide-react';
 
 const Sidebar = ({ activeTab, setActiveTab, tasksCount, onLogout }) => {
@@ -19,6 +20,7 @@ const Sidebar = ({ activeTab, setActiveTab, tasksCount, onLogout }) => {
         { id: 'files', label: 'File Explorer', icon: Folder },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
         { id: 'logs', label: 'System Logs', icon: Terminal },
+        { id: 'users', label: 'User Management', icon: Users },
         { id: 'settings', label: 'Environment', icon: Settings },
     ];
 

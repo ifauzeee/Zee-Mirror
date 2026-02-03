@@ -21,7 +21,7 @@ const useSystemStats = (token) => {
         }
     }, [token]);
 
-    return { stats, system, fetchStats };
+    return { stats, system, fetchStats, setSystem, setStats };
 };
 
 export default useSystemStats;

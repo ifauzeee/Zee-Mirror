@@ -28,6 +28,11 @@ const (
 )
 
 func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
 	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	var fileName string
 
@@ -111,6 +116,11 @@ func (s *BotService) extractFileFromReply(reply *tgbotapi.Message) (string, stri
 }
 
 func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
 	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractMagnetFromText(args)
@@ -149,6 +159,11 @@ func (s *BotService) HandleYTDLPLeech(message *tgbotapi.Message, args string) {
 }
 
 func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, taskType TaskType) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
 	url, zip, _, password, quality, name := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
@@ -412,12 +427,22 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 		fileName = utils.GetFileNameFromURL(session.URL)
 	}
 
+	if err := s.CheckQuota(callback.From.ID); err != nil {
+		_, _ = s.Bot.Send(tgbotapi.NewMessage(callback.Message.Chat.ID, GetErrorMessage("QUOTA EXCEEDED", err.Error())))
+		return
+	}
+
 	task := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	slog.Info("YTDLP task created from callback", "taskID", task.ID, "type", session.Type, "quality", quality)
 }
 
 func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
 	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
 	if message.ReplyToMessage != nil && message.ReplyToMessage.Document != nil {
 		fileID := message.ReplyToMessage.Document.FileID
@@ -440,7 +465,6 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	// Show torrent selection menu
 	replyID := 0
 	if message.ReplyToMessage != nil {
 		replyID = message.ReplyToMessage.MessageID
@@ -449,18 +473,14 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	s.showTorrentSelectionMenu(message, url, name, zip, unzip, password, replyID)
 }
 
-// showTorrentSelectionMenu displays options to select all files or choose specific files
 func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, name string, zip, unzip bool, password string, replyID int) {
-	// Create session for this torrent
 	sessionID := s.createTorrentSession(url, name, zip, unzip, password, message.Chat.ID, message.MessageID, replyID, message.From.ID)
 
-	// Get dashboard URL for file selection
 	baseURL := s.Config.DashboardURL
 	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
 		baseURL = "http://" + baseURL
 	}
 
-	// If using standard ports, don't append port number
 	dashboardURL := ""
 	if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") {
 		dashboardURL = fmt.Sprintf("%s:%d/torrent-select/%s", baseURL, s.Config.DashboardPort, sessionID)
@@ -497,7 +517,6 @@ func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, na
 		return
 	}
 
-	// Update session with the menu message ID
 	s.TaskManager.Mu.Lock()
 	if session, exists := s.TaskManager.TorrentSessions[sessionID]; exists {
 		session.MessageID = sentMsg.MessageID
@@ -507,7 +526,6 @@ func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, na
 	slog.Info("Torrent selection menu shown", "sessionID", sessionID, "url", url)
 }
 
-// createTorrentSession creates a new torrent session and returns its ID
 func (s *BotService) createTorrentSession(url, name string, zip, unzip bool, password string, chatID int64, msgID, replyID int, userID int64) string {
 	sessionID := uuid.New().String()[:8]
 
@@ -520,7 +538,7 @@ func (s *BotService) createTorrentSession(url, name string, zip, unzip bool, pas
 		Zip:           zip,
 		Unzip:         unzip,
 		Password:      password,
-		SelectedFiles: nil, // nil means all files
+		SelectedFiles: nil,
 		ChatID:        chatID,
 		MessageID:     msgID,
 		ReplyID:       replyID,
@@ -528,10 +546,8 @@ func (s *BotService) createTorrentSession(url, name string, zip, unzip bool, pas
 		IsFetching:    true,
 	}
 
-	// Start background metadata fetch
 	go s.fetchTorrentMetadataBackground(sessionID)
 
-	// Auto-cleanup session after 1 hour
 	go func() {
 		time.Sleep(1 * time.Hour)
 		s.TaskManager.Mu.Lock()
@@ -542,7 +558,6 @@ func (s *BotService) createTorrentSession(url, name string, zip, unzip bool, pas
 	return sessionID
 }
 
-// HandleTorrentSelectionCallback handles the torrent selection callback
 func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi tidak valid"))
@@ -562,19 +577,16 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 
 	switch action {
 	case "all":
-		// Download all files - remove session and create task
 		delete(s.TaskManager.TorrentSessions, sessionID)
 		s.TaskManager.Mu.Unlock()
 
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Memulai download semua file..."))
 
-		// Edit the message to show status
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID,
 			"✅ *Download dimulai*\n\nMendownload semua file dalam torrent\\.\\.\\.")
 		editMsg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(editMsg)
 
-		// Create the task
 		fileName := session.FileName
 		if fileName == "" {
 			fileName = "torrent_download"
@@ -586,13 +598,11 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 		slog.Info("Torrent task created (all files)", "taskID", task.ID, "url", session.URL)
 
 	case "cancel":
-		// Cancel the session
 		delete(s.TaskManager.TorrentSessions, sessionID)
 		s.TaskManager.Mu.Unlock()
 
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Dibatalkan"))
 
-		// Delete the menu message
 		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
 		_, _ = s.Bot.Request(deleteMsg)
 
@@ -604,7 +614,6 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 	}
 }
 
-// StartTorrentWithSelectedFiles starts a torrent download with specific files selected
 func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFiles []int) error {
 	s.TaskManager.Mu.Lock()
 	session, exists := s.TaskManager.TorrentSessions[sessionID]
@@ -613,16 +622,11 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 		return fmt.Errorf("session not found")
 	}
 
-	// Remove session after getting data
 	delete(s.TaskManager.TorrentSessions, sessionID)
 	s.TaskManager.Mu.Unlock()
 
-	// Store selected files in URL (aria2c supports --select-file option)
-	// We'll append the selected file indices to the magnet link as a custom parameter
 	url := session.URL
 	if len(selectedFiles) > 0 {
-		// Store selected files - we'll handle this in downloadWithAria2
-		// For now, we create a special marker in the URL
 		selectFileStr := ""
 		for i, idx := range selectedFiles {
 			if i > 0 {
@@ -630,7 +634,6 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 			}
 			selectFileStr += fmt.Sprintf("%d", idx)
 		}
-		// Append as a custom fragment that we'll parse later
 		url = url + "#select=" + selectFileStr
 	}
 
@@ -639,7 +642,6 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 		fileName = "torrent_download"
 	}
 
-	// Send confirmation message to user
 	confirmText := fmt.Sprintf("✅ *Download dimulai*\n\nMendownload %d file yang dipilih\\.\\.\\.", len(selectedFiles))
 	msg := tgbotapi.NewMessage(session.ChatID, confirmText)
 	msg.ParseMode = MarkdownV2

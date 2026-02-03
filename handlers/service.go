@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
+	"zee-mirror/internal/domain"
 	"zee-mirror/internal/repository"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -79,9 +80,24 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 	}
 	s.Notifications = NewNotificationService(bot, alertChannelID, cfg.OwnerID)
 
-	_ = db.Upsert(ctx, cfg.OwnerID, "Owner", "owner")
+	_ = db.Upsert(ctx, domain.User{
+		ID:                cfg.OwnerID,
+		Username:          "Owner",
+		Role:              "owner",
+		CreatedAt:         time.Now(),
+		MaxDailyTasks:     -1,
+		MaxDailyBandwidth: -1,
+	})
+
 	for _, id := range cfg.AuthorizedUsers {
-		_ = db.Upsert(ctx, id, "Authorized User", "authorized")
+		_ = db.Upsert(ctx, domain.User{
+			ID:                id,
+			Username:          "Authorized User",
+			Role:              "authorized",
+			CreatedAt:         time.Now(),
+			MaxDailyTasks:     cfg.DefaultMaxDailyTasks,
+			MaxDailyBandwidth: cfg.DefaultMaxDailyBandwidth,
+		})
 	}
 
 	go s.startDiskCleanupWorker()
@@ -132,7 +148,6 @@ func (s *BotService) handleAutoDelete(task *Task) {
 		return
 	}
 
-	// User's command message is deleted immediately
 	if task.MessageID != 0 {
 		go func() {
 			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.MessageID)
@@ -140,7 +155,6 @@ func (s *BotService) handleAutoDelete(task *Task) {
 		}()
 	}
 
-	// User's reply message (e.g. file being mirrored) is also deleted
 	if task.ReplyMessageID != 0 {
 		go func() {
 			deleteCmd := tgbotapi.NewDeleteMessage(task.ChatID, task.ReplyMessageID)

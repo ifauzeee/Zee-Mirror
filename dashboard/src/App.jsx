@@ -8,6 +8,7 @@ import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import Logs from './pages/Logs';
 import TorrentSelect from './pages/TorrentSelect';
+import Users from './pages/Users';
 import TaskRow from './components/Task/TaskRow';
 
 import useTasks from './hooks/useTasks';
@@ -157,8 +158,8 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(false);
 
 
-    const { tasks, fetchTasks, cancelTask } = useTasks(apiToken);
-    const { stats, system, fetchStats } = useSystemStats(apiToken);
+    const { tasks, fetchTasks, cancelTask, setTasks } = useTasks(apiToken);
+    const { stats, system, fetchStats, setSystem } = useSystemStats(apiToken);
     const [settings, setSettings] = useState(null);
 
 
@@ -218,19 +219,42 @@ const Dashboard = () => {
             };
             loadData();
 
-            const inv = setInterval(() => {
-                fetchTasks().catch(e => console.error(e));
-                fetchStats().catch(e => console.error(e));
-            }, 5000);
-            return () => clearInterval(inv);
-        }
-    }, [apiToken, loginError, fetchTasks, fetchStats]);
+            let ws;
+            const connectWs = () => {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${apiToken}`;
+                ws = new WebSocket(wsUrl);
 
-    // Check if this is a torrent selection page
+                ws.onopen = () => console.log('🟢 WS Connected');
+
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'update') {
+                            if (msg.data.tasks) setTasks(msg.data.tasks);
+                            if (msg.data.system) setSystem(prev => ({ ...prev, ...msg.data.system }));
+                        }
+                    } catch (e) { console.error('WS Parse Error', e); }
+                };
+
+                ws.onclose = () => {
+                    console.log('🔴 WS Closed, reconnecting in 3s...');
+                    setTimeout(() => {
+                        if (apiToken && !loginError) connectWs();
+                    }, 3000);
+                };
+            };
+            connectWs();
+
+            return () => {
+                if (ws) ws.close();
+            };
+        }
+    }, [apiToken, loginError, fetchTasks, fetchStats, setTasks, setSystem]);
+
     const isTorrentSelectPage = window.location.pathname.startsWith('/torrent-select/');
 
     if (isTorrentSelectPage) {
-        // For torrent select page, show login or the torrent select component
         if (loginError) {
             return <LoginScreen setApiToken={setApiToken} setLoginError={setLoginError} />;
         }
@@ -316,6 +340,7 @@ const Dashboard = () => {
                 {activeTab === 'files' && <Explorer token={apiToken} />}
                 {activeTab === 'analytics' && <Analytics token={apiToken} isDarkMode={isDarkMode} />}
                 {activeTab === 'logs' && <Logs token={apiToken} />}
+                {activeTab === 'users' && <Users apiToken={apiToken} />}
                 {activeTab === 'settings' && <Settings token={apiToken} initialSettings={settings} />}
 
             </main>
