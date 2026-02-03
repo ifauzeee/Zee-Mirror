@@ -6,7 +6,7 @@ import Toast from '../components/Popups/Toast';
 const PopupContext = createContext(null);
 
 export const PopupProvider = ({ children }) => {
-    const [modal, setModal] = useState(null); // { title, content, type, onConfirm, confirmText, cancelText }
+    const [modal, setModal] = useState(null);
     const [toasts, setToasts] = useState([]);
 
     const showConfirm = useCallback((title, content, options = {}) => {
@@ -35,7 +35,7 @@ export const PopupProvider = ({ children }) => {
             setModal({
                 title,
                 content,
-                type: options.type || 'info', // Can be error, success, info, alert
+                type: options.type || 'info',
                 confirmText: options.confirmText || 'OK',
                 showCancel: false,
                 onConfirm: () => {

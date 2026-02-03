@@ -582,17 +582,22 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "✅ Memulai download semua file..."))
 
-		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID,
-			"✅ *Download dimulai*\n\nMendownload semua file dalam torrent\\.\\.\\.")
-		editMsg.ParseMode = MarkdownV2
-		_, _ = s.Bot.Send(editMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
+
+		confirmMsg := tgbotapi.NewMessage(callback.Message.Chat.ID, "✅ *Download dimulai*\n\nMendownload semua file dalam torrent\\.\\.\\.")
+		confirmMsg.ParseMode = MarkdownV2
+		sentMsg, _ := s.Bot.Send(confirmMsg)
+		statusMsgID := sentMsg.MessageID
 
 		fileName := session.FileName
 		if fileName == "" {
-			fileName = "torrent_download"
+			fileName = utils.GetFileNameFromURL(session.URL)
+			if fileName == "unknown_file" {
+				fileName = "torrent_download"
+			}
 		}
 
-		task := s.TaskManager.CreateTask(TypeTorrent, session.URL, fileName, session.ChatID, callback.Message.MessageID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+		task := s.TaskManager.CreateTask(TypeTorrent, session.URL, fileName, session.ChatID, statusMsgID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
 		s.UpdateSharedDashboard(session.ChatID, true)
 		s.handleAutoDelete(task)
 		slog.Info("Torrent task created (all files)", "taskID", task.ID, "url", session.URL)
@@ -639,8 +644,13 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 
 	fileName := session.FileName
 	if fileName == "" {
-		fileName = "torrent_download"
+		fileName = utils.GetFileNameFromURL(session.URL)
+		if fileName == "unknown_file" {
+			fileName = "torrent_download"
+		}
 	}
+
+	_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(session.ChatID, session.MessageID))
 
 	confirmText := fmt.Sprintf("✅ *Download dimulai*\n\nMendownload %d file yang dipilih\\.\\.\\.", len(selectedFiles))
 	msg := tgbotapi.NewMessage(session.ChatID, confirmText)

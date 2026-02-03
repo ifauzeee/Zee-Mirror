@@ -79,15 +79,15 @@ func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
 			"📦 *Size:* `%s / %s`\n"+
 			"⚡ *Speed:* `%s` \\| ⏱️ *ETA:* `%s`\n"+
 			"🚫 *Cancel:* /cancel\\_%s\n",
-		taskSnapshot.ID,
+		utils.EscapeMarkdownV2Code(taskSnapshot.ID),
 		emoji,
 		utils.EscapeMarkdownV2(utils.FormatStatus(string(taskSnapshot.Status))),
 		utils.EscapeMarkdownV2(bar),
-		utils.EscapeMarkdownV2(utils.TruncateString(taskSnapshot.FileName, 35)),
-		utils.EscapeMarkdownV2(utils.FormatBytes(processedSize)),
-		utils.EscapeMarkdownV2(totalSizeStr),
-		utils.EscapeMarkdownV2(utils.FormatSpeed(taskSnapshot.Speed)),
-		utils.EscapeMarkdownV2(utils.FormatDuration(taskSnapshot.ETA)),
+		utils.EscapeMarkdownV2Code(utils.TruncateString(taskSnapshot.FileName, 35)),
+		utils.EscapeMarkdownV2Code(utils.FormatBytes(processedSize)),
+		utils.EscapeMarkdownV2Code(totalSizeStr),
+		utils.EscapeMarkdownV2Code(utils.FormatSpeed(taskSnapshot.Speed)),
+		utils.EscapeMarkdownV2Code(utils.FormatDuration(taskSnapshot.ETA)),
 		utils.EscapeMarkdownV2(taskSnapshot.ID),
 	)
 }

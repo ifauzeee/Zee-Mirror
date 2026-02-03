@@ -15,7 +15,6 @@ func TestRouter_HandleMessage(t *testing.T) {
 		called = true
 	})
 
-	// Create a mock command message
 	msg := &tgbotapi.Message{
 		Text: "/testcmd",
 		Entities: []tgbotapi.MessageEntity{

@@ -26,7 +26,6 @@ const TorrentSelect = ({ token }) => {
     const [statusMessage, setStatusMessage] = useState('Mengambil daftar file dari torrent...');
     const [isFetching, setIsFetching] = useState(false);
 
-    // Extract session ID from URL
     useEffect(() => {
         const pathParts = window.location.pathname.split('/');
         const id = pathParts[pathParts.length - 1];
@@ -38,7 +37,6 @@ const TorrentSelect = ({ token }) => {
         }
     }, []);
 
-    // Fetch session info
     const fetchSession = useCallback(async () => {
         if (!sessionId) return;
 
@@ -58,7 +56,6 @@ const TorrentSelect = ({ token }) => {
         }
     }, [sessionId, token]);
 
-    // Fetch file list
     const fetchFiles = useCallback(async () => {
         if (!sessionId) return;
 
@@ -77,7 +74,6 @@ const TorrentSelect = ({ token }) => {
                     setError(response.data.error);
                     setFileLoading(false);
                 } else {
-                    // Still loading metadata, retry after delay
                     setTimeout(fetchFiles, 3000);
                 }
             } else if (response.data.error) {
@@ -85,7 +81,6 @@ const TorrentSelect = ({ token }) => {
                 setFileLoading(false);
             } else {
                 setFiles(response.data.files || []);
-                // Select all files by default
                 const allIndices = new Set((response.data.files || []).map(f => f.index));
                 setSelectedFiles(allIndices);
                 setFileLoading(false);
@@ -149,7 +144,6 @@ const TorrentSelect = ({ token }) => {
 
             setSuccess(true);
 
-            // Close window after 3 seconds
             setTimeout(() => {
                 window.close();
             }, 3000);
@@ -159,7 +153,6 @@ const TorrentSelect = ({ token }) => {
         }
     };
 
-    // Group files by folder
     const groupedFiles = files.reduce((acc, file) => {
         const pathParts = file.path.split('/');
         if (pathParts.length > 1) {

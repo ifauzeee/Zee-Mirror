@@ -453,7 +453,6 @@ func (s *BotService) HandleDriveShare(message *tgbotapi.Message, args string) {
 
 	var link string
 	if s.Config.IndexURL != "" {
-		// Normalize paths
 		targetPathSlash := strings.ReplaceAll(targetPath, "\\", "/")
 		rcloneDestSlash := strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/")
 		rcloneDestSlash = strings.TrimRight(rcloneDestSlash, "/")

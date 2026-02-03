@@ -131,7 +131,6 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 		currentRemotePath = filepath.Join(s.TaskManager.RcloneDest, task.FileName)
 	}
 
-	// Normalize remote path to use forward slashes for rclone compatibility
 	currentRemotePath = strings.ReplaceAll(currentRemotePath, "\\", "/")
 
 	if s.Config.IndexURL != "" {
@@ -144,19 +143,16 @@ func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configP
 }
 
 func (s *BotService) generateIndexURL(ctx context.Context, task *Task, configPath, currentRemotePath string) bool {
-	// Attempt ID-based generation first
 	if s.generateIDBasedIndexURL(ctx, task, configPath, currentRemotePath) {
 		return true
 	}
 
-	// Fallback to path-based
 	return s.generatePathBasedIndexURL(task, currentRemotePath)
 }
 
 func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, configPath, currentRemotePath string) bool {
 	var fileID, parentID string
 
-	// 1. Get File ID using rclone lsjson on the file itself
 	lsArgs := []string{
 		"lsjson",
 		currentRemotePath,
@@ -168,7 +164,6 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 	if lsOutput, err := lsCmd.Output(); err == nil {
 		var files []map[string]interface{}
 		if json.Unmarshal(lsOutput, &files) == nil && len(files) > 0 {
-			// Check for both "ID" and "Id" keys
 			if id, ok := files[0]["ID"].(string); ok {
 				fileID = id
 			} else if id, ok := files[0]["Id"].(string); ok {
@@ -179,7 +174,6 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 		slog.Warn("Failed to get File ID", "path", currentRemotePath, "error", err)
 	}
 
-	// 2. Get Parent ID by listing the grandparent directory and looking for the parent folder
 	parentPath := path.Dir(currentRemotePath)
 	grandParentPath := path.Dir(parentPath)
 	parentName := path.Base(parentPath)

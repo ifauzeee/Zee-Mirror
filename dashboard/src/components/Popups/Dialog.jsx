@@ -8,7 +8,7 @@ const Dialog = ({
     onClose,
     title,
     children,
-    type = 'info', // info, confirm, alert, error, success
+    type = 'info',
     confirmText = 'Confirm',
     cancelText = 'Cancel',
     onConfirm,

@@ -9,7 +9,6 @@ const Users = ({ apiToken }) => {
     const [editingUser, setEditingUser] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Form state
     const [role, setRole] = useState('');
     const [maxTasks, setMaxTasks] = useState(-1);
     const [maxBW, setMaxBW] = useState(-1);
@@ -32,7 +31,7 @@ const Users = ({ apiToken }) => {
             id: editingUser.id,
             role,
             maxDailyTasks: parseInt(maxTasks),
-            maxDailyBandwidth: maxBW, // We should probably have a better way to input this, but for now...
+            maxDailyBandwidth: maxBW,
             expiresAt: expiresAt ? new Date(expiresAt).toISOString() : ''
         });
         if (result.success) {

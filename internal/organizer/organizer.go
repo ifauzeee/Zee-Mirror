@@ -345,13 +345,11 @@ func GetTargetFolder(filename string) string {
 
 func isInCategory(filename, category string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
-	// Remove emoji from category key if present (format is "EMOJI Name")
 	parts := strings.SplitN(category, " ", 2)
 	cleanCategory := parts[len(parts)-1]
 
 	extensions, ok := Categories[category]
 	if !ok {
-		// Fallback to check if Categories has a key without emoji
 		for k, v := range Categories {
 			if strings.HasSuffix(k, cleanCategory) {
 				extensions = v

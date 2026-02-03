@@ -14,7 +14,6 @@ type TaskRepository interface {
 	UpdateStatus(ctx context.Context, id, status, err string) error
 	DeleteOld(ctx context.Context, before string) (int, error)
 
-	// Extended methods for stats and recovery
 	GetBotStats(ctx context.Context) (map[string]interface{}, error)
 	GetUserStats(ctx context.Context, userID int64) (*domain.UserStats, error)
 	GetTodayStats(ctx context.Context) (*domain.DailyStats, error)

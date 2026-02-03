@@ -119,6 +119,45 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 		session.Files = files
 		session.Error = ""
 		slog.Info("Successfully fetched torrent metadata", "sessionID", sessionID, "files", len(files))
+
+		if session.FileName == "" {
+			commonRoot := ""
+			for _, f := range files {
+				path := f.Path
+				for strings.HasPrefix(path, "./") || strings.HasPrefix(path, "/") {
+					path = strings.TrimPrefix(path, "./")
+					path = strings.TrimPrefix(path, "/")
+				}
+				parts := strings.Split(filepath.ToSlash(path), "/")
+				if len(parts) > 1 {
+					root := parts[0]
+					if root == "." || root == ".." {
+						if len(parts) > 2 {
+							root = parts[1]
+						} else {
+							continue
+						}
+					}
+
+					if commonRoot == "" {
+						commonRoot = root
+					} else if commonRoot != root {
+						commonRoot = ""
+						break
+					}
+				} else {
+					if len(files) > 1 {
+						commonRoot = ""
+						break
+					}
+				}
+			}
+			if commonRoot != "" && commonRoot != "." {
+				session.FileName = commonRoot
+			} else if len(files) == 1 {
+				session.FileName = files[0].Name
+			}
+		}
 	} else {
 		session.Files = nil
 		session.Error = "Gagal mengambil daftar file. Metadata mungkin korup atau tidak terbaca."

@@ -110,6 +110,14 @@ func EscapeMarkdownV2(text string) string {
 	return replacer.Replace(text)
 }
 
+func EscapeMarkdownV2Code(text string) string {
+	replacer := strings.NewReplacer(
+		"`", "\\`",
+		"\\", "\\\\",
+	)
+	return replacer.Replace(text)
+}
+
 func SanitizeFileName(filename string) string {
 	reg := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
 	filename = reg.ReplaceAllString(filename, "_")
@@ -279,6 +287,9 @@ func getFileNameFromQuery(u *url.URL) string {
 	if fileName := q.Get("filename"); fileName != "" {
 		return SanitizeFileName(fileName)
 	}
+	if dn := q.Get("dn"); dn != "" {
+		return SanitizeFileName(dn)
+	}
 	return ""
 }
 
@@ -293,6 +304,23 @@ func getFileNameFromPixelDrain(u *url.URL) string {
 }
 
 func GetFileNameFromURL(urlStr string) string {
+	if strings.HasPrefix(urlStr, "magnet:?") {
+		if u, err := url.Parse(strings.Replace(urlStr, "magnet:?", "http://localhost/?", 1)); err == nil {
+			if name := getFileNameFromQuery(u); name != "" {
+				return name
+			}
+		}
+		if idx := strings.Index(urlStr, "dn="); idx != -1 {
+			name := urlStr[idx+3:]
+			if endIdx := strings.Index(name, "&"); endIdx != -1 {
+				name = name[:endIdx]
+			}
+			if unescaped, err := url.QueryUnescape(name); err == nil {
+				return SanitizeFileName(unescaped)
+			}
+		}
+	}
+
 	u, err := url.Parse(urlStr)
 	if err == nil {
 		if name := getFileNameFromQuery(u); name != "" {
@@ -324,7 +352,10 @@ func GetFileNameFromURL(urlStr string) string {
 	parts := strings.Split(urlStr, "/")
 	for i := len(parts) - 1; i >= 0; i-- {
 		if parts[i] != "" {
-			return SanitizeFileName(parts[i])
+			name := parts[i]
+			if !strings.Contains(name, ":") && !strings.Contains(name, "?") {
+				return SanitizeFileName(name)
+			}
 		}
 	}
 

@@ -92,7 +92,6 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 		args = append(args, "--out="+task.FileName)
 	}
 
-	// Parse URL for select-file option (format: magnet:?...#select=1,2,3)
 	url := task.URL
 	selectFiles := ""
 	if idx := strings.Index(url, "#select="); idx != -1 {
@@ -102,7 +101,6 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 
 	args = append(args, url)
 
-	// Add select-file option for torrents
 	if selectFiles != "" {
 		args = append(args, "--select-file="+selectFiles)
 	}
@@ -113,7 +111,6 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 
 	if task.Type == domain.TypeTorrent && len(url) > 7 && url[:7] == "file://" {
 		localPath := url[7:]
-		// Remove the URL from args and add local path
 		for i, arg := range args {
 			if arg == url {
 				args[i] = localPath

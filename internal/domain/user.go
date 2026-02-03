@@ -13,5 +13,5 @@ type User struct {
 	MaxDailyBandwidth int64        `json:"maxDailyBandwidth"`
 	ExpiresAt         sql.NullTime `json:"expiresAt"`
 	CreatedAt         time.Time    `json:"createdAt"`
-	IsActive          bool         `json:"isActive"` // Computed
+	IsActive          bool         `json:"isActive"`
 }

@@ -8,7 +8,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Skema warna stabil
         "bg-light": "#f8fafc",
         "bg-dark": "#09090b",
         "surface-light": "#ffffff",
