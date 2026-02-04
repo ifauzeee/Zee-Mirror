@@ -198,6 +198,28 @@ func (db *DB) Delete(ctx context.Context, id int64) error {
 
 type TaskRecord = domain.TaskRecord
 
+func (db *DB) GetCompletedTaskByURL(ctx context.Context, url string) (*TaskRecord, error) {
+	tr := &TaskRecord{}
+	err := db.QueryRowContext(ctx, `
+		SELECT id, gid, type, status, url, file_name, local_path, remote_path, remote_url, 
+		       total_size, downloaded_size, uploaded_size, chat_id, user_id, 
+		       created_at, completed_at, zip, unzip, password, error
+		FROM tasks WHERE url = ? AND status = 'completed'
+		ORDER BY created_at DESC LIMIT 1
+	`, url).Scan(
+		&tr.ID, &tr.GID, &tr.Type, &tr.Status, &tr.URL, &tr.FileName, &tr.LocalPath, &tr.RemotePath, &tr.RemoteURL,
+		&tr.TotalSize, &tr.DownloadedSize, &tr.UploadedSize, &tr.ChatID, &tr.UserID,
+		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return tr, nil
+}
+
 func (db *DB) Save(ctx context.Context, t TaskRecord) error {
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO tasks (

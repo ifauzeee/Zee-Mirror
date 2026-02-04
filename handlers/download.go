@@ -68,7 +68,11 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		if message.ReplyToMessage != nil {
 			replyID = message.ReplyToMessage.MessageID
 		}
-		task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+		task, err := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+		if err != nil {
+			s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
+			return
+		}
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.handleAutoDelete(task)
 		slog.Info("Mirror task created", "taskID", task.ID, "url", url)
@@ -154,7 +158,11 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	if message.ReplyToMessage != nil {
 		replyID = message.ReplyToMessage.MessageID
 	}
-	task := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+	task, err := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+	if err != nil {
+		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
+		return
+	}
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
 	slog.Info("Leech task created", "taskID", task.ID, "url", url)
@@ -211,7 +219,11 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 		fileName = utils.GetFileNameFromURL(url)
 	}
 
-	task := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0)
+	task, err := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0)
+	if err != nil {
+		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
+		return
+	}
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	s.handleAutoDelete(task)
 	slog.Info("YTDLP task created", "taskID", task.ID, "type", taskType, "url", url, "fileName", fileName)
@@ -442,7 +454,11 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 		return
 	}
 
-	task := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
+	task, err := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
+	if err != nil {
+		s.handleCreateTaskError(callback.Message.Chat.ID, callback.Message.MessageID, err)
+		return
+	}
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	slog.Info("YTDLP task created from callback", "taskID", task.ID, "type", session.Type, "quality", quality)
 }
@@ -607,7 +623,11 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 			}
 		}
 
-		task := s.TaskManager.CreateTask(TypeTorrent, session.URL, fileName, session.ChatID, statusMsgID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+		task, err := s.TaskManager.CreateTask(TypeTorrent, session.URL, fileName, session.ChatID, statusMsgID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+		if err != nil {
+			s.handleCreateTaskError(session.ChatID, statusMsgID, err)
+			return
+		}
 		s.UpdateSharedDashboard(session.ChatID, true)
 		s.handleAutoDelete(task)
 		slog.Info("Torrent task created (all files)", "taskID", task.ID, "url", session.URL)
@@ -667,7 +687,11 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 	msg.ParseMode = MarkdownV2
 	sentMsg, _ := s.Bot.Send(msg)
 
-	task := s.TaskManager.CreateTask(TypeTorrent, url, fileName, session.ChatID, sentMsg.MessageID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+	task, err := s.TaskManager.CreateTask(TypeTorrent, url, fileName, session.ChatID, sentMsg.MessageID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+	if err != nil {
+		s.handleCreateTaskError(session.ChatID, sentMsg.MessageID, err)
+		return nil
+	}
 	s.UpdateSharedDashboard(session.ChatID, true)
 	s.handleAutoDelete(task)
 	slog.Info("Torrent task created (selected files)", "taskID", task.ID, "selectedFiles", selectedFiles)
@@ -726,7 +750,11 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 		return
 	}
 
-	task := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, int64(tgFile.FileSize))
+	task, err := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, int64(tgFile.FileSize))
+	if err != nil {
+		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
+		return
+	}
 	s.handleAutoDelete(task)
 	s.UpdateSharedDashboard(message.Chat.ID, true)
 	slog.Info("Telegram download task created", "taskID", task.ID, "type", taskType)

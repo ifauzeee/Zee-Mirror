@@ -39,6 +39,11 @@ func (r *Router) RegisterCallback(prefix string, handler CallbackHandler) {
 
 func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 	if msg.IsCommand() {
+		username := "unknown"
+		if msg.From != nil {
+			username = msg.From.UserName
+		}
+		slog.Info("Command received", "user", username, "command", msg.Command(), "args", msg.CommandArguments())
 		if r.service != nil {
 			r.service.AutoDeleteCommandAndReply(msg)
 		}

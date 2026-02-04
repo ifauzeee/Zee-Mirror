@@ -142,7 +142,11 @@ func (s *BotService) HandleBatch(message *tgbotapi.Message, args string) {
 
 		for _, url := range options.URLs {
 			fileName := utils.GetFileNameFromURL(url)
-			task := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, 0, message.From.ID, false, false, options.Password, "", 0)
+			task, err := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, 0, 0, message.From.ID, false, false, options.Password, "", 0)
+			if err != nil {
+				slog.Warn("Skipping batch sub-task", "url", url, "error", err)
+				continue
+			}
 			slog.Info("Batch sub-task created", "taskID", task.ID, "url", url)
 		}
 

@@ -20,6 +20,7 @@ type TaskRepository interface {
 	GetUserTodayStats(ctx context.Context, userID int64) (*domain.DailyStats, error)
 	GetWeeklyStats(ctx context.Context) ([]domain.DailyStats, error)
 	GetMonthlyStats(ctx context.Context) ([]domain.DailyStats, error)
+	GetCompletedTaskByURL(ctx context.Context, url string) (*domain.TaskRecord, error)
 }
 
 type UserRepository interface {

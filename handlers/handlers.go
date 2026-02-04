@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -80,6 +81,7 @@ type TaskManager struct {
 	ConfigDir            string
 	YTDLPSessions        map[string]*YTDLPSession
 	TorrentSessions      map[string]*TorrentSession
+	StopDuplicate        bool
 	Mu                   sync.RWMutex
 	StatusMu             sync.Mutex
 	Wg                   sync.WaitGroup
@@ -93,6 +95,15 @@ type TaskManager struct {
 
 	Aria2Engine downloader.DownloadEngine
 	YTDLPEngine downloader.DownloadEngine
+}
+
+type DuplicateTaskError struct {
+	Message   string
+	RemoteURL string
+}
+
+func (e *DuplicateTaskError) Error() string {
+	return e.Message
 }
 
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository) *TaskManager {
@@ -196,7 +207,34 @@ func (tm *TaskManager) refreshActiveDashboards() {
 	}
 }
 
-func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64) *Task {
+func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64) (*Task, error) {
+	if tm.StopDuplicate {
+		tm.Mu.RLock()
+		for _, t := range tm.Tasks {
+			t.Mu.RLock()
+			isFinished := t.Status == StatusCompleted || t.Status == StatusFailed || t.Status == StatusCancelled
+			sameURL := t.URL == url
+			sameQuality := t.Quality == quality
+			t.Mu.RUnlock()
+
+			if !isFinished && sameURL && sameQuality {
+				tm.Mu.RUnlock()
+				return nil, fmt.Errorf("duplicate active task found with ID: %s", t.ID)
+			}
+		}
+		tm.Mu.RUnlock()
+
+		if tm.DB != nil {
+			oldTask, err := tm.DB.GetCompletedTaskByURL(context.Background(), url)
+			if err == nil && oldTask != nil {
+				return nil, &DuplicateTaskError{
+					Message:   "file already exists in cloud/database from previous download",
+					RemoteURL: oldTask.RemoteURL,
+				}
+			}
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
@@ -228,10 +266,27 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 	tm.Mu.Unlock()
 
 	_ = task.SaveToDB()
-
 	tm.Queue <- task
 
-	return task
+	return task, nil
+}
+
+func (tm *TaskManager) FindActiveTaskByURL(url string, quality string) *Task {
+	tm.Mu.RLock()
+	defer tm.Mu.RUnlock()
+
+	for _, task := range tm.Tasks {
+		task.Mu.RLock()
+		isFinished := task.Status == StatusCompleted || task.Status == StatusFailed || task.Status == StatusCancelled
+		sameURL := task.URL == url
+		sameQuality := task.Quality == quality
+		task.Mu.RUnlock()
+
+		if !isFinished && sameURL && sameQuality {
+			return task
+		}
+	}
+	return nil
 }
 
 func (t *Task) SaveToDB() error {

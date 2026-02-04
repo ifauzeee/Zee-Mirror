@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/repository"
+	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -72,6 +75,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 	}
 
 	tm := NewTaskManager(bot, cfg.MaxConcurrentDownloads, cfg.DownloadDir, cfg.RcloneDest, cfg.ConfigDir, processFunc, refreshFunc, db)
+	tm.StopDuplicate = cfg.StopDuplicate
 	s.TaskManager = tm
 
 	var alertChannelID int64
@@ -168,4 +172,45 @@ func (s *BotService) AutoDeleteCommandAndReply(message *tgbotapi.Message) {
 	if message.ReplyToMessage != nil {
 		s.AutoDeleteMessage(message.Chat.ID, message.ReplyToMessage.MessageID, 0)
 	}
+}
+func (s *BotService) handleCreateTaskError(chatID int64, messageID int, err error) {
+	slog.Info("handleCreateTaskError called", "chatID", chatID, "error", err)
+
+	text := ""
+	var keyboard *tgbotapi.InlineKeyboardMarkup
+
+	if dupErr, ok := err.(*DuplicateTaskError); ok {
+		slog.Info("Duplicate detected", "msg", dupErr.Message, "remoteURL", dupErr.RemoteURL)
+		text = fmt.Sprintf("⚠️ *Download Dibatalkan*\n\n%s", utils.EscapeMarkdownV2(dupErr.Message))
+
+		if dupErr.RemoteURL != "" && strings.HasPrefix(dupErr.RemoteURL, "http") {
+			kb := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL(BtnTextCloudLink, dupErr.RemoteURL),
+				),
+			)
+			keyboard = &kb
+		}
+	} else {
+		text = fmt.Sprintf("❌ *Gagal membuat task:*\n%s", utils.EscapeMarkdownV2(err.Error()))
+	}
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = MarkdownV2
+	msg.ReplyToMessageID = messageID
+	if keyboard != nil {
+		msg.ReplyMarkup = keyboard
+	}
+
+	_, sendErr := s.Bot.Send(msg)
+	if sendErr != nil {
+		slog.Warn("Failed to send error with reply, trying without reply", "error", sendErr)
+		msg.ReplyToMessageID = 0
+		_, sendErr = s.Bot.Send(msg)
+		if sendErr != nil {
+			slog.Error("Failed to send error message completely", "error", sendErr)
+			return
+		}
+	}
+
 }

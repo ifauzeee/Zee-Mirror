@@ -25,6 +25,7 @@ type Config struct {
 	DashboardURL             string
 	DefaultMaxDailyTasks     int
 	DefaultMaxDailyBandwidth int64
+	StopDuplicate            bool
 }
 
 func LoadConfig() *Config {
@@ -43,6 +44,7 @@ func LoadConfig() *Config {
 		DashboardURL:             getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
 		DefaultMaxDailyTasks:     getEnvInt("DEFAULT_MAX_DAILY_TASKS", -1),
 		DefaultMaxDailyBandwidth: utils.ParseBytesString(getEnv("DEFAULT_MAX_DAILY_BANDWIDTH", "-1")),
+		StopDuplicate:            getEnvBool("STOP_DUPLICATE", false),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

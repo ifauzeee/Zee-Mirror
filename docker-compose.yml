@@ -38,20 +38,11 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - DOWNLOAD_DIR=${DOWNLOAD_DIR:-/app/downloads}
       - CONFIG_DIR=${CONFIG_DIR:-/app/config}
+      - STOP_DUPLICATE=${STOP_DUPLICATE:-false}
     
     volumes:
       - downloads:/app/downloads
       - ./config:/app/config
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     networks:
       - zee-network
