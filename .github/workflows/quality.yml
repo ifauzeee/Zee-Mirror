@@ -19,9 +19,15 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v4
+      - name: Go Tidy Check
+        run: task tidy && git diff --exit-code
+      - name: Go Vet
+        run: task vet
+      - name: Run Tests
+        run: task test
+      - name: Security Check
+        run: task security
+      - name: Linter
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-      - name: Run Task Check
-        run: task check

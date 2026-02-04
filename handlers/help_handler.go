@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"log/slog"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -92,7 +92,7 @@ func (s *BotService) sendHelpMessage(callback *tgbotapi.CallbackQuery, text stri
 	editMsg.ReplyMarkup = &keyboard
 	_, err := s.Bot.Send(editMsg)
 	if err != nil {
-		fmt.Printf("❌ Error editing help message: %v\n", err)
+		slog.Error("Error editing help message", "error", err)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Error loading menu"))
 	} else {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))

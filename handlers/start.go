@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -30,7 +31,7 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 	msg.ReplyMarkup = keyboard
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
-		fmt.Printf("❌ Error sending welcome message: %v\n", err)
+		slog.Error("Error sending welcome message", "error", err)
 	} else {
 		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 	}
@@ -45,7 +46,7 @@ func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 	msg.ReplyMarkup = keyboard
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
-		fmt.Printf("❌ Error sending help message: %v\n", err)
+		slog.Error("Error sending help message", "error", err)
 		msg.ParseMode = ""
 		msg.Text = "📖 Panduan Bantuan\n\nSilakan pilih kategori di bawah:"
 		_, _ = s.Bot.Send(msg)

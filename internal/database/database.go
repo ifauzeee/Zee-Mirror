@@ -12,7 +12,7 @@ import (
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/repository"
 
-	_ "modernc.org/sqlite" // sqlite driver required for database operations
+	_ "modernc.org/sqlite" // Import for side effects: registers the sqlite driver.
 )
 
 type DB struct {
