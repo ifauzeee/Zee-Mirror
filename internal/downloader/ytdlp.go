@@ -54,7 +54,7 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 
 func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []string {
 	outputTemplate := "%(title)s.%(ext)s"
-	if task.FileName != "" && task.FileName != "video" && task.FileName != "unknown_file" {
+	if task.FileName != "" && task.FileName != "video" && task.FileName != "unknown_file" && task.FileName != "watch" {
 		ext := filepath.Ext(task.FileName)
 		if ext != "" {
 			if strings.ToLower(ext) == ".m3u8" {

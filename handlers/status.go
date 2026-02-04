@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -40,10 +41,23 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 	if totalTasks == 0 {
 		tm.Mu.Lock()
 		lastMsgID, exists := tm.LastStatusMsg[chatID]
+
+		if !exists {
+			key := fmt.Sprintf("dashboard_msg_%d", chatID)
+			if val, err := s.SettingsRepo.Get(context.Background(), key); err == nil && val != "" {
+				var storedID int
+				if n, _ := fmt.Sscanf(val, "%d", &storedID); n > 0 && storedID != 0 {
+					lastMsgID = storedID
+					exists = true
+				}
+			}
+		}
+
 		if exists {
 			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
 			delete(tm.LastStatusMsg, chatID)
 			delete(lastStatusText, chatID)
+			_ = s.SettingsRepo.Set(context.Background(), fmt.Sprintf("dashboard_msg_%d", chatID), "")
 		}
 		tm.Mu.Unlock()
 		if forceNew {
@@ -167,6 +181,20 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 	lastMsgID, exists := s.TaskManager.LastStatusMsg[chatID]
 	s.TaskManager.Mu.RUnlock()
 
+	if !exists {
+		key := fmt.Sprintf("dashboard_msg_%d", chatID)
+		if val, err := s.SettingsRepo.Get(context.Background(), key); err == nil && val != "" {
+			var storedID int
+			if n, _ := fmt.Sscanf(val, "%d", &storedID); n > 0 && storedID != 0 {
+				lastMsgID = storedID
+				exists = true
+				s.TaskManager.Mu.Lock()
+				s.TaskManager.LastStatusMsg[chatID] = storedID
+				s.TaskManager.Mu.Unlock()
+			}
+		}
+	}
+
 	lastText, textExists := lastStatusText[chatID]
 
 	if exists && forceNew {
@@ -201,6 +229,9 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 		s.TaskManager.LastStatusMsg[chatID] = sentMsg.MessageID
 		s.TaskManager.Mu.Unlock()
 		lastStatusText[chatID] = text
+
+		key := fmt.Sprintf("dashboard_msg_%d", chatID)
+		_ = s.SettingsRepo.Set(context.Background(), key, fmt.Sprintf("%d", sentMsg.MessageID))
 	}
 }
 

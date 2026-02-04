@@ -59,6 +59,11 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 				}
 			}
 		}
+
+		if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+			s.handleYTDLPGeneric(message, args, TypeYTDLP)
+			return
+		}
 		replyID := 0
 		if message.ReplyToMessage != nil {
 			replyID = message.ReplyToMessage.MessageID
@@ -133,6 +138,11 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL untuk di\\-leech\\.")
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
+		return
+	}
+
+	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+		s.handleYTDLPGeneric(message, args, TypeYTDLPLeech)
 		return
 	}
 
