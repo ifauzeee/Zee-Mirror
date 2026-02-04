@@ -137,16 +137,24 @@ func (e *Aria2Engine) parseProgress(stdout interface{}, onProgress func(Progress
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		update := ProgressUpdate{}
+
+		if strings.Contains(line, "ERROR") || strings.Contains(line, "Exception") || strings.Contains(line, "ErrorCode") {
+			update.Error = line
+		}
+
 		p := parser.ParseAria2Line(line)
 		if p.Found {
-			onProgress(ProgressUpdate{
-				Downloaded:  p.Downloaded,
-				Total:       p.Total,
-				Speed:       p.Speed,
-				Progress:    p.Progress,
-				ETA:         p.ETA,
-				Connections: p.Connections,
-			})
+			update.Downloaded = p.Downloaded
+			update.Total = p.Total
+			update.Speed = p.Speed
+			update.Progress = p.Progress
+			update.ETA = p.ETA
+			update.Connections = p.Connections
+		}
+
+		if update.Found() || update.Error != "" {
+			onProgress(update)
 		}
 	}
 }

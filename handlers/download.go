@@ -879,11 +879,15 @@ func (s *BotService) downloadWithAria2(task *Task) {
 		if up.ETA != 0 {
 			task.ETA = up.ETA
 		}
+		if up.Error != "" {
+			task.Error = up.Error
+		}
 		task.Mu.Unlock()
 
 		if time.Since(lastUpdate) >= 3*time.Second {
 			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
+			_ = task.SaveToDB()
 		}
 	})
 
@@ -997,6 +1001,7 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 		if time.Since(lastUpdate) >= 5*time.Second {
 			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
+			_ = task.SaveToDB()
 		}
 	})
 

@@ -17,6 +17,10 @@ type ProgressUpdate struct {
 	Error       string
 }
 
+func (p ProgressUpdate) Found() bool {
+	return p.Downloaded > 0 || p.Total > 0 || p.Speed > 0 || p.Progress > 0 || p.FileName != ""
+}
+
 type DownloadEngine interface {
 	Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error
 }
