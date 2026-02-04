@@ -12,9 +12,9 @@ import (
 )
 
 type Settings struct {
-	AutoDeleteMessages bool
 	DefaultMode        string
 	Mu                 sync.RWMutex
+	AutoDeleteMessages bool
 }
 
 func NewSettings() *Settings {

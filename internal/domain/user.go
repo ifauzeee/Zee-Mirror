@@ -6,12 +6,12 @@ import (
 )
 
 type User struct {
-	ID                int64        `json:"id"`
-	Username          string       `json:"username"`
-	Role              string       `json:"role"`
-	MaxDailyTasks     int          `json:"maxDailyTasks"`
-	MaxDailyBandwidth int64        `json:"maxDailyBandwidth"`
 	ExpiresAt         sql.NullTime `json:"expiresAt"`
 	CreatedAt         time.Time    `json:"createdAt"`
+	Username          string       `json:"username"`
+	Role              string       `json:"role"`
+	ID                int64        `json:"id"`
+	MaxDailyBandwidth int64        `json:"maxDailyBandwidth"`
+	MaxDailyTasks     int          `json:"maxDailyTasks"`
 	IsActive          bool         `json:"isActive"`
 }

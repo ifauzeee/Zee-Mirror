@@ -23,9 +23,8 @@ func NewYTDLPEngine(configDir string) *YTDLPEngine {
 }
 
 func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
-
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		return fmt.Errorf("failed to create output dir: %v", err)
+	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
+		return fmt.Errorf("failed to create output dir: %v", errDir)
 	}
 
 	args := e.buildYTDLPArgs(task, outputDir)

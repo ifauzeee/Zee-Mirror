@@ -7,12 +7,10 @@ vars:
 
 tasks:
   default:
-    desc: List all tasks
     cmds:
       - task --list
 
   build:
-    desc: Build the binary
     cmds:
       - go build -o {{.BINARY_NAME}}{{.EXE}} {{.ENTRY_POINT}}
     sources:
@@ -21,67 +19,68 @@ tasks:
       - "{{.BINARY_NAME}}{{.EXE}}"
 
   run:
-    desc: Run the application directly (dev mode)
     cmds:
       - go run {{.ENTRY_POINT}}
 
   clean:
-    desc: Remove previous build
     cmds:
       - rm -f {{.BINARY_NAME}}{{.EXE}}
-      - rm -f {{.BINARY_NAME}} 
+      - rm -f {{.BINARY_NAME}}
     ignore_error: true
 
   test:
-    desc: Run tests
     cmds:
       - go test -v ./...
 
   lint:
-    desc: Run golangci-lint
     cmds:
       - golangci-lint run ./...
 
   fmt:
-    desc: Format code
     cmds:
       - go fmt ./...
+      - go install golang.org/x/tools/cmd/goimports@latest
+      - goimports -w .
+
+  vet:
+    cmds:
+      - go vet ./...
+
+  security:
+    cmds:
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      - govulncheck ./...
 
   tidy:
-    desc: Tidy go modules
     cmds:
       - go mod tidy
 
   check:
-    desc: Run formatting, linting, and tests
     cmds:
       - task: tidy
       - task: fmt
+      - task: vet
+      - task: security
       - task: lint
       - task: test
 
   all:
-    desc: Run checks and build
     cmds:
       - task: check
       - task: build
 
   pre-push:
-    desc: Safety check before pushing
     cmds:
       - task: check
 
   up:
-    desc: Start the bot using Docker Compose
     cmds:
       - docker compose up -d --build
 
   down:
-    desc: Stop Docker Compose services
     cmds:
       - docker compose down
 
   logs:
-    desc: View clean bot logs (no prefix)
     cmds:
       - docker compose logs -f --no-log-prefix zee-mirror

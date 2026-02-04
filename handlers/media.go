@@ -23,28 +23,28 @@ type FFProbeOutput struct {
 }
 
 type FFStream struct {
-	Index              int               `json:"index"`
+	Tags               map[string]string `json:"tags,omitempty"`
 	CodecName          string            `json:"codec_name"`
 	CodecType          string            `json:"codec_type"`
-	Width              int               `json:"width,omitempty"`
-	Height             int               `json:"height,omitempty"`
 	DisplayAspectRatio string            `json:"display_aspect_ratio,omitempty"`
 	PixFmt             string            `json:"pix_fmt,omitempty"`
 	RFrameRate         string            `json:"r_frame_rate,omitempty"`
 	BitRate            string            `json:"bit_rate,omitempty"`
-	Channels           int               `json:"channels,omitempty"`
 	ChannelLayout      string            `json:"channel_layout,omitempty"`
 	SampleRate         string            `json:"sample_rate,omitempty"`
-	Tags               map[string]string `json:"tags,omitempty"`
+	Index              int               `json:"index"`
+	Width              int               `json:"width,omitempty"`
+	Height             int               `json:"height,omitempty"`
+	Channels           int               `json:"channels,omitempty"`
 }
 
 type FFFormat struct {
 	Filename   string `json:"filename"`
-	NbStreams  int    `json:"nb_streams"`
 	FormatName string `json:"format_name"`
 	Duration   string `json:"duration"`
 	Size       string `json:"size"`
 	BitRate    string `json:"bit_rate"`
+	NbStreams  int    `json:"nb_streams"`
 }
 
 func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) {
@@ -84,7 +84,7 @@ func (s *BotService) HandleExtractAudio(message *tgbotapi.Message, args string) 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	if hasAudio, err := s.HasAudioStream(inputPath); err != nil || !hasAudio {
+	if hasAudio, errAudio := s.HasAudioStream(inputPath); errAudio != nil || !hasAudio {
 		s.editMessage(sent.Chat.ID, sent.MessageID, GetErrorMessage("NO AUDIO", "Video ini tidak memiliki track audio untuk di\\-extract\\."))
 		return
 	}
@@ -325,6 +325,7 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 	defer cancel()
 
 	inputDir := filepath.Dir(videoPath)
+	// #nosec G204
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(videoPath),
 		"-i", "file:"+subPath,
 		"-c", "copy", "-c:s", "mov_text",
@@ -406,8 +407,10 @@ func (s *BotService) HandleConvertFormat(message *tgbotapi.Message, args string)
 	var cmd *exec.Cmd
 	switch targetFormat {
 	case "mp3", "aac", "flac", "wav":
+		// #nosec G204
 		cmd = exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(inputPath), "-vn", filepath.Base(outputPath), "-y")
 	default:
+		// #nosec G204
 		cmd = exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(inputPath), "-c:v", "copy", "-c:a", "copy", filepath.Base(outputPath), "-y")
 	}
 	cmd.Dir = inputDir
@@ -682,6 +685,7 @@ func (s *BotService) generateScreenshotsList(inputPath string, count int) ([]str
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
+	// #nosec G204
 	durationCmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration",
 		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+inputPath)
 	durationOutput, err := durationCmd.Output()
@@ -707,6 +711,7 @@ func (s *BotService) generateScreenshotsList(inputPath string, count int) ([]str
 		outputPath := fmt.Sprintf("%s_ss%d.jpg", baseName, i)
 
 		shotCtx, shotCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// #nosec G204
 		cmd := exec.CommandContext(shotCtx, "ffmpeg", "-ss", fmt.Sprintf("%.2f", timestamp),
 			"-i", "file:"+inputPath, "-vframes", "1", "-q:v", "2", "file:"+outputPath, "-y")
 

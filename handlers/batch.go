@@ -20,32 +20,32 @@ import (
 )
 
 type BatchTask struct {
-	ID          string
-	Name        string
-	URLs        []string
-	SubTasks    []*Task
-	Status      TaskStatus
-	ChatID      int64
-	MessageID   int
-	UserID      int64
 	CreatedAt   time.Time
 	CompletedAt time.Time
-	ZipAll      bool
+	Ctx         context.Context
+	ID          string
+	Name        string
 	Password    string
-	Priority    int
-	TotalSize   int64
-	Downloaded  int64
-	Progress    float64
 	Error       string
 	LocalPath   string
 	RemotePath  string
 	RemoteURL   string
-	Ctx         context.Context
+	DownloadDir string
+	Status      TaskStatus
 	CancelFunc  context.CancelFunc
+	SubTasks    []*Task
+	URLs        []string
 	Mu          sync.RWMutex
+	TotalSize   int64
+	Downloaded  int64
+	UserID      int64
+	ChatID      int64
+	Progress    float64
+	MessageID   int
 	Completed   int
 	Failed      int
-	DownloadDir string
+	Priority    int
+	ZipAll      bool
 }
 
 type BatchManager struct {
@@ -62,11 +62,11 @@ func NewBatchManager() *BatchManager {
 }
 
 type BatchOptions struct {
-	URLs     []string
 	Name     string
-	ZipAll   bool
 	Password string
+	URLs     []string
 	Priority int
+	ZipAll   bool
 }
 
 func parseBatchArguments(args string) *BatchOptions {
@@ -274,7 +274,7 @@ func (s *BotService) processBatchTask(batch *BatchTask) {
 		wg.Add(1)
 		semaphore <- struct{}{}
 
-		go func(idx int, downloadURL string) {
+		go func(idx int, _ string) {
 			defer wg.Done()
 			defer func() { <-semaphore }()
 

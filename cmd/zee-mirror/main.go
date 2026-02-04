@@ -50,7 +50,7 @@ func main() {
 
 	service := handlers.NewBotService(bot, cfg, db)
 
-	apiServer := api.NewAPIServer(service, cfg.DashboardPort)
+	apiServer := api.NewServer(service, cfg.DashboardPort)
 	apiServer.Start()
 
 	r := router.NewRouter(service)

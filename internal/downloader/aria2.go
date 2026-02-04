@@ -25,9 +25,8 @@ func NewAria2Engine(configDir string) *Aria2Engine {
 }
 
 func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
-
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		return fmt.Errorf("failed to create output dir: %v", err)
+	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
+		return fmt.Errorf("failed to create output dir: %v", errDir)
 	}
 
 	args := e.buildAria2Args(task, outputDir)
@@ -37,8 +36,8 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 		return fmt.Errorf("failed to get stdout pipe: %v", err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("aria2c failed to start: %v", err)
+	if errStart := cmd.Start(); errStart != nil {
+		return fmt.Errorf("aria2c failed to start: %v", errStart)
 	}
 
 	go e.parseProgress(stdout, onProgress)

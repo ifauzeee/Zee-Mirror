@@ -320,9 +320,9 @@ func (s *BotService) parseYTDLPFormats(output []byte) (map[int]float64, error) {
 	var data struct {
 		Formats []struct {
 			FormatID string  `json:"format_id"`
-			Height   int     `json:"height"`
-			FPS      float64 `json:"fps"`
 			VCodec   string  `json:"vcodec"`
+			FPS      float64 `json:"fps"`
+			Height   int     `json:"height"`
 		} `json:"formats"`
 	}
 
@@ -718,7 +718,7 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 	var fileURL string
 	if filepath.IsAbs(tgFile.FilePath) {
 		translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
-		if _, err := os.Stat(translatedPath); err == nil {
+		if _, errStat := os.Stat(translatedPath); errStat == nil {
 			slog.Info("Local TG file detected", "path", translatedPath)
 			fileURL = "file://" + translatedPath
 		}
@@ -795,13 +795,11 @@ func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
 				lastUpdate = time.Now()
 			}
 		} else {
-
 			break
 		}
 
 		if currentSize == lastSize {
 			sameSizeCount++
-
 		} else {
 			sameSizeCount = 0
 		}

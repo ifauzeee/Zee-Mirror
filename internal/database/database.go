@@ -430,7 +430,7 @@ func (db *DB) UpdateStatus(ctx context.Context, taskID, status, errorMsg string)
 	return err
 }
 
-func (db *DB) SetTaskRecoverable(ctx context.Context, taskID string, recoverable bool) error {
+func (db *DB) SetTaskRecoverable(_ context.Context, _ string, _ bool) error {
 	return nil
 }
 

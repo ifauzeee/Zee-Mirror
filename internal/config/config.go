@@ -11,20 +11,20 @@ import (
 type Config struct {
 	BotToken                 string
 	TelegramAPI              string
-	OwnerID                  int64
-	AuthorizedUsers          []int64
 	RcloneDest               string
-	MaxConcurrentDownloads   int
 	DownloadDir              string
 	ConfigDir                string
 	DashboardToken           string
-	DashboardPort            int
 	LogLevel                 string
-	SmartAutoOrganization    bool
 	IndexURL                 string
 	DashboardURL             string
-	DefaultMaxDailyTasks     int
+	AuthorizedUsers          []int64
+	OwnerID                  int64
 	DefaultMaxDailyBandwidth int64
+	MaxConcurrentDownloads   int
+	DashboardPort            int
+	DefaultMaxDailyTasks     int
+	SmartAutoOrganization    bool
 	StopDuplicate            bool
 }
 

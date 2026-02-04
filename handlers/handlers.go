@@ -59,8 +59,8 @@ const (
 )
 
 type Task struct {
-	domain.Task
 	DB repository.TaskRepository
+	domain.Task
 }
 
 type TaskSnapshot = domain.TaskSnapshot
@@ -72,29 +72,28 @@ type TorrentSession = domain.TorrentSession
 type TorrentFile = domain.TorrentFile
 
 type TaskManager struct {
+	Bot                  *tgbotapi.BotAPI
+	DB                   repository.TaskRepository
+	Aria2Engine          downloader.DownloadEngine
+	YTDLPEngine          downloader.DownloadEngine
 	Tasks                map[string]*Task
 	Queue                chan *Task
-	ActiveCount          int
-	MaxConcurrent        int
+	LastStatusMsg        map[int64]int
+	StatusPages          map[int64]int
+	YTDLPSessions        map[string]*YTDLPSession
+	TorrentSessions      map[string]*TorrentSession
+	ShutdownChan         chan struct{}
+	ProcessTaskFunc      func(*Task)
+	RefreshDashboardFunc func(int64, bool)
 	DownloadDir          string
 	RcloneDest           string
 	ConfigDir            string
-	YTDLPSessions        map[string]*YTDLPSession
-	TorrentSessions      map[string]*TorrentSession
-	StopDuplicate        bool
 	Mu                   sync.RWMutex
-	StatusMu             sync.Mutex
 	Wg                   sync.WaitGroup
-	ShutdownChan         chan struct{}
-	Bot                  *tgbotapi.BotAPI
-	DB                   repository.TaskRepository
-	LastStatusMsg        map[int64]int
-	StatusPages          map[int64]int
-	ProcessTaskFunc      func(*Task)
-	RefreshDashboardFunc func(int64, bool)
-
-	Aria2Engine downloader.DownloadEngine
-	YTDLPEngine downloader.DownloadEngine
+	StatusMu             sync.Mutex
+	ActiveCount          int
+	MaxConcurrent        int
+	StopDuplicate        bool
 }
 
 type DuplicateTaskError struct {
@@ -225,8 +224,8 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		tm.Mu.RUnlock()
 
 		if tm.DB != nil {
-			oldTask, err := tm.DB.GetCompletedTaskByURL(context.Background(), url)
-			if err == nil && oldTask != nil {
+			oldTask, errDB := tm.DB.GetCompletedTaskByURL(context.Background(), url)
+			if errDB == nil && oldTask != nil {
 				return nil, &DuplicateTaskError{
 					Message:   "file already exists in cloud/database from previous download",
 					RemoteURL: oldTask.RemoteURL,

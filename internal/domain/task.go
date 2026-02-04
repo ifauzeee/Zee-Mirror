@@ -32,41 +32,39 @@ const (
 )
 
 type Task struct {
-	ID             string
-	GID            string
-	Type           TaskType
-	Status         TaskStatus
-	URL            string
-	FileName       string
-	LocalPath      string
-	RemotePath     string
-	RemoteURL      string
-	TotalSize      int64
-	DownloadedSize int64
-	UploadedSize   int64
-	Speed          int64
-	Connections    int
-	ETA            time.Duration
-	Progress       float64
-	Error          string
-	ChatID         int64
-	MessageID      int
-	UserID         int64
-	CreatedAt      time.Time
-	StartedAt      time.Time
-	CompletedAt    time.Time
-
-	Zip             bool
-	Unzip           bool
+	Ctx             context.Context
+	CancelFunc      context.CancelFunc
+	CreatedAt       time.Time
+	StartedAt       time.Time
+	CompletedAt     time.Time
+	ID              string
+	GID             string
+	URL             string
+	FileName        string
+	LocalPath       string
+	RemotePath      string
+	RemoteURL       string
+	Error           string
 	Password        string
 	Quality         string
 	OrigFileName    string
+	Type            TaskType
+	Status          TaskStatus
+	Mu              sync.RWMutex
+	TotalSize       int64
+	DownloadedSize  int64
+	UploadedSize    int64
+	Speed           int64
+	UserID          int64
+	ChatID          int64
+	ETA             time.Duration
+	Progress        float64
+	Connections     int
+	MessageID       int
 	ResultMessageID int
 	ReplyMessageID  int
-
-	Ctx        context.Context
-	CancelFunc context.CancelFunc
-	Mu         sync.RWMutex
+	Zip             bool
+	Unzip           bool
 }
 
 type TaskRecord struct {
@@ -79,28 +77,28 @@ type TaskRecord struct {
 	LocalPath      string
 	RemotePath     string
 	RemoteURL      string
+	Password       string
+	Error          string
+	CreatedAt      time.Time
+	CompletedAt    sql.NullTime
 	TotalSize      int64
 	DownloadedSize int64
 	UploadedSize   int64
 	ChatID         int64
 	UserID         int64
-	CreatedAt      time.Time
-	CompletedAt    sql.NullTime
 	Zip            bool
 	Unzip          bool
-	Password       string
-	Error          string
 }
 
 type UserStats struct {
-	UserID          int64
+	LastActive      time.Time
 	Username        string
+	UserID          int64
+	TotalBandwidth  int64
 	TotalDownloads  int
 	TotalUploads    int
-	TotalBandwidth  int64
 	SuccessfulTasks int
 	FailedTasks     int
-	LastActive      time.Time
 }
 
 type DailyStats struct {
@@ -114,36 +112,36 @@ type DailyStats struct {
 }
 
 type TaskSnapshot struct {
+	CreatedAt       time.Time     `json:"createdAt"`
+	StartedAt       time.Time     `json:"startedAt"`
+	CompletedAt     time.Time     `json:"completedAt"`
 	ID              string        `json:"id"`
 	GID             string        `json:"gid"`
-	Type            TaskType      `json:"type"`
-	Status          TaskStatus    `json:"status"`
 	URL             string        `json:"url"`
 	FileName        string        `json:"fileName"`
 	LocalPath       string        `json:"localPath"`
 	RemotePath      string        `json:"remotePath"`
 	RemoteURL       string        `json:"remoteURL"`
+	Error           string        `json:"error"`
+	Password        string        `json:"password"`
+	Quality         string        `json:"quality"`
+	OrigFileName    string        `json:"origFileName"`
+	Type            TaskType      `json:"type"`
+	Status          TaskStatus    `json:"status"`
 	TotalSize       int64         `json:"totalSize"`
 	DownloadedSize  int64         `json:"downloadedSize"`
 	UploadedSize    int64         `json:"uploadedSize"`
 	Speed           int64         `json:"speed"`
-	Connections     int           `json:"connections"`
+	ChatID          int64         `json:"chatID"`
+	UserID          int64         `json:"userID"`
 	ETA             time.Duration `json:"eta"`
 	Progress        float64       `json:"progress"`
-	Error           string        `json:"error"`
-	ChatID          int64         `json:"chatID"`
+	Connections     int           `json:"connections"`
 	MessageID       int           `json:"messageID"`
-	UserID          int64         `json:"userID"`
-	CreatedAt       time.Time     `json:"createdAt"`
-	StartedAt       time.Time     `json:"startedAt"`
-	CompletedAt     time.Time     `json:"completedAt"`
-	Zip             bool          `json:"zip"`
-	Unzip           bool          `json:"unzip"`
-	Password        string        `json:"password"`
-	Quality         string        `json:"quality"`
-	OrigFileName    string        `json:"origFileName"`
 	ResultMessageID int           `json:"resultMessageID"`
 	ReplyMessageID  int           `json:"replyMessageID"`
+	Zip             bool          `json:"zip"`
+	Unzip           bool          `json:"unzip"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {

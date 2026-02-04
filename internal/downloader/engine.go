@@ -7,14 +7,14 @@ import (
 )
 
 type ProgressUpdate struct {
+	FileName    string
+	Error       string
 	Downloaded  int64
 	Total       int64
 	Speed       int64
 	Progress    float64
 	ETA         time.Duration
 	Connections int
-	FileName    string
-	Error       string
 }
 
 func (p ProgressUpdate) Found() bool {

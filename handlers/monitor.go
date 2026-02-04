@@ -16,19 +16,19 @@ import (
 )
 
 type SystemStats struct {
+	StartTime   time.Time
+	Uptime      time.Duration
 	CPUUsage    float64
+	DiskUsage   float64
 	MemoryTotal uint64
 	MemoryUsed  uint64
 	MemoryFree  uint64
 	DiskTotal   uint64
 	DiskUsed    uint64
 	DiskFree    uint64
-	DiskUsage   float64
-	Uptime      time.Duration
 	GoRoutines  int
 	ActiveTasks int
 	QueuedTasks int
-	StartTime   time.Time
 }
 
 var botStartTime = time.Now()
@@ -297,7 +297,7 @@ func (s *BotService) formatHealthCheck(checks []HealthCheck) string {
 	return ProfessionalMessage("HEALTH CHECK", content.String())
 }
 
-func (s *BotService) HandleLogs(message *tgbotapi.Message, args string) {
+func (s *BotService) HandleLogs(message *tgbotapi.Message, _ string) {
 	if !s.IsAdmin(message.From.ID) {
 		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Admin yang bisa melihat logs\\."))
 		return

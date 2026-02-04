@@ -7,13 +7,13 @@ import (
 
 func TestFormatBytes(t *testing.T) {
 	tests := []struct {
-		input    int64
 		expected string
+		input    int64
 	}{
-		{100, "100 B"},
-		{1024, "1.00 KB"},
-		{1048576, "1.00 MB"},
-		{1073741824, "1.00 GB"},
+		{"100 B", 100},
+		{"1.00 KB", 1024},
+		{"1.00 MB", 1048576},
+		{"1.00 GB", 1073741824},
 	}
 
 	for _, test := range tests {
@@ -26,12 +26,12 @@ func TestFormatBytes(t *testing.T) {
 
 func TestFormatDuration(t *testing.T) {
 	tests := []struct {
-		input    time.Duration
 		expected string
+		input    time.Duration
 	}{
-		{10 * time.Second, "10s"},
-		{65 * time.Second, "1m 5s"},
-		{3665 * time.Second, "1h 1m 5s"},
+		{"10s", 10 * time.Second},
+		{"1m 5s", 65 * time.Second},
+		{"1h 1m 5s", 3665 * time.Second},
 	}
 
 	for _, test := range tests {

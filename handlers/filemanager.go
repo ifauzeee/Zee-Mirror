@@ -19,11 +19,11 @@ import (
 type DriveFile struct {
 	ID       string `json:"ID"`
 	Name     string `json:"Name"`
-	Size     int64  `json:"Size"`
 	MimeType string `json:"MimeType"`
-	ModTime  string `json:"ModTime"`
-	IsDir    bool   `json:"IsDir"`
 	Path     string `json:"Path"`
+	ModTime  string `json:"ModTime"`
+	Size     int64  `json:"Size"`
+	IsDir    bool   `json:"IsDir"`
 }
 
 func (s *BotService) HandleDriveList(message *tgbotapi.Message, args string, editMessageID int) {
@@ -769,7 +769,7 @@ func (s *BotService) getDriveMetadata(ctx context.Context, targetPath, configPat
 	}
 
 	var files []DriveFile
-	if errJson := json.Unmarshal(output, &files); errJson == nil && len(files) > 0 {
+	if errJSON := json.Unmarshal(output, &files); errJSON == nil && len(files) > 0 {
 		file := files[0]
 		slog.Debug("Drive metadata found", "name", file.Name, "size", file.Size)
 		return file

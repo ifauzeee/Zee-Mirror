@@ -11,7 +11,7 @@ import (
 func TestRouter_HandleMessage(t *testing.T) {
 	r := NewRouter(nil)
 	called := false
-	r.RegisterCommand("testcmd", func(s *handlers.BotService, msg *tgbotapi.Message) {
+	r.RegisterCommand("testcmd", func(_ *handlers.BotService, _ *tgbotapi.Message) {
 		called = true
 	})
 
@@ -31,7 +31,7 @@ func TestRouter_HandleMessage(t *testing.T) {
 func TestRouter_HandleCallback(t *testing.T) {
 	r := NewRouter(nil)
 	called := false
-	r.RegisterCallback("testcb", func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
+	r.RegisterCallback("testcb", func(_ *handlers.BotService, _ *tgbotapi.CallbackQuery) {
 		called = true
 	})
 

@@ -51,7 +51,7 @@ func ParseYTDLPLine(line string) YTDLPProgress {
 
 func ParseYTDLPDuration(s string) (time.Duration, error) {
 	parts := strings.Split(s, ":")
-	var h, m, s_ int
+	var h, m, sec int
 	var err error
 
 	switch len(parts) {
@@ -64,7 +64,7 @@ func ParseYTDLPDuration(s string) (time.Duration, error) {
 		if err != nil {
 			return 0, err
 		}
-		s_, err = strconv.Atoi(parts[2])
+		sec, err = strconv.Atoi(parts[2])
 		if err != nil {
 			return 0, err
 		}
@@ -73,12 +73,12 @@ func ParseYTDLPDuration(s string) (time.Duration, error) {
 		if err != nil {
 			return 0, err
 		}
-		s_, err = strconv.Atoi(parts[1])
+		sec, err = strconv.Atoi(parts[1])
 		if err != nil {
 			return 0, err
 		}
 	case 1:
-		s_, err = strconv.Atoi(parts[0])
+		sec, err = strconv.Atoi(parts[0])
 		if err != nil {
 			return 0, err
 		}
@@ -86,5 +86,5 @@ func ParseYTDLPDuration(s string) (time.Duration, error) {
 		return 0, strconv.ErrSyntax
 	}
 
-	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s_)*time.Second, nil
+	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(sec)*time.Second, nil
 }

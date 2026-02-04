@@ -20,21 +20,21 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-type APIServer struct {
+type Server struct {
 	Service *handlers.BotService
-	Port    int
 	Hub     *Hub
+	Port    int
 }
 
-func NewAPIServer(service *handlers.BotService, port int) *APIServer {
-	return &APIServer{
+func NewServer(service *handlers.BotService, port int) *Server {
+	return &Server{
 		Service: service,
 		Port:    port,
 		Hub:     NewHub(),
 	}
 }
 
-func (s *APIServer) Start() {
+func (s *Server) Start() {
 	mux := http.NewServeMux()
 
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
@@ -97,7 +97,7 @@ func (s *APIServer) Start() {
 	}()
 }
 
-func (s *APIServer) broadcastLoop() {
+func (s *Server) broadcastLoop() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -138,7 +138,7 @@ func (s *APIServer) broadcastLoop() {
 	}
 }
 
-func (s *APIServer) handleStats(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	stats, _ := s.Service.DB.GetBotStats(ctx)
 	usersCount, _ := s.Service.DB.GetCount(ctx)
@@ -150,7 +150,7 @@ func (s *APIServer) handleStats(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(stats)
 }
 
-func (s *APIServer) handleTasks(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodDelete {
 		taskID := r.URL.Query().Get("id")
 		if taskID != "" {
@@ -168,24 +168,27 @@ func (s *APIServer) handleTasks(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(snapshots)
 }
 
-func (s *APIServer) handleSettings(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if r.Method == http.MethodPost {
-		var newSettings struct {
-			AutoDeleteMessages bool   `json:"AutoDeleteMessages"`
+		var settingsUpdate struct {
 			DefaultMode        string `json:"DefaultMode"`
+			AutoDeleteMessages bool   `json:"AutoDeleteMessages"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&newSettings); err == nil {
-			s.Service.Settings.Mu.Lock()
-			s.Service.Settings.AutoDeleteMessages = newSettings.AutoDeleteMessages
-			s.Service.Settings.DefaultMode = newSettings.DefaultMode
-			s.Service.Settings.Mu.Unlock()
-
-			_ = s.Service.SettingsRepo.Set(ctx, "auto_delete_messages", fmt.Sprintf("%v", newSettings.AutoDeleteMessages))
-			_ = s.Service.SettingsRepo.Set(ctx, "default_mode", newSettings.DefaultMode)
-			w.WriteHeader(http.StatusOK)
+		if err := json.NewDecoder(r.Body).Decode(&settingsUpdate); err != nil {
+			http.Error(w, "Invalid settings", http.StatusBadRequest)
 			return
 		}
+
+		s.Service.Settings.Mu.Lock()
+		s.Service.Settings.AutoDeleteMessages = settingsUpdate.AutoDeleteMessages
+		s.Service.Settings.DefaultMode = settingsUpdate.DefaultMode
+		s.Service.Settings.Mu.Unlock()
+
+		_ = s.Service.SettingsRepo.Set(ctx, "auto_delete_messages", fmt.Sprintf("%v", settingsUpdate.AutoDeleteMessages))
+		_ = s.Service.SettingsRepo.Set(ctx, "default_mode", settingsUpdate.DefaultMode)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	s.Service.Settings.Mu.RLock()
@@ -194,7 +197,7 @@ func (s *APIServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(s.Service.Settings)
 }
 
-func (s *APIServer) handleSystem(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleSystem(w http.ResponseWriter, _ *http.Request) {
 	v, _ := mem.VirtualMemory()
 	c, _ := cpu.Percent(time.Second, false)
 	d, _ := disk.Usage("/")
@@ -217,7 +220,7 @@ func (s *APIServer) handleSystem(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(sysInfo)
 }
 
-func (s *APIServer) handleExplorer(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	fullPath := filepath.Join(s.Service.Config.DownloadDir, path)
 
@@ -268,7 +271,7 @@ func (s *APIServer) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
-func (s *APIServer) shouldSkipFile(path, name string) bool {
+func (s *Server) shouldSkipFile(path, name string) bool {
 	if path == "" {
 		if strings.Contains(name, ":") || len(name) > 40 {
 			return true
@@ -280,7 +283,7 @@ func (s *APIServer) shouldSkipFile(path, name string) bool {
 	return false
 }
 
-func (s *APIServer) resolveFileStatus(f os.DirEntry, name, fullPath string) (string, string) {
+func (s *Server) resolveFileStatus(f os.DirEntry, name, fullPath string) (string, string) {
 	displayName := name
 	status := "folder"
 	if !f.IsDir() {
@@ -298,16 +301,15 @@ func (s *APIServer) resolveFileStatus(f os.DirEntry, name, fullPath string) (str
 		}
 
 		subPath := filepath.Join(fullPath, name)
-		if subFiles, err := os.ReadDir(subPath); err == nil && len(subFiles) > 0 {
+		if subFiles, errDir := os.ReadDir(subPath); errDir == nil && len(subFiles) > 0 {
 			return subFiles[0].Name(), "orphan"
-		} else {
-			return "", "ignore"
 		}
+		return "", "ignore"
 	}
 	return displayName, status
 }
 
-func (s *APIServer) handleRemoteExplorer(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRemoteExplorer(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	remotePath := s.Service.Config.RcloneDest
 	if path != "" {
@@ -345,7 +347,7 @@ func (s *APIServer) handleRemoteExplorer(w http.ResponseWriter, r *http.Request)
 	_, _ = w.Write(output)
 }
 
-func (s *APIServer) handleRemoteLink(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRemoteLink(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	remotePath := s.Service.Config.RcloneDest
 	if path != "" {
@@ -365,7 +367,7 @@ func (s *APIServer) handleRemoteLink(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"link": strings.TrimSpace(string(output))})
 }
 
-func (s *APIServer) handleWipeOrphans(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleWipeOrphans(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -392,14 +394,14 @@ func (s *APIServer) handleWipeOrphans(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"wiped": count})
 }
 
-func (s *APIServer) handleAnalytics(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	weekly, _ := s.Service.DB.GetWeeklyStats(ctx)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(weekly)
 }
 
-func (s *APIServer) handleLogs(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleLogs(w http.ResponseWriter, _ *http.Request) {
 	logPath := filepath.Clean(filepath.Join(s.Service.Config.ConfigDir, "zee-mirror.log"))
 	if !strings.HasPrefix(logPath, filepath.Clean(s.Service.Config.ConfigDir)) {
 		http.Error(w, "Access denied", http.StatusForbidden)
@@ -425,7 +427,7 @@ func (s *APIServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *APIServer) handleTorrentSession(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTorrentSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("id")
 	if sessionID == "" {
 		http.Error(w, "Session ID required", http.StatusBadRequest)
@@ -453,7 +455,7 @@ func (s *APIServer) handleTorrentSession(w http.ResponseWriter, r *http.Request)
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("id")
 	if sessionID == "" {
 		http.Error(w, "Session ID required", http.StatusBadRequest)
@@ -498,7 +500,7 @@ func (s *APIServer) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *APIServer) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -532,7 +534,7 @@ func (s *APIServer) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	users, err := s.Service.DB.GetAll(ctx)
 	if err != nil {
@@ -545,18 +547,18 @@ func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(users)
 }
 
-func (s *APIServer) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req struct {
-		ID                int64  `json:"id"`
 		Role              string `json:"role"`
-		MaxDailyTasks     int    `json:"maxDailyTasks"`
-		MaxDailyBandwidth int64  `json:"maxDailyBandwidth"`
 		ExpiresAt         string `json:"expiresAt"`
+		ID                int64  `json:"id"`
+		MaxDailyBandwidth int64  `json:"maxDailyBandwidth"`
+		MaxDailyTasks     int    `json:"maxDailyTasks"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -578,17 +580,13 @@ func (s *APIServer) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.ExpiresAt != "" {
-		exp, err := time.Parse(time.RFC3339, req.ExpiresAt)
-		if err == nil {
+		if exp, err := time.Parse(time.RFC3339, req.ExpiresAt); err == nil {
 			if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
 				slog.Error("Failed to update expiration", "error", err)
 			}
-		} else {
-			exp, err = time.Parse("2006-01-02", req.ExpiresAt)
-			if err == nil {
-				if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
-					slog.Error("Failed to update expiration", "error", err)
-				}
+		} else if exp, err := time.Parse("2006-01-02", req.ExpiresAt); err == nil {
+			if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
+				slog.Error("Failed to update expiration", "error", err)
 			}
 		}
 	}
@@ -597,7 +595,7 @@ func (s *APIServer) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
-func (s *APIServer) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return

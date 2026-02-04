@@ -22,10 +22,10 @@ type BotService struct {
 	BatchManager  *BatchManager
 	Settings      *Settings
 	Config        *config.Config
+	Notifications *NotificationService
 	DB            repository.FullRepository
 	UserRepo      repository.UserRepository
 	SettingsRepo  repository.SettingsRepository
-	Notifications *NotificationService
 	PathCache     sync.Map
 }
 
@@ -212,5 +212,4 @@ func (s *BotService) handleCreateTaskError(chatID int64, messageID int, err erro
 			return
 		}
 	}
-
 }

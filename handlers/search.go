@@ -27,11 +27,11 @@ type SearchResult struct {
 }
 
 type SearchSession struct {
+	CreatedAt time.Time
 	Query     string
 	Provider  string
 	Results   []SearchResult
 	Page      int
-	CreatedAt time.Time
 }
 
 var (
@@ -91,7 +91,6 @@ func (s *BotService) HandleSearchCallback(callback *tgbotapi.CallbackQuery, part
 	}
 
 	if len(results) == 0 {
-
 		sessionID := uuid.New().String()[:8]
 		session := &SearchSession{
 			Query:     query,
@@ -369,8 +368,8 @@ func searchSolidTorrents(query string) []SearchResult {
 	var data struct {
 		Results []struct {
 			Title   string `json:"title"`
-			Size    int64  `json:"size"`
 			Magnet  string `json:"magnet"`
+			Size    int64  `json:"size"`
 			Seeders int    `json:"seeders"`
 		} `json:"results"`
 	}
@@ -421,8 +420,8 @@ func scrapeNyaa(query string) []SearchResult {
 		return results
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("Error closing Nyaa response body", "error", err)
+		if errClose := resp.Body.Close(); errClose != nil {
+			slog.Warn("Error closing Nyaa response body", "error", errClose)
 		}
 	}()
 
@@ -438,7 +437,7 @@ func scrapeNyaa(query string) []SearchResult {
 		return results
 	}
 
-	doc.Find("table.torrent-list tbody tr").Each(func(i int, s *goquery.Selection) {
+	doc.Find("table.torrent-list tbody tr").Each(func(_ int, s *goquery.Selection) {
 		if len(results) >= 20 {
 			return
 		}

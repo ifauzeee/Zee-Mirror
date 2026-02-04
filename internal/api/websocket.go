@@ -20,7 +20,7 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		return true
 	},
 }
@@ -87,7 +87,7 @@ type Client struct {
 	send chan []byte
 }
 
-func (s *APIServer) handleWebsocket(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token != s.Service.Config.DashboardToken {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

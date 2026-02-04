@@ -282,27 +282,27 @@ func (s *BotService) generateDirectoryLink(ctx context.Context, task *Task, conf
 	}
 	idCmd := exec.CommandContext(ctx, "rclone", idArgs...)
 	idOutput, idErr := idCmd.Output()
-	if idErr == nil {
+	if idErr != nil {
+		slog.Error("Failed to list parent directory contents", "error", idErr)
+	} else {
 		var files []map[string]interface{}
-		if err := json.Unmarshal(idOutput, &files); err == nil {
+		if errUnmarshal := json.Unmarshal(idOutput, &files); errUnmarshal != nil {
+			slog.Error("Could not parse lsjson output", "error", errUnmarshal)
+		} else {
 			for _, file := range files {
 				if name, ok := file["Name"].(string); ok && name == task.FileName {
 					if id, ok := file["ID"].(string); ok {
 						task.RemoteURL = "https://drive.google.com/drive/folders/" + id
 						return
-					} else if id, ok := file["Id"].(string); ok {
+					}
+					if id, ok := file["Id"].(string); ok {
 						task.RemoteURL = "https://drive.google.com/drive/folders/" + id
 						return
-					} else {
-						slog.Warn("Found folder but no ID field in lsjson output", "fileName", task.FileName)
 					}
+					slog.Warn("Found folder but no ID field in lsjson output", "fileName", task.FileName)
 				}
 			}
-		} else {
-			slog.Error("Could not parse lsjson output", "error", err)
 		}
-	} else {
-		slog.Error("Failed to list parent directory contents", "error", idErr)
 	}
 
 	linkArgsParent := []string{
@@ -410,11 +410,11 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 		video := tgbotapi.NewVideo(task.ChatID, tgbotapi.FilePath(filePath))
 		video.Caption = fmt.Sprintf("📄 %s", task.FileName)
 
-		if thumb, err := GenerateThumbnail(filePath, s.TaskManager.DownloadDir); err == nil {
+		if thumb, errThumb := GenerateThumbnail(filePath, s.TaskManager.DownloadDir); errThumb == nil {
 			video.Thumb = tgbotapi.FilePath(thumb)
 			defer func() {
-				if err := os.Remove(thumb); err != nil {
-					slog.Warn("Failed to remove thumbnail", "error", err, "path", thumb)
+				if errRemove := os.Remove(thumb); errRemove != nil {
+					slog.Warn("Failed to remove thumbnail", "error", errRemove, "path", thumb)
 				}
 			}()
 		}

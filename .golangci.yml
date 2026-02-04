@@ -1,41 +1,30 @@
-run:
-  timeout: 5m
-  modules-download-mode: readonly
+linters-settings:
+  govet:
+    enable-all: true
+  gocyclo:
+    min-complexity: 15
+  goconst:
+    min-len: 2
+    min-occurrences: 2
 
 linters:
+  disable-all: true
   enable:
     - errcheck
     - gosimple
     - govet
-    - ineffassign
     - staticcheck
     - unused
     - revive
+    - gosec
+    - gocritic
+    - misspell
+    - bodyclose
     - gofmt
     - goimports
-    - misspell
-    - gosec
-    - bodyclose
-    - unconvert
-    - goconst
-    - gocritic
-    - gocyclo
+    - whitespace
 
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-        disabled: true 
-  gocyclo:
-    min-complexity: 15
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  gosec:
-    excludes:
-      - G204
-
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
