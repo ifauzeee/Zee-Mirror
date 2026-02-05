@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 	"zee-mirror/internal/domain"
@@ -356,6 +357,11 @@ func (tm *TaskManager) GetActiveTasks() []*Task {
 			active = append(active, task)
 		}
 	}
+
+	sort.Slice(active, func(i, j int) bool {
+		return active[i].CreatedAt.After(active[j].CreatedAt)
+	})
+
 	return active
 }
 

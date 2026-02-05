@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -91,13 +92,31 @@ func calculateTotalPages(totalTasks int) int {
 func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTask, page int) string {
 	text := GetStatusHeader()
 
-	allTasks := make([]interface{}, 0)
+	allTasks := make([]interface{}, 0, len(tasks)+len(batches))
 	for _, b := range batches {
 		allTasks = append(allTasks, b)
 	}
 	for _, t := range tasks {
 		allTasks = append(allTasks, t)
 	}
+
+	sort.Slice(allTasks, func(i, j int) bool {
+		var timeI, timeJ time.Time
+
+		if t, ok := allTasks[i].(*Task); ok {
+			timeI = t.CreatedAt
+		} else if b, ok := allTasks[i].(*BatchTask); ok {
+			timeI = b.CreatedAt
+		}
+
+		if t, ok := allTasks[j].(*Task); ok {
+			timeJ = t.CreatedAt
+		} else if b, ok := allTasks[j].(*BatchTask); ok {
+			timeJ = b.CreatedAt
+		}
+
+		return timeI.After(timeJ)
+	})
 
 	totalTasks := len(allTasks)
 	start := page * 5
@@ -111,38 +130,31 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	}
 
 	visibleItems := allTasks[start:end]
-	var visibleTasks []*Task
-	var visibleBatches []*BatchTask
+	var visibleTasksCount, visibleBatchesCount int
 
 	for _, item := range visibleItems {
-		if t, ok := item.(*Task); ok {
-			visibleTasks = append(visibleTasks, t)
-		} else if b, ok := item.(*BatchTask); ok {
-			visibleBatches = append(visibleBatches, b)
+		if batch, ok := item.(*BatchTask); ok {
+			visibleBatchesCount++
+			batch.Mu.RLock()
+			emoji := utils.StatusEmoji(string(batch.Status))
+			batchID := utils.EscapeMarkdownV2(batch.ID)
+			text += fmt.Sprintf("📦 *Batch:* `%s` • %s *%s*\n"+
+				"📈 *Progres:* `%.1f%%` \\(%d/%d\\)\n"+
+				"🚫 *Cancel:* /cancel\\_%s\n\n",
+				batchID,
+				emoji,
+				utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),
+				batch.Progress,
+				batch.Completed,
+				len(batch.SubTasks),
+				batchID,
+			)
+			batch.Mu.RUnlock()
+		} else if task, ok := item.(*Task); ok {
+			visibleTasksCount++
+			snapshot := task.GetSnapshot()
+			text += FormatTaskProfessional(snapshot) + "\n"
 		}
-	}
-
-	for _, batch := range visibleBatches {
-		batch.Mu.RLock()
-		emoji := utils.StatusEmoji(string(batch.Status))
-		batchID := utils.EscapeMarkdownV2(batch.ID)
-		text += fmt.Sprintf("📦 *Batch:* `%s` • %s *%s*\n"+
-			"📈 *Progres:* `%.1f%%` \\(%d/%d\\)\n"+
-			"🚫 *Cancel:* /cancel\\_%s\n\n",
-			batchID,
-			emoji,
-			utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),
-			batch.Progress,
-			batch.Completed,
-			len(batch.SubTasks),
-			batchID,
-		)
-		batch.Mu.RUnlock()
-	}
-
-	for _, task := range visibleTasks {
-		snapshot := task.GetSnapshot()
-		text += FormatTaskProfessional(snapshot) + "\n"
 	}
 
 	totalPages := calculateTotalPages(totalTasks)
@@ -152,9 +164,9 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	}
 
 	if len(batches) > 0 {
-		text += fmt.Sprintf("_Active: %d batches, %d regular tasks_", len(batches), len(visibleTasks))
+		text += fmt.Sprintf("_Active: %d batches, %d regular tasks_", len(batches), visibleTasksCount)
 	} else {
-		text += fmt.Sprintf("_Total: %d task aktif_", len(visibleTasks))
+		text += fmt.Sprintf("_Total: %d task aktif_", visibleTasksCount)
 	}
 
 	return text
