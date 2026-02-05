@@ -530,6 +530,9 @@ func (s *BotService) uploadBatchResults(batch *BatchTask) error {
 		"--drive-chunk-size", "256M",
 		"--drive-upload-cutoff", "256M",
 		"--buffer-size", "128M",
+		"--no-traverse",
+		"--drive-pacer-min-sleep", "10ms",
+		"--drive-pacer-burst", "200",
 		"-v",
 	}
 

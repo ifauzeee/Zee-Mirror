@@ -84,6 +84,9 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 		"--low-level-retries", "10",
 		"--use-mmap",
 		"--size-only",
+		"--no-traverse",
+		"--drive-pacer-min-sleep", "10ms",
+		"--drive-pacer-burst", "200",
 		"-v",
 	}
 

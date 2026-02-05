@@ -131,6 +131,9 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		"--drive-chunk-size", "256M",
 		"--buffer-size", "128M",
 		"--use-mmap",
+		"--no-traverse",
+		"--drive-pacer-min-sleep", "10ms",
+		"--drive-pacer-burst", "200",
 		"-v",
 	}
 	args = append(args, commonArgs...)
