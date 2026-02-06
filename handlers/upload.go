@@ -87,7 +87,7 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 		"--no-traverse",
 		"--drive-pacer-min-sleep", "10ms",
 		"--drive-pacer-burst", "200",
-		"-v",
+		"--log-level", "NOTICE",
 	}
 
 	ctx, cancel := context.WithCancel(task.Ctx)
@@ -95,18 +95,34 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 
 	cmd := exec.CommandContext(ctx, "rclone", args...)
 
-	stderr, err := cmd.StderrPipe()
+	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %v", err)
 	}
 
-	if err := cmd.Start(); err != nil {
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+
+	slog.Info("Starting rclone upload", "taskID", task.ID, "args", strings.Join(args, " "))
+
+	err = cmd.Start()
+	if err != nil {
 		return fmt.Errorf("failed to start rclone: %v", err)
 	}
 
-	go s.parseRcloneProgress(task, stderr)
+	done := make(chan struct{})
 
-	if err := cmd.Wait(); err != nil {
+	go s.estimateUploadProgress(task, done)
+
+	go s.parseRcloneProgress(task, stderrPipe)
+	go s.parseRcloneProgress(task, stdoutPipe)
+
+	err = cmd.Wait()
+	close(done)
+
+	if err != nil {
 		if task.Status == StatusCancelled {
 			return fmt.Errorf("task cancelled")
 		}
@@ -123,8 +139,67 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 	}
 	s.generateRcloneLink(ctx, task, configPath, isDir)
 
+	task.Mu.Lock()
 	task.Progress = 100
+	task.Mu.Unlock()
 	return nil
+}
+
+func (s *BotService) estimateUploadProgress(task *Task, done chan struct{}) {
+	const estimatedSpeedBytesPerSec = 3.5 * 1024 * 1024
+
+	task.Mu.RLock()
+	totalSize := task.TotalSize
+	task.Mu.RUnlock()
+
+	if totalSize <= 0 {
+		return
+	}
+
+	estimatedTotalSeconds := float64(totalSize) / estimatedSpeedBytesPerSec
+	if estimatedTotalSeconds < 3 {
+		return
+	}
+
+	startTime := time.Now()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			elapsed := time.Since(startTime).Seconds()
+
+			estimatedProgress := (elapsed / estimatedTotalSeconds) * 100
+
+			if estimatedProgress > 95 {
+				estimatedProgress = 95
+			}
+
+			estimatedUploaded := int64(elapsed * estimatedSpeedBytesPerSec)
+			if estimatedUploaded > totalSize {
+				estimatedUploaded = totalSize
+			}
+
+			remainingSeconds := estimatedTotalSeconds - elapsed
+			if remainingSeconds < 0 {
+				remainingSeconds = 0
+			}
+
+			task.Mu.Lock()
+			if estimatedProgress > task.Progress {
+				task.Progress = estimatedProgress
+				task.UploadedSize = estimatedUploaded
+				task.Speed = int64(estimatedSpeedBytesPerSec)
+				task.ETA = time.Duration(remainingSeconds) * time.Second
+			}
+			task.Mu.Unlock()
+
+			s.updateTaskStatus(task)
+		}
+	}
 }
 
 func (s *BotService) generateRcloneLink(ctx context.Context, task *Task, configPath string, isDirUpload bool) {
@@ -326,11 +401,12 @@ func (s *BotService) generateDirectoryLink(ctx context.Context, task *Task, conf
 
 func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
-	progressRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
-	speedRegex := regexp.MustCompile(`,\s*(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B/s)`)
-	etaRegex := regexp.MustCompile(`ETA\s+(\S+)`)
+	scanner.Split(utils.ScanLinesWithCR)
+
+	segmentRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)\s*([a-zA-Z]*i?[Bb]?)\s*/\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]*i?[Bb]?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]*i?[Bb]?)/s,\s*ETA\s+([^\d]*)(\d+[smhd](?:\d+[smhd])*)?`)
 
 	lastUpdate := time.Now()
+	lineCount := 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -338,48 +414,86 @@ func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 			continue
 		}
 
-		var progress float64
-		var speed int64
-		var eta time.Duration
-		found := false
+		lineCount++
+		if lineCount <= 3 {
+			slog.Info("Rclone raw output", "taskID", task.ID, "lineLen", len(line))
+		}
 
-		if matches := progressRegex.FindStringSubmatch(line); len(matches) >= 2 {
-			if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
-				progress = pct
-				found = true
+		allMatches := segmentRegex.FindAllStringSubmatch(line, -1)
+
+		if len(allMatches) > 0 {
+			for i, matches := range allMatches {
+				if len(matches) >= 8 {
+					task.Mu.Lock()
+
+					uploadedVal := matches[1] + matches[2]
+					totalVal := matches[3] + matches[4]
+					task.UploadedSize = utils.ParseBytesString(uploadedVal)
+					task.TotalSize = utils.ParseBytesString(totalVal)
+
+					if pct, err := strconv.ParseFloat(matches[5], 64); err == nil {
+						task.Progress = pct
+					}
+
+					speedVal := matches[6] + matches[7]
+					task.Speed = utils.ParseBytesString(speedVal)
+
+					if len(matches) >= 10 && matches[9] != "" {
+						if d, err := time.ParseDuration(matches[9]); err == nil {
+							task.ETA = d
+						}
+					}
+
+					task.Mu.Unlock()
+
+					if i%10 == 0 && time.Since(lastUpdate) >= 2*time.Second {
+						s.updateTaskStatus(task)
+						lastUpdate = time.Now()
+					}
+				}
 			}
-		}
 
-		if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 2 {
-			speed = utils.ParseBytesString(matches[1])
-			found = true
-		}
-
-		if matches := etaRegex.FindStringSubmatch(line); len(matches) >= 2 {
-			if d, err := time.ParseDuration(matches[1]); err == nil {
-				eta = d
-				found = true
+			if time.Since(lastUpdate) >= 2*time.Second {
+				s.updateTaskStatus(task)
+				lastUpdate = time.Now()
 			}
-		}
 
-		if found {
+			slog.Info("Rclone progress parsed", "taskID", task.ID, "segments", len(allMatches), "progress", task.Progress)
+		} else {
+			simpleProgressRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
+			simpleSizeRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)\s*([a-zA-Z]*i?[Bb]?)\s*/\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]*i?[Bb]?)`)
+			simpleSpeedRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)\s*([a-zA-Z]*i?[Bb]?)/s`)
+
 			task.Mu.Lock()
-			if progress > 0 {
-				task.Progress = progress
+
+			if allPct := simpleProgressRegex.FindAllStringSubmatch(line, -1); len(allPct) > 0 {
+				lastPct := allPct[len(allPct)-1]
+				if pct, err := strconv.ParseFloat(lastPct[1], 64); err == nil {
+					task.Progress = pct
+				}
 			}
-			if speed > 0 {
-				task.Speed = speed
+
+			if allSize := simpleSizeRegex.FindAllStringSubmatch(line, -1); len(allSize) > 0 {
+				lastSize := allSize[len(allSize)-1]
+				if len(lastSize) >= 5 {
+					task.UploadedSize = utils.ParseBytesString(lastSize[1] + lastSize[2])
+					task.TotalSize = utils.ParseBytesString(lastSize[3] + lastSize[4])
+				}
 			}
-			if eta > 0 {
-				task.ETA = eta
+
+			if allSpeed := simpleSpeedRegex.FindAllStringSubmatch(line, -1); len(allSpeed) > 0 {
+				lastSpeed := allSpeed[len(allSpeed)-1]
+				if len(lastSpeed) >= 3 {
+					task.Speed = utils.ParseBytesString(lastSpeed[1] + lastSpeed[2])
+				}
 			}
+
 			task.Mu.Unlock()
 		}
+	}
 
-		if time.Since(lastUpdate) >= 3*time.Second {
-			s.updateTaskStatus(task)
-			lastUpdate = time.Now()
-		}
+	if lineCount > 0 {
+		slog.Info("Rclone parser finished", "taskID", task.ID, "linesProcessed", lineCount, "finalProgress", task.Progress)
 	}
 }
 

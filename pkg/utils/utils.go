@@ -392,6 +392,10 @@ func ParseBytesString(s string) int64 {
 		"mib": 1024 * 1024,
 		"gib": 1024 * 1024 * 1024,
 		"tib": 1024 * 1024 * 1024 * 1024,
+		"ki":  1024,
+		"mi":  1024 * 1024,
+		"gi":  1024 * 1024 * 1024,
+		"ti":  1024 * 1024 * 1024 * 1024,
 		"kb":  1000,
 		"mb":  1000 * 1000,
 		"gb":  1000 * 1000 * 1000,
@@ -414,7 +418,7 @@ func ParseBytesString(s string) int64 {
 	}
 	lowerS = strings.TrimSpace(lowerS)
 
-	suffixList := []string{"kib", "mib", "gib", "tib", "kb", "mb", "gb", "tb", "k", "m", "g", "t", "b"}
+	suffixList := []string{"kib", "mib", "gib", "tib", "ki", "mi", "gi", "ti", "kb", "mb", "gb", "tb", "k", "m", "g", "t", "b"}
 
 	for _, suffix := range suffixList {
 		if strings.HasSuffix(lowerS, suffix) {
@@ -497,4 +501,18 @@ func ResolveFileName(urlStr string) string {
 	}
 
 	return ""
+}
+func ScanLinesWithCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	for i := 0; i < len(data); i++ {
+		if data[i] == '\n' || data[i] == '\r' {
+			return i + 1, data[0:i], nil
+		}
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
 }

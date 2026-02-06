@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zee-mirror ./cmd/zee-mirror
 
 
-FROM alpine:3.19
+FROM alpine:3.20
 LABEL maintainer="Zee-Mirror Bot"
 LABEL description="Telegram Mirror/Leech Bot"
 
@@ -37,8 +37,11 @@ RUN apk add --no-cache \
     py3-pycryptodomex \
     gcc \
     musl-dev \
-    python3-dev
+    python3-dev \
+    coreutils \
+    expect
 
+# Menggunakan --no-cache-dir dan memastikan download versi terbaru setiap build
 RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli
 
 

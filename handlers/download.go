@@ -295,13 +295,12 @@ func (s *BotService) getYTDLPAnalysisArgs(url string) []string {
 		"-j",
 		"--no-playlist",
 		"--no-check-certificate",
-		"--extractor-args", "youtube:player-client=web,web_embedded,ios,mweb,tv",
+		"--extractor-args", "youtube:player-client=web,web_embedded,mweb",
 		"--socket-timeout", "60",
 		"--add-header", "Accept-Language: en-US,en;q=0.9",
 		"--add-header", "Referer: https://www.youtube.com/",
 		"--remote-components", "ejs:github",
 		"--js-runtime", "node",
-		"--cache-dir", "/home/botuser/.cache/yt-dlp-final",
 		"--playlist-items", "0",
 	}
 

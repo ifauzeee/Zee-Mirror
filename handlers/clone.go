@@ -134,7 +134,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		"--no-traverse",
 		"--drive-pacer-min-sleep", "10ms",
 		"--drive-pacer-burst", "200",
-		"-v",
+		"--log-level", "NOTICE",
 	}
 	args = append(args, commonArgs...)
 
@@ -145,6 +145,8 @@ func (s *BotService) cloneWithRclone(task *Task) {
 
 	cmd := exec.CommandContext(ctx, "rclone", args...)
 	stderr, _ := cmd.StderrPipe()
+
+	slog.Info("Starting rclone clone", "taskID", task.ID, "args", strings.Join(args, " "))
 
 	if err := cmd.Start(); err != nil {
 		task.SetError(fmt.Sprintf("rclone failed to start: %v", err))
@@ -187,6 +189,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 
 func (s *BotService) parseCloneProgress(task *Task, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Split(utils.ScanLinesWithCR)
 	lastUpdate := time.Now()
 
 	for scanner.Scan() {
@@ -220,27 +223,33 @@ func (s *BotService) getRcloneSize(ctx context.Context, remotePath, configPath s
 }
 
 func (s *BotService) handleRcloneLine(task *Task, line string) {
-	pctRegex := regexp.MustCompile(`(\d+)%`)
-	if matches := pctRegex.FindStringSubmatch(line); len(matches) >= 2 {
+	sizeRegex := regexp.MustCompile(`(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B)\s*/\s*(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B)`)
+	progressRegex := regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
+	speedRegex := regexp.MustCompile(`(?i)(?:,|\s)(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B/s)`)
+	etaRegex := regexp.MustCompile(`(?i)(?:ETA\s+|,\s+)(\d+[smhd])`)
+
+	task.Mu.Lock()
+	defer task.Mu.Unlock()
+
+	if matches := sizeRegex.FindStringSubmatch(line); len(matches) >= 3 {
+		task.DownloadedSize = utils.ParseBytesString(matches[1])
+		task.TotalSize = utils.ParseBytesString(matches[2])
+	}
+
+	if matches := progressRegex.FindStringSubmatch(line); len(matches) >= 2 {
 		if pct, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			task.Progress = pct
 		}
 	}
 
-	sizeRegex := regexp.MustCompile(`(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B)\s*/\s*(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B)`)
-	if matches := sizeRegex.FindStringSubmatch(line); len(matches) >= 3 {
-		task.Mu.Lock()
-		task.DownloadedSize = utils.ParseBytesString(matches[1])
-		task.TotalSize = utils.ParseBytesString(matches[2])
-		task.Mu.Unlock()
+	if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 2 {
+		task.Speed = utils.ParseBytesString(matches[1])
 	}
 
-	speedRegex := regexp.MustCompile(`,\s*(\d+(?:\.\d+)?\s*[a-zA-Z]+i?B/s)`)
-	if matches := speedRegex.FindStringSubmatch(line); len(matches) >= 2 {
-		speedStr := matches[1]
-		task.Mu.Lock()
-		task.Speed = utils.ParseBytesString(speedStr)
-		task.Mu.Unlock()
+	if matches := etaRegex.FindStringSubmatch(line); len(matches) >= 2 {
+		if d, err := time.ParseDuration(matches[1]); err == nil {
+			task.ETA = d
+		}
 	}
 }
 

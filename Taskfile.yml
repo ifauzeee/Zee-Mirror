@@ -1,6 +1,7 @@
 version: '3'
 
 vars:
+  BIN_DIR: bin
   BINARY_NAME: zee-mirror
   EXE: '{{if eq OS "windows"}}.exe{{end}}'
   ENTRY_POINT: ./cmd/zee-mirror
@@ -12,11 +13,13 @@ tasks:
 
   build:
     cmds:
-      - go build -o {{.BINARY_NAME}}{{.EXE}} {{.ENTRY_POINT}}
+       # Create bin directory if not exists
+      - '{{if eq OS "windows"}}powershell -Command "if (!(Test-Path {{.BIN_DIR}})) { New-Item -ItemType Directory -Path {{.BIN_DIR}} }"{{else}}mkdir -p {{.BIN_DIR}}{{end}}'
+      - go build -o {{.BIN_DIR}}/{{.BINARY_NAME}}{{.EXE}} {{.ENTRY_POINT}}
     sources:
       - ./**/*.go
     generates:
-      - "{{.BINARY_NAME}}{{.EXE}}"
+      - "{{.BIN_DIR}}/{{.BINARY_NAME}}{{.EXE}}"
 
   run:
     cmds:
@@ -24,8 +27,8 @@ tasks:
 
   clean:
     cmds:
-      - rm -f {{.BINARY_NAME}}{{.EXE}}
-      - rm -f {{.BINARY_NAME}}
+      - '{{if eq OS "windows"}}powershell -Command "if (Test-Path {{.BIN_DIR}}) { Remove-Item -Recurse -Force {{.BIN_DIR}} }"{{else}}rm -rf {{.BIN_DIR}}{{end}}'
+      - '{{if eq OS "windows"}}powershell -Command "Get-ChildItem -File -Include zee-mirror,zee-mirror-bot,zee-mirror-tmp,zee-mirror.exe,main.exe | Remove-Item -Force"{{else}}rm -f zee-mirror zee-mirror-bot zee-mirror-tmp zee-mirror.exe main.exe{{end}}'
     ignore_error: true
 
   test:

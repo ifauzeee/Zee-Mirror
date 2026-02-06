@@ -10,6 +10,7 @@ import (
 	"strings"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/parser"
+	"zee-mirror/pkg/utils"
 )
 
 type YTDLPEngine struct {
@@ -29,21 +30,53 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 
 	args := e.buildYTDLPArgs(task, outputDir)
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdout pipe: %v", err)
 	}
-	cmd.Stderr = cmd.Stdout
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stderr pipe: %v", err)
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("yt-dlp failed to start: %v", err)
 	}
+
+	errorOutput := ""
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "ERROR:") || strings.Contains(line, "WARNING:") {
+				errorOutput += line + "\n"
+			}
+			if strings.Contains(line, "ERROR:") {
+				onProgress(ProgressUpdate{Error: line})
+			}
+		}
+	}()
 
 	go e.parseProgress(stdout, onProgress)
 
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() != nil {
 			return nil
+		}
+		if errorOutput != "" {
+			lines := strings.Split(errorOutput, "\n")
+			var errors []string
+			for _, l := range lines {
+				if strings.Contains(l, "ERROR:") {
+					errors = append(errors, l)
+				}
+			}
+			if len(errors) > 0 {
+				return fmt.Errorf("yt-dlp failed: %s", strings.Join(errors, "\n"))
+			}
+			return fmt.Errorf("yt-dlp failed: %s", errorOutput)
 		}
 		return fmt.Errorf("yt-dlp error: %v", err)
 	}
@@ -72,16 +105,17 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		"--continue",
 		"--merge-output-format", "mp4",
 		"--no-check-certificate",
+		"--ignore-errors",
 		"--format-sort", "res,fps,codec:vp9,vcodec,br",
-		"--extractor-args", "youtube:player-client=web,web_embedded,ios,mweb,tv",
-		"--socket-timeout", "60",
+		"--extractor-args", "youtube:player-client=web,web_embedded,mweb",
+		"--socket-timeout", "120",
 		"--concurrent-fragments", "16",
 		"--buffer-size", "1M",
 		"--add-header", "Accept-Language: en-US,en;q=0.9",
 		"--add-header", "Referer: https://www.youtube.com/",
 		"--remote-components", "ejs:github",
 		"--js-runtime", "node",
-		"--cache-dir", "/home/botuser/.cache/yt-dlp-final",
+		"--no-cache-dir",
 	}
 
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
@@ -91,7 +125,7 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 	}
 
 	if task.Quality != "" {
-		format := fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", task.Quality, task.Quality)
+		format := fmt.Sprintf("bestvideo[height<=?%[1]s]+bestaudio/best[height<=?%[1]s]/best[height<=?%[1]s]", task.Quality)
 		args = append(args, "-f", format)
 	}
 
@@ -110,6 +144,7 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 	defer func() { _ = reader.Close() }()
 
 	scanner := bufio.NewScanner(reader)
+	scanner.Split(utils.ScanLinesWithCR)
 	for scanner.Scan() {
 		line := scanner.Text()
 		update := ProgressUpdate{}
