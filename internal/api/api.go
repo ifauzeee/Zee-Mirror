@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -63,8 +65,11 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/analytics", auth(s.handleAnalytics))
 	mux.HandleFunc("/api/logs", auth(s.handleLogs))
 	mux.HandleFunc("/api/users", auth(s.handleGetUsers))
+	mux.HandleFunc("/api/users/add", auth(s.handleCreateUser))
 	mux.HandleFunc("/api/users/update", auth(s.handleUpdateUser))
 	mux.HandleFunc("/api/users/delete", auth(s.handleDeleteUser))
+	mux.HandleFunc("/api/config", auth(s.handleConfig))
+	mux.HandleFunc("/api/explorer/upload", auth(s.handleUpload))
 
 	mux.HandleFunc("/api/ws", s.handleWebsocket)
 
@@ -627,5 +632,146 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(".env")
+		if err != nil {
+			data, err = os.ReadFile(filepath.Join(".", ".env"))
+			if err != nil {
+				http.Error(w, "Failed to read .env", http.StatusInternalServerError)
+				return
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"config": string(data)})
+	case http.MethodPost:
+		var req struct {
+			Config string `json:"config"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		err := os.WriteFile(".env", []byte(req.Config), 0600)
+		if err != nil {
+			http.Error(w, "Failed to write .env", http.StatusInternalServerError)
+			return
+		}
+
+		slog.Info("Configuration updated from dashboard", "by", r.RemoteAddr)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "Configuration updated. Restart may be required for some changes."})
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	err := r.ParseMultipartForm(500 << 20)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Error retrieving the file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	path := r.FormValue("path")
+	path = filepath.Clean(path)
+	if strings.Contains(path, "..") {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+
+	destDir := filepath.Join(s.Service.Config.DownloadDir, path)
+	_ = os.MkdirAll(destDir, 0750)
+
+	destPath := filepath.Join(destDir, handler.Filename)
+	dst, err := os.Create(destPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("File uploaded from dashboard", "name", handler.Filename, "size", handler.Size, "dest", destPath)
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "Upload successful", "file": handler.Filename})
+}
+
+func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username          string `json:"username"`
+		Role              string `json:"role"`
+		ExpiresAt         string `json:"expiresAt"`
+		MaxDailyBandwidth int64  `json:"maxDailyBandwidth"`
+		ID                int64  `json:"id"`
+		MaxDailyTasks     int    `json:"maxDailyTasks"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.ID == 0 {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	user := domain.User{
+		ID:                req.ID,
+		Username:          req.Username,
+		Role:              req.Role,
+		MaxDailyTasks:     req.MaxDailyTasks,
+		MaxDailyBandwidth: req.MaxDailyBandwidth,
+		CreatedAt:         time.Now(),
+	}
+
+	if req.ExpiresAt != "" {
+		if t, err := time.Parse(time.RFC3339, req.ExpiresAt); err == nil {
+			user.ExpiresAt = sql.NullTime{Time: t, Valid: true}
+		} else if t, err := time.Parse("2006-01-02", req.ExpiresAt); err == nil {
+			user.ExpiresAt = sql.NullTime{Time: t, Valid: true}
+		}
+	}
+
+	if user.Role == "" {
+		user.Role = "authorized"
+	}
+
+	ctx := r.Context()
+	if err := s.Service.DB.Upsert(ctx, user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }

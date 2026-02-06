@@ -66,9 +66,30 @@ export const useUsers = (apiToken) => {
         }
     };
 
+    const addUser = async (userData) => {
+        try {
+            const response = await fetch('/api/users/add', {
+                method: 'POST',
+                headers: {
+                    'X-API-Key': apiToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            });
+            if (response.status === 201) {
+                await fetchUsers();
+                return { success: true };
+            }
+            const data = await response.json();
+            return { success: false, error: data.error || 'Add failed' };
+        } catch (err) {
+            return { success: false, error: 'Network error' };
+        }
+    };
+
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
 
-    return { users, loading, error, fetchUsers, updateUser, deleteUser };
+    return { users, loading, error, fetchUsers, updateUser, deleteUser, addUser };
 };

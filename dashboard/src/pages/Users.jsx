@@ -2,176 +2,200 @@ import React, { useState } from 'react';
 import { useUsers } from '../hooks/useUsers';
 import { formatBytes } from '../utils/format';
 import { usePopups } from '../context/PopupContext';
+import { UserPlus, RefreshCw, Edit2, Trash2, X, Shield, Activity, Calendar, Fingerprint, Key, HardDrive, Cpu } from 'lucide-react';
 
 const Users = ({ apiToken }) => {
-    const { users, loading, error, updateUser, deleteUser, fetchUsers } = useUsers(apiToken);
+    const { users, loading, error, updateUser, deleteUser, addUser, fetchUsers } = useUsers(apiToken);
     const { showConfirm, showAlert, showToast } = usePopups();
     const [editingUser, setEditingUser] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAdding, setIsAdding] = useState(false);
 
-    const [role, setRole] = useState('');
+    const [role, setRole] = useState('authorized');
     const [maxTasks, setMaxTasks] = useState(-1);
     const [maxBW, setMaxBW] = useState(-1);
-    const [bwStr, setBwStr] = useState('-1');
     const [expiresAt, setExpiresAt] = useState('');
+    const [newID, setNewID] = useState('');
+    const [newUsername, setNewUsername] = useState('');
 
     const handleEdit = (user) => {
         setEditingUser(user);
+        setIsAdding(false);
         setRole(user.role);
         setMaxTasks(user.maxDailyTasks);
         setMaxBW(user.maxDailyBandwidth);
-        setBwStr(user.maxDailyBandwidth === -1 ? '-1' : formatBytes(user.maxDailyBandwidth));
         setExpiresAt(user.expiresAt?.Valid ? user.expiresAt.Time.split('T')[0] : '');
+        setIsModalOpen(true);
+    };
+
+    const handleAddNew = () => {
+        setEditingUser(null);
+        setIsAdding(true);
+        setRole('authorized');
+        setMaxTasks(-1);
+        setMaxBW(-1);
+        setExpiresAt('');
+        setNewID('');
+        setNewUsername('');
         setIsModalOpen(true);
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
-        const result = await updateUser({
-            id: editingUser.id,
+        const userData = {
             role,
             maxDailyTasks: parseInt(maxTasks),
             maxDailyBandwidth: maxBW,
             expiresAt: expiresAt ? new Date(expiresAt).toISOString() : ''
-        });
+        };
+
+        let result;
+        if (isAdding) {
+            if (!newID) {
+                showAlert('Identity Required', 'Telegram User ID is necessary.', { type: 'error' });
+                return;
+            }
+            result = await addUser({
+                id: parseInt(newID),
+                username: newUsername,
+                ...userData
+            });
+        } else {
+            result = await updateUser({
+                id: editingUser.id,
+                ...userData
+            });
+        }
+
         if (result.success) {
             setIsModalOpen(false);
             setEditingUser(null);
-            showToast('User settings updated successfully', 'success');
+            showToast(isAdding ? 'Subject authorized' : 'Access updated', 'success');
         } else {
-            showAlert('Update Failed', result.error, { type: 'error' });
+            showAlert('Operation Failed', result.error, { type: 'error' });
         }
     };
 
     const handleDelete = async (id) => {
-        if (await showConfirm('Delete User', 'Are you sure you want to permanently delete this user? This action cannot be undone.')) {
+        if (await showConfirm('Revoke Access', 'Permanently disconnect this subject?')) {
             const result = await deleteUser(id);
             if (result.success) {
-                showToast('User deleted successfully', 'success');
+                showToast('Link terminated', 'success');
             } else {
-                showAlert('Delete Failed', result.error, { type: 'error' });
+                showAlert('Revoke Failed', result.error, { type: 'error' });
             }
         }
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-                        User Management
+        <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Minimalist Header */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 px-4">
+                <div className="text-center md:text-left">
+                    <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/80">Security Protocol</span>
+                    </div>
+                    <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">
+                        Subject Matrix
                     </h1>
-                    <p className="text-slate-500 dark:text-gray-400 mt-1">Manage bot access, roles, and daily quotas.</p>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Manage neural link authorizations and resource allocations.
+                    </p>
                 </div>
-                <button
-                    onClick={fetchUsers}
-                    className="p-2 bg-gray-800/50 rounded-lg hover:bg-gray-700 transition-colors"
-                    title="Refresh"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                </button>
+
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleAddNew}
+                        className="px-8 py-4 bg-primary text-white rounded-2xl flex items-center gap-3 font-bold text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 group"
+                    >
+                        <UserPlus size={18} className="group-hover:rotate-12 transition-transform" />
+                        Authorize New
+                    </button>
+                    <button
+                        onClick={fetchUsers}
+                        className={`p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/5 rounded-2xl hover:text-primary transition-all shadow-md ${loading ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
+                        <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl flex items-center gap-3">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                <div className="mx-4 bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-2xl flex items-center gap-4 text-xs font-bold">
+                    <Activity size={18} />
                     {error}
                 </div>
             )}
 
-            <div className="glass-card overflow-hidden">
-                <div className="overflow-x-auto">
+            {/* Clean Material Table */}
+            <div className="bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl rounded-3xl border border-slate-200 dark:border-white/5 shadow-2xl shadow-black/5 overflow-hidden mx-4">
+                <div className="overflow-x-auto scrollbar-hide">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5">
-                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">User</th>
-                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Role</th>
-                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Quotas (Tasks/BW)</th>
-                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Expires At</th>
-                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300">Created</th>
-                                <th className="px-6 py-4 font-semibold text-slate-600 dark:text-gray-300 text-right">Actions</th>
+                            <tr className="border-b border-slate-100 dark:border-white/5">
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Auth Status</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Load Limits</th>
+                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Expiry</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                             {loading && users.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                            <span>Loading users...</span>
+                                    <td colSpan="5" className="px-8 py-24 text-center">
+                                        <div className="flex flex-col items-center gap-4 opacity-40">
+                                            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Syncing Matrix...</span>
                                         </div>
                                     </td>
                                 </tr>
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">No users found.</td>
+                                    <td colSpan="5" className="px-8 py-20 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest italic opacity-50">Empty Database</td>
                                 </tr>
                             ) : (
-                                users.map(user => (
-                                    <tr key={user.id} className="hover:bg-white/5 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-blue-500 dark:text-blue-400 font-bold border border-slate-200 dark:border-white/10">
+                                users.map((user) => (
+                                    <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-xl premium-gradient flex items-center justify-center text-white text-lg font-black shadow-lg">
                                                     {user.username?.[0]?.toUpperCase() || 'U'}
                                                 </div>
                                                 <div>
-                                                    <p className="font-extrabold text-slate-900 dark:text-gray-200">{user.username || 'Unknown User'}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-gray-500 family-mono">ID: {user.id}</p>
+                                                    <p className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{user.username || 'Anonymous'}</p>
+                                                    <p className="text-[10px] font-mono text-slate-400">ID:{user.id}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${user.role === 'owner' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' :
-                                                user.role === 'admin' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
-                                                    user.role === 'authorized' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
-                                                        'bg-gray-500/10 border-gray-500/20 text-gray-400'
-                                                }`}>
-                                                {user.role.toUpperCase()}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm">
-                                                <p className="text-slate-700 dark:text-gray-300">
-                                                    <span className="text-slate-500 dark:text-gray-500">Tasks:</span> {user.maxDailyTasks === -1 ? '∞' : user.maxDailyTasks}
-                                                </p>
-                                                <p className="text-slate-700 dark:text-gray-300">
-                                                    <span className="text-slate-500 dark:text-gray-500">BW:</span> {user.maxDailyBandwidth === -1 ? '∞' : formatBytes(user.maxDailyBandwidth)}
-                                                </p>
+                                        <td className="px-6 py-6">
+                                            <div className="flex justify-center">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${user.role === 'owner' ? 'bg-purple-500/10 border-purple-500/20 text-purple-600' :
+                                                        user.role === 'admin' ? 'bg-blue-500/10 border-blue-500/20 text-blue-600' :
+                                                            'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
+                                                    }`}>
+                                                    {user.role}
+                                                </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`text-sm ${!user.isActive ? 'text-red-500 line-through' : 'text-slate-700 dark:text-gray-300'}`}>
-                                                {user.expiresAt?.Valid ? new Date(user.expiresAt.Time).toLocaleDateString() : 'Never'}
-                                            </span>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Tasks: {user.maxDailyTasks === -1 ? '∞' : user.maxDailyTasks}</span>
+                                                <span className="text-[10px] font-bold text-slate-400">BW: {user.maxDailyBandwidth === -1 ? '∞' : formatBytes(user.maxDailyBandwidth)}</span>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-gray-400 lowercase">
-                                            {new Date(user.createdAt).toLocaleDateString()}
+                                        <td className="px-6 py-6">
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                                <Calendar size={12} className="text-primary/60" />
+                                                {user.expiresAt?.Valid ? new Date(user.expiresAt.Time).toLocaleDateString() : 'INFINITE'}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-8 py-6 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => handleEdit(user)}
-                                                    className="p-2 hover:bg-blue-500/10 rounded-lg text-blue-500 dark:text-blue-400 transition-colors"
-                                                    title="Edit User"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z" />
-                                                    </svg>
-                                                </button>
+                                                <button onClick={() => handleEdit(user)} className="p-3 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all"><Edit2 size={16} /></button>
                                                 {user.role !== 'owner' && (
-                                                    <button
-                                                        onClick={() => handleDelete(user.id)}
-                                                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 dark:text-red-400 transition-colors"
-                                                        title="Delete User"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
+                                                    <button onClick={() => handleDelete(user.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                                                 )}
                                             </div>
                                         </td>
@@ -183,90 +207,101 @@ const Users = ({ apiToken }) => {
                 </div>
             </div>
 
-            {}
+            {/* Refined Compact Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="glass-card w-full max-w-lg overflow-hidden shadow-2xl animate-scale-in">
-                        <div className="bg-slate-50 dark:bg-white/5 px-6 py-4 border-b border-slate-200 dark:border-white/5 flex justify-between items-center">
-                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Edit User: {editingUser?.username || editingUser?.id}</h2>
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="text-slate-400 hover:text-primary transition-colors"
-                                title="Close"
-                            >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l18 18" />
-                                </svg>
-                            </button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-3xl overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.4)] border border-white/20 dark:border-white/5 animate-in zoom-in-95 duration-300">
+                        <div className="px-8 py-6 bg-slate-50 dark:bg-white/[0.03] border-b border-slate-100 dark:border-white/5 flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase">{isAdding ? 'Authorize Subject' : 'Subject Protocol'}</h2>
+                                <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em] mt-1">{isAdding ? 'New Node Request' : `ID: ${editingUser?.id}`}</p>
+                            </div>
+                            <button onClick={() => setIsModalOpen(false)} className="p-3 text-slate-400 hover:text-red-500 transition-colors"><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
+
+                        <form onSubmit={handleSave} className="p-8 space-y-6">
+                            {isAdding && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Telegram ID</label>
+                                        <input
+                                            required type="number" value={newID} onChange={(e) => setNewID(e.target.value)}
+                                            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:border-primary transition-all font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Alias (Optional)</label>
+                                        <input
+                                            type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+                                            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:border-primary transition-all"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Privilege</label>
                                     <select
-                                        value={role}
-                                        onChange={(e) => setRole(e.target.value)}
-                                        disabled={editingUser?.role === 'owner'}
-                                        className="w-full bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
+                                        value={role} onChange={(e) => setRole(e.target.value)}
+                                        disabled={!isAdding && editingUser?.role === 'owner'}
+                                        className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-xs font-bold uppercase transition-all"
                                     >
                                         <option value="user">User</option>
                                         <option value="authorized">Authorized</option>
                                         <option value="admin">Admin</option>
-                                        {editingUser?.role === 'owner' && <option value="owner">Owner</option>}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Daily Tasks</label>
-                                    <input
-                                        type="number"
-                                        value={maxTasks}
-                                        onChange={(e) => setMaxTasks(e.target.value)}
-                                        className="w-full bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
-                                    />
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-600 font-bold">-1 for unlimited</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Max Daily Bandwidth (bytes)</label>
-                                <div className="flex gap-3">
-                                    <input
-                                        type="number"
-                                        value={maxBW}
-                                        onChange={(e) => setMaxBW(parseInt(e.target.value))}
-                                        className="flex-1 bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
-                                    />
-                                    <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg text-slate-500 dark:text-gray-400 text-sm whitespace-nowrap">
-                                        {maxBW === -1 ? 'Unlimited' : formatBytes(maxBW)}
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Task Limit</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number" value={maxTasks} onChange={(e) => setMaxTasks(e.target.value)}
+                                            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-sm font-bold"
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            {(maxTasks === '-1' || maxTasks === -1) ? (
+                                                <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded uppercase">Unlocked</span>
+                                            ) : (
+                                                <span className="text-[8px] font-black text-slate-400 uppercase">Tasks</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Expires At</label>
-                                <input
-                                    type="date"
-                                    value={expiresAt}
-                                    onChange={(e) => setExpiresAt(e.target.value)}
-                                    className="w-full bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-gray-200 outline-none focus:border-blue-500/50 transition-colors"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Bandwidth Limit</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number" value={maxBW} onChange={(e) => setMaxBW(parseInt(e.target.value))}
+                                            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-sm font-bold"
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            {maxBW === -1 ? (
+                                                <span className="text-[8px] font-black text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase">∞</span>
+                                            ) : (
+                                                <span className="text-[8px] font-black text-slate-400 uppercase">{formatBytes(maxBW)}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Link Expiry</label>
+                                    <input
+                                        type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-xs font-bold"
+                                    />
+                                </div>
                             </div>
 
-                            <div className="pt-4 flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 px-4 py-2 rounded-lg bg-slate-200 dark:bg-gray-800 hover:bg-slate-300 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 transition-colors font-black uppercase text-xs tracking-widest"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-all font-medium shadow-lg shadow-blue-500/20"
-                                >
-                                    Save Changes
-                                </button>
-                            </div>
+                            <button
+                                type="submit"
+                                className="w-full py-4 bg-primary text-white rounded-xl font-black uppercase text-[10px] tracking-[0.3em] shadow-lg shadow-primary/20 hover:brightness-110 transition-all mt-4"
+                            >
+                                {isAdding ? 'Establish Source Connection' : 'Apply Modification'}
+                            </button>
                         </form>
                     </div>
                 </div>

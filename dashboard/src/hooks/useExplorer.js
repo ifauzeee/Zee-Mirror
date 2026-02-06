@@ -58,7 +58,29 @@ const useExplorer = (token) => {
         }
     };
 
-    return { explorerPath, setExplorerPath, explorerFiles, fetchExplorer, getExternalLink, deleteFile };
+    const uploadFile = async (file, path = '') => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', path);
+
+        try {
+            const config = {
+                headers: {
+                    'X-API-Key': token,
+                    'Content-Type': 'multipart/form-data'
+                }
+            };
+            await axios.post('/api/explorer/upload', formData, config);
+            showToast(`Resource ${file.name} deployed successfully`, 'success');
+            fetchExplorer(explorerPath);
+            return { success: true };
+        } catch (err) {
+            showAlert('Deployment Error', `Failed to upload ${file.name} to the remote matrix.`, { type: 'error' });
+            return { success: false, error: err };
+        }
+    };
+
+    return { explorerPath, setExplorerPath, explorerFiles, fetchExplorer, getExternalLink, deleteFile, uploadFile };
 };
 
 export default useExplorer;
