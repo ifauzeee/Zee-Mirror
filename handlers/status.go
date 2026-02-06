@@ -308,7 +308,30 @@ func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
 	}
 
 	count := s.TaskManager.CancelAllTasks()
-	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf("%d tugas aktif telah dibatalkan.", count)))
+
+	s.BatchManager.Mu.RLock()
+	var batchIDs []string
+	for id := range s.BatchManager.Batches {
+		batchIDs = append(batchIDs, id)
+	}
+	s.BatchManager.Mu.RUnlock()
+
+	for _, id := range batchIDs {
+		s.BatchManager.Mu.Lock()
+		if b, exists := s.BatchManager.Batches[id]; exists {
+			if b.Status != StatusCompleted && b.Status != StatusFailed && b.Status != StatusCancelled {
+				if b.CancelFunc != nil {
+					b.CancelFunc()
+				}
+				b.Status = StatusCancelled
+				b.CompletedAt = time.Now()
+				count++
+			}
+		}
+		s.BatchManager.Mu.Unlock()
+	}
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf("%d tugas/batch aktif telah dibatalkan.", count)))
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
 	s.UpdateSharedDashboard(message.Chat.ID, false)

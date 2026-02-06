@@ -236,6 +236,7 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 		"--config", configPath,
 		"--no-modtime",
 		"--no-mimetype",
+		"--depth", "0",
 	}
 	lsCmd := exec.CommandContext(ctx, "rclone", lsArgs...)
 	if lsOutput, err := lsCmd.Output(); err == nil {
@@ -252,35 +253,63 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 	}
 
 	parentPath := path.Dir(currentRemotePath)
-	grandParentPath := path.Dir(parentPath)
-	parentName := path.Base(parentPath)
-
-	linkArgsParent := []string{
-		"lsjson",
-		grandParentPath,
-		"--config", configPath,
-		"--dirs-only",
-		"--no-modtime",
-		"--no-mimetype",
-	}
-
-	linkCmdParent := exec.CommandContext(ctx, "rclone", linkArgsParent...)
-	if linkOutputParent, err := linkCmdParent.Output(); err == nil {
-		var files []map[string]interface{}
-		if json.Unmarshal(linkOutputParent, &files) == nil {
-			for _, folder := range files {
-				if name, ok := folder["Name"].(string); ok && name == parentName {
-					if id, ok := folder["ID"].(string); ok {
+	if strings.HasSuffix(parentPath, ":") || parentPath == "." {
+		if strings.HasSuffix(parentPath, ":") {
+			rootLsArgs := []string{
+				"lsjson",
+				parentPath,
+				"--config", configPath,
+				"--no-modtime",
+				"--no-mimetype",
+				"--depth", "0",
+			}
+			rootLsCmd := exec.CommandContext(ctx, "rclone", rootLsArgs...)
+			if rootLsOutput, err := rootLsCmd.Output(); err == nil {
+				var files []map[string]interface{}
+				if json.Unmarshal(rootLsOutput, &files) == nil && len(files) > 0 {
+					if id, ok := files[0]["ID"].(string); ok {
 						parentID = id
-					} else if id, ok := folder["Id"].(string); ok {
+					} else if id, ok := files[0]["Id"].(string); ok {
 						parentID = id
 					}
-					break
 				}
 			}
 		}
+
+		if parentID == "" {
+			parentID = "root"
+		}
 	} else {
-		slog.Warn("Failed to list grandparent directory", "grandParentPath", grandParentPath, "error", err)
+		grandParentPath := path.Dir(parentPath)
+		parentName := path.Base(parentPath)
+
+		linkArgsParent := []string{
+			"lsjson",
+			grandParentPath,
+			"--config", configPath,
+			"--dirs-only",
+			"--no-modtime",
+			"--no-mimetype",
+		}
+
+		linkCmdParent := exec.CommandContext(ctx, "rclone", linkArgsParent...)
+		if linkOutputParent, err := linkCmdParent.Output(); err == nil {
+			var files []map[string]interface{}
+			if json.Unmarshal(linkOutputParent, &files) == nil {
+				for _, folder := range files {
+					if name, ok := folder["Name"].(string); ok && name == parentName {
+						if id, ok := folder["ID"].(string); ok {
+							parentID = id
+						} else if id, ok := folder["Id"].(string); ok {
+							parentID = id
+						}
+						break
+					}
+				}
+			}
+		} else {
+			slog.Warn("Failed to list grandparent directory", "grandParentPath", grandParentPath, "error", err)
+		}
 	}
 
 	if fileID != "" && parentID != "" {
@@ -292,7 +321,7 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 		return true
 	}
 
-	slog.Warn("Could not generate ID-based URL (missing IDs)", "fileID", fileID, "parentID", parentID, "parentPath", parentPath, "parentName", parentName)
+	slog.Warn("Could not generate ID-based URL (missing IDs)", "fileID", fileID, "parentID", parentID, "parentPath", parentPath)
 	return false
 }
 

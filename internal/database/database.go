@@ -29,7 +29,7 @@ func NewDB(configDir string) (*DB, error) {
 	}
 
 	dbPath := filepath.Join(configDir, "zee-mirror.db")
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
 	}

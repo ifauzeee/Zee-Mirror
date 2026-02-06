@@ -327,7 +327,11 @@ func (t *Task) SaveToDB() error {
 	}
 
 	ctx := context.Background()
-	return t.DB.Save(ctx, record)
+	err := t.DB.Save(ctx, record)
+	if err != nil {
+		slog.Error("Failed to save task to database", "taskID", t.ID, "status", t.Status, "error", err)
+	}
+	return err
 }
 
 func (tm *TaskManager) GetTask(taskID string) *Task {
@@ -381,13 +385,14 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 	}
 
 	task.Status = StatusCancelled
+	task.CompletedAt = time.Now()
 	if task.CancelFunc != nil {
 		task.CancelFunc()
 	}
 	task.Mu.Unlock()
 
-	_ = task.SaveToDB()
-	return true
+	err := task.SaveToDB()
+	return err == nil
 }
 
 func (t *Task) Cancel(status TaskStatus) bool {
