@@ -73,9 +73,9 @@ func (s *Server) Start() {
 
 	mux.HandleFunc("/api/ws", s.handleWebsocket)
 
-	mux.HandleFunc("/api/torrent/session", auth(s.handleTorrentSession))
-	mux.HandleFunc("/api/torrent/files", auth(s.handleTorrentFiles))
-	mux.HandleFunc("/api/torrent/start", auth(s.handleTorrentStart))
+	mux.HandleFunc("/api/torrent/session", s.handleTorrentSession)
+	mux.HandleFunc("/api/torrent/files", s.handleTorrentFiles)
+	mux.HandleFunc("/api/torrent/start", s.handleTorrentStart)
 
 	mux.HandleFunc("/torrent-select/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./dist/index.html")

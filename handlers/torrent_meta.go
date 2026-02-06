@@ -43,10 +43,13 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	s.addSessionStatus(sessionID, "📡 Memulai pencarian metadata...")
 	slog.Info("Starting background metadata fetch", "sessionID", sessionID, "url", session.URL)
 
-	metaFilePath, err := s.getMetadataFilePath(sessionID, session.URL)
+	metaFilePath, tmpDir, err := s.getMetadataFilePath(sessionID, session.URL)
 	if err != nil {
 		s.updateSessionError(sessionID, err.Error())
 		return
+	}
+	if tmpDir != "" {
+		defer os.RemoveAll(tmpDir)
 	}
 
 	var files []domain.TorrentFile
@@ -58,22 +61,26 @@ func (s *BotService) fetchTorrentMetadataBackground(sessionID string) {
 	s.finalizeMetadataFetch(sessionID, files)
 }
 
-func (s *BotService) getMetadataFilePath(sessionID, sessionURL string) (string, error) {
-	tmpDir, err := os.MkdirTemp("", "torrent_meta_"+sessionID+"_")
-	if err != nil {
-		s.addSessionStatus(sessionID, "❌ Gagal membuat folder temporary.")
-		return "", fmt.Errorf("failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	urlStr := strings.TrimPrefix(sessionURL, "file://")
+func (s *BotService) getMetadataFilePath(sessionID, sessionURL string) (string, string, error) {
 	if strings.HasPrefix(sessionURL, "magnet:") {
-		return s.fetchMagnetMetadata(sessionID, urlStr, tmpDir)
+		tmpDir, err := os.MkdirTemp("", "torrent_meta_"+sessionID+"_")
+		if err != nil {
+			s.addSessionStatus(sessionID, "❌ Gagal membuat folder temporary.")
+			return "", "", fmt.Errorf("failed to create temp dir: %v", err)
+		}
+
+		path, err := s.fetchMagnetMetadata(sessionID, sessionURL, tmpDir)
+		if err != nil {
+			os.RemoveAll(tmpDir)
+			return "", "", err
+		}
+		return path, tmpDir, nil
 	}
 
 	s.addSessionStatus(sessionID, "📄 Memproses file .torrent lokal...")
+	urlStr := strings.TrimPrefix(sessionURL, "file://")
 	slog.Info("Using local torrent file", "sessionID", sessionID, "path", urlStr)
-	return urlStr, nil
+	return urlStr, "", nil
 }
 
 func (s *BotService) fetchMagnetMetadata(sessionID, urlStr, tmpDir string) (string, error) {

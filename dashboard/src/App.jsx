@@ -257,9 +257,6 @@ const Dashboard = () => {
     const isTorrentSelectPage = window.location.pathname.startsWith('/torrent-select/');
 
     if (isTorrentSelectPage) {
-        if (loginError) {
-            return <LoginScreen setApiToken={setApiToken} setLoginError={setLoginError} />;
-        }
         return <TorrentSelect token={apiToken} />;
     }
 

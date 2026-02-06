@@ -415,8 +415,8 @@ func (s *BotService) parseRcloneProgress(task *Task, reader io.ReadCloser) {
 		}
 
 		lineCount++
-		if lineCount <= 3 {
-			slog.Info("Rclone raw output", "taskID", task.ID, "lineLen", len(line))
+		if lineCount <= 10 {
+			slog.Info("Rclone raw output", "taskID", task.ID, "line", line)
 		}
 
 		allMatches := segmentRegex.FindAllStringSubmatch(line, -1)
