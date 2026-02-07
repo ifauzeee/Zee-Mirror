@@ -19,12 +19,15 @@ type Config struct {
 	LogLevel                 string
 	BotToken                 string
 	DashboardURL             string
+	AppHash                  string
+	UserSessionString        string
 	AuthorizedUsers          []int64
 	OwnerID                  int64
 	DefaultMaxDailyBandwidth int64
 	MaxConcurrentDownloads   int
 	DashboardPort            int
 	DefaultMaxDailyTasks     int
+	AppID                    int
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
 }
@@ -47,6 +50,9 @@ func LoadConfig() *Config {
 		DefaultMaxDailyBandwidth: utils.ParseBytesString(getEnv("DEFAULT_MAX_DAILY_BANDWIDTH", "-1")),
 		StopDuplicate:            getEnvBool("STOP_DUPLICATE", false),
 		VikingUserHash:           os.Getenv("VIKING_USER_HASH"),
+		AppID:                    getEnvInt("APP_ID", 0),
+		AppHash:                  os.Getenv("APP_HASH"),
+		UserSessionString:        os.Getenv("USER_SESSION_STRING"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

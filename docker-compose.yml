@@ -40,6 +40,9 @@ services:
       - CONFIG_DIR=${CONFIG_DIR:-/app/config}
       - STOP_DUPLICATE=${STOP_DUPLICATE:-false}
       - VIKING_USER_HASH=${VIKING_USER_HASH:-}
+      - APP_ID=${APP_ID:-${TELEGRAM_API_ID}}
+      - APP_HASH=${APP_HASH:-${TELEGRAM_API_HASH}}
+      - USER_SESSION_STRING=${USER_SESSION_STRING:-}
     
     volumes:
       - downloads:/app/downloads

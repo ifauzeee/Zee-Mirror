@@ -55,9 +55,9 @@ func (s *Server) Start() {
 	}
 
 	mux.HandleFunc("/api/stats", auth(s.handleStats))
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 	mux.HandleFunc("/api/tasks", auth(s.handleTasks))
 	mux.HandleFunc("/api/settings", auth(s.handleSettings))

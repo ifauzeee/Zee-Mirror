@@ -19,6 +19,7 @@ Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, dit
 
 ### 🆕 Fitur Baru v2.0
 
+- 🤖 **Userbot Integration** - Download from private channels/groups.
 - 📊 **Dashboard Analytics** - Statistik lengkap: harian, mingguan, bulanan, per-user.
 - 💾 **Multi Storage** - Support multiple cloud storage (Google Drive, OneDrive, Mega, dll).
 - 📂 **File Manager** - Kelola file di Google Drive langsung dari Telegram.
@@ -34,6 +35,7 @@ Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, dit
 |------|--------------|
 | **aria2c** | Engine download untuk protokol HTTP, FTP, dan BitTorrent. |
 | **yt-dlp** | Engine khusus untuk mengunduh video streaming. |
+| **gotd** | Telegram Client untuk fitur Userbot (MTProto). |
 | **rclone** | Alat transfer file untuk mengunggah hasil ke cloud storage. |
 | **7zz** | Alat kompresi dan ekstraksi arsip dengan performa tinggi. |
 | **ffmpeg** | Media processing: konversi, kompresi, extract audio. |
@@ -43,6 +45,7 @@ Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, dit
 - Docker & Docker Compose terinstal.
 - Telegram Bot Token (Dapatkan dari [@BotFather](https://t.me/BotFather)).
 - Akun Google Drive yang sudah dikonfigurasi melalui Rclone.
+- Telegram API ID & Hash (untuk Userbot).
 
 ## 🚀 Panduan Instalasi Cepat
 
@@ -52,21 +55,30 @@ git clone https://github.com/ifauzeee/Zee-Mirror
 cd Zee-Mirror
 ```
 
-### 2. Konfigurasi Environment
-Salin file template `.env.example` menjadi `.env` dan sesuaikan nilainya:
+### 2. Userbot Setup (Optional)
+Jika Anda ingin bot bisa download dari **Private Channel** atau **Join Group**, Anda perlu mengaktifkan Userbot.
+
+Jalankan tool generator session yang sudah disediakan:
+```bash
+go run cmd/session-gen/main.go
+```
+Ikuti instruksi di layar (Login Telegram). Tool ini otomatis akan menambahkan `APP_ID`, `APP_HASH`, dan `USER_SESSION_STRING` ke file `.env` Anda.
+
+### 3. Konfigurasi Environment
+Salin file template `.env.example` menjadi `.env` dan sesuaikan nilainya (jika belum dibuat oleh tool session-gen):
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-### 3. Konfigurasi Rclone
+### 4. Konfigurasi Rclone
 Buat direktori konfigurasi dan masukkan file `rclone.conf` Anda:
 ```bash
 mkdir -p config
 cp ~/.config/rclone/rclone.conf config/rclone.conf
 ```
 
-### 4. Jalankan Aplikasi
+### 5. Jalankan Aplikasi
 ```bash
 docker-compose up -d --build
 docker-compose logs -f
@@ -81,6 +93,7 @@ docker-compose logs -f
 | `/help` | Menampilkan panduan bantuan lengkap. |
 | `/mirror <URL>` | Mengunduh file dan mengunggahnya ke Drive. |
 | `/leech <URL>` | Mengunduh file dari URL ke server. |
+| `/viking <URL>` | Mirror file ke Viking File storage. |
 | `/ytdlp <URL>` | Mengunduh video menggunakan yt-dlp. |
 | `/torrent <magnet>` | Mengunduh file melalui torrent/magnet. |
 | `/search <keyword>` | Mencari file torrent berdasarkan kata kunci. |
@@ -146,6 +159,7 @@ Zee-Mirror kini dilengkapi dengan dashboard web modern untuk monitoring sistem.
 ### Admin Commands
 | Perintah | Deskripsi |
 |----------|-----------|
+| `/join <link>` | **(Userbot)** Join private channel/group via link invite. |
 | `/authorize <ID>` | Izinkan user baru. |
 | `/unauthorize <ID>` | Cabut izin user. |
 | `/users` | Lihat daftar user. |

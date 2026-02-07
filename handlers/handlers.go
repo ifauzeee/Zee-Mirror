@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/repository"
@@ -78,6 +79,7 @@ type TaskManager struct {
 	DB                   repository.TaskRepository
 	Aria2Engine          downloader.DownloadEngine
 	YTDLPEngine          downloader.DownloadEngine
+	UserbotEngine        downloader.DownloadEngine
 	Tasks                map[string]*Task
 	Queue                chan *Task
 	LastStatusMsg        map[int64]int
@@ -108,6 +110,8 @@ func (e *DuplicateTaskError) Error() string {
 }
 
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository) *TaskManager {
+	cfg := config.LoadConfig()
+
 	tm := &TaskManager{
 		Tasks:                make(map[string]*Task),
 		Queue:                make(chan *Task, 100),
@@ -126,6 +130,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		RefreshDashboardFunc: refreshDashboardFunc,
 		Aria2Engine:          downloader.NewAria2Engine(configDir),
 		YTDLPEngine:          downloader.NewYTDLPEngine(configDir),
+		UserbotEngine:        downloader.NewUserbotEngine(cfg),
 	}
 
 	if db != nil {

@@ -25,7 +25,7 @@ func (s *BotService) GetAvailableStorages() ([]StorageProvider, error) {
 	defer cancel()
 
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
-	// #nosec G204
+
 	cmd := exec.CommandContext(ctx, "rclone", "listremotes", "--config", configPath, "--long")
 	output, err := cmd.Output()
 
@@ -182,7 +182,7 @@ func (s *BotService) handleStorageBrowse(callback *tgbotapi.CallbackQuery, stora
 	defer cancel()
 
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
-	// #nosec G204
+
 	cmd := exec.CommandContext(ctx, "rclone", "lsjson", remotePath, "--config", configPath)
 	output, err := cmd.Output()
 
@@ -228,6 +228,7 @@ func (s *BotService) handleStorageInfo(callback *tgbotapi.CallbackQuery, storage
 	defer cancel()
 
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
+
 	// #nosec G204
 	cmd := exec.CommandContext(ctx, "rclone", "about", storageName+":", "--config", configPath, "--json")
 	output, err := cmd.Output()

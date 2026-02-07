@@ -1306,9 +1306,56 @@ func (s *BotService) editStatusMessage(chatID int64, msgID int, text string) {
 	_, _ = s.Bot.Send(editMsg)
 }
 
+func (s *BotService) downloadWithUserbot(task *Task) {
+	task.SetStatus(StatusDownloading)
+	task.Mu.Lock()
+	task.StartedAt = time.Now()
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
+
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
+		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	lastUpdate := time.Now()
+	err := s.TaskManager.UserbotEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
+		s.updateTaskProgress(task, up)
+
+		if time.Since(lastUpdate) >= 3*time.Second {
+			s.updateTaskStatus(task)
+			lastUpdate = time.Now()
+			_ = task.SaveToDB()
+		}
+	})
+
+	if err != nil {
+		if task.Status == StatusCancelled {
+			s.cleanupTask(task)
+			return
+		}
+
+		task.SetError(err.Error())
+		s.updateTaskStatus(task)
+		s.cleanupTask(task)
+		return
+	}
+
+	if task.Status == StatusCancelled {
+		s.cleanupTask(task)
+		return
+	}
+
+	s.handlePostDownload(task, outputDir)
+}
+
 func (s *BotService) processTask(task *Task) {
 	task.Mu.RLock()
 	status := task.Status
+	url := task.URL
 	task.Mu.RUnlock()
 
 	if status == StatusCancelled {
@@ -1317,6 +1364,14 @@ func (s *BotService) processTask(task *Task) {
 	}
 
 	slog.Info("Starting task processing", "taskID", task.ID, "type", task.Type)
+
+	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/")) {
+		if s.Config.UserSessionString != "" {
+			slog.Info("Using Userbot engine for private link", "taskID", task.ID)
+			s.downloadWithUserbot(task)
+			return
+		}
+	}
 
 	switch task.Type {
 	case TypeMirror, TypeLeech, TypeTorrent, TypeViking:

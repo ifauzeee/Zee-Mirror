@@ -15,6 +15,7 @@ import (
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
 	"zee-mirror/internal/router"
+	"zee-mirror/internal/userbot"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
@@ -47,6 +48,11 @@ func main() {
 	}
 
 	slog.Info("Authorized on account", "username", bot.Self.UserName)
+
+	ub := userbot.GetInstance(cfg)
+	if err := ub.Start(); err != nil {
+		slog.Warn("Userbot failed to start", "error", err)
+	}
 
 	service := handlers.NewBotService(bot, cfg, db)
 
@@ -210,6 +216,7 @@ func setupAdminRoutes(r *router.Router) {
 	r.RegisterCommand(handlers.CmdLogs, func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLogs(m, m.CommandArguments()) })
 	r.RegisterCommand("recover", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleRecover(m) })
 	r.RegisterCommand("recoverystatus", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleRecoveryStatus(m) })
+	r.RegisterCommand("join", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleJoin(m, m.CommandArguments()) })
 }
 
 func setupFileManagerRoutes(r *router.Router) {
