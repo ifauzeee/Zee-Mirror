@@ -39,7 +39,7 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	if !strings.Contains(url, "drive.google.com") && !strings.Contains(url, "docs.google.com") {
+	if !strings.Contains(url, "drive.google.com") && !strings.Contains(url, "docs.google.com") && !strings.Contains(url, "drive.usercontent.google.com") {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nURL bukan link Google Drive yang valid\\.")
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
@@ -101,26 +101,6 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	rcloneDest := strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/")
 	dest := rcloneDest
 
-	if isDir {
-		dest = path.Join(dest, name)
-		src := fmt.Sprintf("%s,root_folder_id=%s:", remoteName, driveID)
-		args = []string{
-			"copy",
-			src,
-			dest,
-		}
-	} else {
-		src := fmt.Sprintf("%s,id=%s:", remoteName, driveID)
-		dest = path.Join(dest, name)
-		args = []string{
-			"copyto",
-			src,
-			dest,
-		}
-	}
-
-	task.RemotePath = dest
-
 	commonArgs := []string{
 		"--config", configPath,
 		"--progress",
@@ -134,9 +114,35 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		"--no-traverse",
 		"--drive-pacer-min-sleep", "10ms",
 		"--drive-pacer-burst", "200",
+		"--drive-server-side-across-configs",
 		"--log-level", "NOTICE",
 	}
-	args = append(args, commonArgs...)
+
+	if isDir {
+		dest = path.Join(dest, name)
+		src := fmt.Sprintf("%s,root_folder_id=%s:", remoteName, driveID)
+		args = []string{
+			"copy",
+			src,
+			dest,
+		}
+		args = append(args, commonArgs...)
+	} else {
+		dest = path.Join(dest, name)
+
+		directURL := fmt.Sprintf("https://drive.google.com/uc?export=download&id=%s&confirm=t", driveID)
+		args = []string{
+			"copyurl",
+			directURL,
+			dest,
+			"--config", configPath,
+			"--progress",
+			"--auto-filename=false",
+			"--no-check-dest",
+		}
+	}
+
+	task.RemotePath = dest
 
 	slog.Debug("Running rclone clone command", "taskID", task.ID, "args", strings.Join(args, " "))
 
@@ -275,6 +281,34 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 	}
 
 	args := []string{
+		"backend", "info",
+		fmt.Sprintf("%s:", remoteName),
+		"-o", fmt.Sprintf("id=%s", id),
+		"--config", configPath,
+		"--json",
+	}
+
+	cmd := exec.Command("rclone", args...)
+	output, err := cmd.Output()
+	if err == nil {
+		var info map[string]interface{}
+		if unmarshalErr := json.Unmarshal(output, &info); unmarshalErr == nil {
+			fileName, _ := info["name"].(string)
+			mimeType, _ := info["mimeType"].(string)
+			size, _ := info["size"].(float64)
+
+			isDir := strings.Contains(mimeType, "folder")
+
+			if fileName != "" {
+				slog.Debug("Resolved GDrive info from backend info", "id", id, "name", fileName, "mimeType", mimeType, "size", size)
+				return fileName, isDir, nil
+			}
+		}
+	}
+
+	slog.Debug("Failed to get info with backend info, trying lsjson", "id", id, "error", err)
+
+	args = []string{
 		"lsjson",
 		fmt.Sprintf("%s:", remoteName),
 		"--drive-root-folder-id", id,
@@ -282,8 +316,8 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 		"--config", configPath,
 	}
 
-	cmd := exec.Command("rclone", args...)
-	output, err := cmd.Output()
+	cmd = exec.Command("rclone", args...)
+	output, err = cmd.Output()
 	if err != nil {
 		if isFolder {
 			return "Folder_" + id, true, nil
@@ -301,18 +335,25 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 
 	if len(infos) > 0 {
 		info := infos[0]
-		isDir, _ := info["IsDir"].(bool)
-		size, _ := info["Size"].(float64)
-		if !isDir && size > 0 {
-			slog.Debug("Detected GDrive file size", "id", id, "size", size)
+		fileName, _ := info["Name"].(string)
+		isDirVal, _ := info["IsDir"].(bool)
+		if fileName != "" {
+			slog.Debug("Resolved GDrive name from lsjson", "id", id, "name", fileName, "isDir", isDirVal)
+			return fileName, isDirVal, nil
 		}
-		return name, isFolder || isDir, nil
 	}
 
-	return "Item_" + id, isFolder, nil
+	if isFolder {
+		return "Folder_" + id, true, nil
+	}
+	return "File_" + id, false, nil
 }
 
 func getDriveNameFromURL(urlStr string) string {
+	if strings.Contains(urlStr, "drive.usercontent.google.com") {
+		return ""
+	}
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -341,7 +382,7 @@ func getDriveNameFromURL(urlStr string) string {
 	if idx := strings.Index(title, " - Google "); idx != -1 {
 		title = title[:idx]
 	}
-	if strings.Contains(title, "Sign-in") || strings.Contains(title, "Masuk") {
+	if strings.Contains(title, "Sign-in") || strings.Contains(title, "Masuk") || strings.Contains(title, "Virus scan") {
 		return ""
 	}
 
