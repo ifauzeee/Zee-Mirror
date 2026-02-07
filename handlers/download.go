@@ -883,6 +883,7 @@ func (s *BotService) downloadWithAria2(task *Task) {
 		}
 	}
 
+	var firstUpdate = true
 	lastUpdate := time.Now()
 	err := s.TaskManager.Aria2Engine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
 		task.Mu.Lock()
@@ -909,10 +910,11 @@ func (s *BotService) downloadWithAria2(task *Task) {
 		}
 		task.Mu.Unlock()
 
-		if time.Since(lastUpdate) >= 3*time.Second {
+		if firstUpdate || time.Since(lastUpdate) >= 3*time.Second {
 			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
 			_ = task.SaveToDB()
+			firstUpdate = false
 		}
 	})
 
@@ -1321,14 +1323,16 @@ func (s *BotService) downloadWithUserbot(task *Task) {
 		return
 	}
 
+	var firstUpdate = true
 	lastUpdate := time.Now()
 	err := s.TaskManager.UserbotEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
 		s.updateTaskProgress(task, up)
 
-		if time.Since(lastUpdate) >= 3*time.Second {
+		if firstUpdate || time.Since(lastUpdate) >= 3*time.Second {
 			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
 			_ = task.SaveToDB()
+			firstUpdate = false
 		}
 	})
 
