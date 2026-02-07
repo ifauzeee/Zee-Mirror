@@ -8,30 +8,30 @@ func TestConstructScrapeURL(t *testing.T) {
 	tests := []struct {
 		name        string
 		id          string
-		isFolder    bool
 		originalURL string
 		want        string
+		isFolder    bool
 	}{
 		{
 			name:        "Empty ID",
 			id:          "",
-			isFolder:    false,
 			originalURL: "https://example.com",
 			want:        "https://example.com",
+			isFolder:    false,
 		},
 		{
 			name:        "File ID",
 			id:          "12345",
-			isFolder:    false,
 			originalURL: "https://drive.usercontent.google.com/...",
 			want:        "https://drive.google.com/file/d/12345/view",
+			isFolder:    false,
 		},
 		{
 			name:        "Folder ID",
 			id:          "folder123",
-			isFolder:    true,
 			originalURL: "https://drive.google.com/drive/folders/folder123",
 			want:        "https://drive.google.com/drive/folders/folder123",
+			isFolder:    true,
 		},
 	}
 
