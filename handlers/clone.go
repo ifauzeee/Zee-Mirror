@@ -115,6 +115,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		"--drive-pacer-min-sleep", "10ms",
 		"--drive-pacer-burst", "200",
 		"--drive-server-side-across-configs",
+		"--drive-acknowledge-abuse",
 		"--log-level", "NOTICE",
 	}
 
@@ -130,15 +131,13 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	} else {
 		dest = path.Join(dest, name)
 
-		directURL := fmt.Sprintf("https://drive.google.com/uc?export=download&id=%s&confirm=t", driveID)
 		args = []string{
-			"copyurl",
-			directURL,
+			"backend", "copyid",
+			fmt.Sprintf("%s:", remoteName),
+			driveID,
 			dest,
 			"--config", configPath,
-			"--progress",
-			"--auto-filename=false",
-			"--no-check-dest",
+			"-o", "drive-acknowledge-abuse=true",
 		}
 	}
 
@@ -274,7 +273,16 @@ func extractDriveID(urlStr string) (string, bool) {
 }
 
 func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, error) {
-	name := getDriveNameFromURL(urlStr)
+	scrapeURL := urlStr
+	if id != "" {
+		if isFolder {
+			scrapeURL = fmt.Sprintf("https://drive.google.com/drive/folders/%s", id)
+		} else {
+			scrapeURL = fmt.Sprintf("https://drive.google.com/file/d/%s/view", id)
+		}
+	}
+
+	name := getDriveNameFromURL(scrapeURL)
 	if name != "" {
 		slog.Debug("Resolved GDrive name from title", "id", id, "name", name)
 		return name, isFolder, nil
