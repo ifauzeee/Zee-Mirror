@@ -9,14 +9,15 @@ import (
 )
 
 type Config struct {
-	BotToken                 string
+	IndexURL                 string
+	VikingUserHash           string
 	TelegramAPI              string
 	RcloneDest               string
 	DownloadDir              string
 	ConfigDir                string
 	DashboardToken           string
 	LogLevel                 string
-	IndexURL                 string
+	BotToken                 string
 	DashboardURL             string
 	AuthorizedUsers          []int64
 	OwnerID                  int64
@@ -45,6 +46,7 @@ func LoadConfig() *Config {
 		DefaultMaxDailyTasks:     getEnvInt("DEFAULT_MAX_DAILY_TASKS", -1),
 		DefaultMaxDailyBandwidth: utils.ParseBytesString(getEnv("DEFAULT_MAX_DAILY_BANDWIDTH", "-1")),
 		StopDuplicate:            getEnvBool("STOP_DUPLICATE", false),
+		VikingUserHash:           os.Getenv("VIKING_USER_HASH"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

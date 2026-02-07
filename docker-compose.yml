@@ -39,6 +39,7 @@ services:
       - DOWNLOAD_DIR=${DOWNLOAD_DIR:-/app/downloads}
       - CONFIG_DIR=${CONFIG_DIR:-/app/config}
       - STOP_DUPLICATE=${STOP_DUPLICATE:-false}
+      - VIKING_USER_HASH=${VIKING_USER_HASH:-}
     
     volumes:
       - downloads:/app/downloads

@@ -29,6 +29,7 @@ const (
 	TypeYTDLPLeech TaskType = "ytdlp_leech"
 	TypeTorrent    TaskType = "torrent"
 	TypeClone      TaskType = "clone"
+	TypeViking     TaskType = "viking"
 )
 
 type Task struct {

@@ -177,6 +177,8 @@ func setupDownloadRoutes(r *router.Router) {
 	r.RegisterCommand("m", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleMirror(m, m.CommandArguments()) })
 	r.RegisterCommand("leech", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLeech(m, m.CommandArguments()) })
 	r.RegisterCommand("l", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLeech(m, m.CommandArguments()) })
+	r.RegisterCommand("viking", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleViking(m, m.CommandArguments()) })
+	r.RegisterCommand("v", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleViking(m, m.CommandArguments()) })
 	r.RegisterCommand("ytdlp", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLP(m, m.CommandArguments()) })
 	r.RegisterCommand("y", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLP(m, m.CommandArguments()) })
 	r.RegisterCommand("ytdlpleech", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLPLeech(m, m.CommandArguments()) })

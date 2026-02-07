@@ -37,6 +37,7 @@ const (
 	TypeYTDLPLeech = domain.TypeYTDLPLeech
 	TypeTorrent    = domain.TypeTorrent
 	TypeClone      = domain.TypeClone
+	TypeViking     = domain.TypeViking
 )
 
 const (

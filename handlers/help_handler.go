@@ -118,6 +118,9 @@ func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action
 				tgbotapi.NewInlineKeyboardButtonData("🎬 YT Leech", "help:cmd_ytdlpleech"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("⚔️ Viking", "help:cmd_viking"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "help:cmd_torrent"),
 				tgbotapi.NewInlineKeyboardButtonData("📋 Clone", "help:cmd_clone"),
 			),
@@ -150,6 +153,12 @@ func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action
 		))
 	case "cmd_ytdlpleech":
 		text = getHelpYTDLPLeech()
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+			backToCat,
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+		))
+	case "cmd_viking":
+		text = getHelpViking()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
 			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),

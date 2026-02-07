@@ -40,6 +40,16 @@ func getHelpYTDLPLeech() string {
 	)
 }
 
+func getHelpViking() string {
+	return HelpDetailMessage(
+		"⚔️ VIKING FILE",
+		"Download dari URL dan upload ke ViKiNG FiLE\\.\nSupport anonymous upload atau user upload jika hash di-set\\.",
+		"• `/viking` atau `/v` <URL\\> ─ Upload ke Viking\n\n⚙️ *FLAGS OPSIONAL*\n• `\\-n <nama\\>` ─ Rename file\n• `\\-z` ─ Zip file\n• `\\-p <pass\\>` ─ Password zip",
+		"`/viking https://example\\.com/file\\.zip`",
+		"",
+	)
+}
+
 func getHelpTorrent() string {
 	return HelpDetailMessage(
 		"🧲 TORRENT",
@@ -407,6 +417,7 @@ func getHelpAllCommands() string {
 		"• `/leech` \\(/l\\) ─ Leech ke Telegram\n" +
 		"• `/ytdlp` \\(/y\\) ─ YT\\-DLP Mirror\n" +
 		"• `/ytdlpleech` \\(/yl\\) ─ YT\\-DLP Leech\n" +
+		"• `/viking` \\(/v\\) ─ Viking File\n" +
 		"• `/torrent` \\(/t\\) ─ Torrent Download\n" +
 		"• `/clone` \\(/cl\\) ─ Clone GDrive\n" +
 		"• `/batch` ─ Batch Download\n" +

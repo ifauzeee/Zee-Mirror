@@ -962,9 +962,12 @@ func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 	}
 
 	var err error
-	if task.Type == TypeLeech {
+	switch task.Type {
+	case TypeLeech:
 		err = s.UploadToTelegram(task)
-	} else {
+	case TypeViking:
+		err = s.UploadToViking(task)
+	default:
 		err = s.UploadWithRclone(task)
 	}
 
@@ -1316,7 +1319,7 @@ func (s *BotService) processTask(task *Task) {
 	slog.Info("Starting task processing", "taskID", task.ID, "type", task.Type)
 
 	switch task.Type {
-	case TypeMirror, TypeLeech, TypeTorrent:
+	case TypeMirror, TypeLeech, TypeTorrent, TypeViking:
 		s.downloadWithAria2(task)
 	case TypeYTDLP, TypeYTDLPLeech:
 		s.downloadWithYTDLP(task)
