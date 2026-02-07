@@ -104,7 +104,7 @@ var Categories = map[string][]string{
 		".pim", ".dar", ".dgc", ".ha", ".kgb", ".lbr", ".lqr", ".rk", ".sda",
 		".sen", ".shar", ".shk", ".wim", ".esd", ".swm", ".xar",
 	},
-	"💿 Disk_Images": {
+	"💿 Disk Images": {
 		".iso", ".isz", ".vmdk", ".vdi", ".vhd", ".vhdx", ".hdd", ".hds",
 		".qcow", ".qcow2", ".qed", ".vfd", ".avhd", ".avhdx", ".parallels",
 		".bin", ".cue", ".mdf", ".mds", ".mdx", ".nrg", ".cdi", ".b5t",
@@ -176,7 +176,7 @@ var Categories = map[string][]string{
 		".ofm", ".vlw", ".fea", ".ufo", ".glyphs", ".glyphx",
 		".fog", ".vfb", ".sfd",
 	},
-	"🧊 3D_Models": {
+	"🧊 3D Models": {
 		".obj", ".fbx", ".dae", ".3ds", ".blend", ".ply", ".gltf", ".glb",
 		".usd", ".usda", ".usdc", ".usdz", ".max", ".ma", ".mb", ".c4d",
 		".lwo", ".lws", ".lxo", ".modo", ".zpr", ".ztl", ".zbr", ".mud",
@@ -225,11 +225,11 @@ var Categories = map[string][]string{
 	"🌊 Torrents": {
 		".torrent", ".magnet",
 	},
-	"🖥️ System_Files": {
+	"🖥️ System Files": {
 		".sys", ".drv", ".ocx", ".ax", ".acm", ".bpl", ".tlb", ".olb",
 		".dpl", ".ime", ".iec", ".ko", ".vxd", ".dxr", ".prx",
 	},
-	"🎮 Game_Files": {
+	"🎮 Game Files": {
 		".sav", ".save", ".gam", ".srm", ".fcs", ".dsv", ".sgm", ".vbm",
 		".nes", ".smc", ".sfc", ".swc", ".gd3", ".gd7", ".dx2",
 		".usa", ".eur", ".jap", ".st", ".mgd", ".rom", ".a78",
@@ -246,11 +246,11 @@ var Categories = map[string][]string{
 		".scpt", ".scptd", ".awk", ".sed", ".au3", ".ahk", ".nsi", ".nsh",
 		".iss",
 	},
-	"📋 Log_Files": {
+	"📋 Log Files": {
 		".log", ".log.1", ".log.2", ".out", ".err", ".trace", ".debug",
 		".warn", ".crash", ".mdmp", ".stackdump", ".etl", ".evtx", ".evt",
 	},
-	"🗑️ Temporary_Files": {
+	"🗑️ Temporary Files": {
 		".tmp", ".temp", ".~", ".cache", ".crdownload", ".download",
 		".partial", ".!ut", ".bc!", ".filepart",
 	},
@@ -273,22 +273,22 @@ var Categories = map[string][]string{
 	"👥 Contacts": {
 		".vcf", ".vcard", ".ldif", ".abbu",
 	},
-	"🎨 Vector_Graphics": {
+	"🎨 Vector Graphics": {
 		".svg", ".eps", ".ai", ".cdr", ".wmf", ".emf", ".cgm", ".sk", ".sk1",
 		".drw", ".cmx", ".pes",
 	},
-	"🎹 Audio_Projects": {
+	"🎹 Audio Projects": {
 		".aup", ".aup3", ".als", ".ptx", ".logic", ".band", ".rpp",
 		".cwp", ".omf", ".aaf", ".sesx", ".stf", ".wfm", ".npr", ".omfi",
 		".wrk", ".all", ".drm", ".nwc", ".sf2", ".sf3", ".sfz", ".sfark",
 		".dls", ".gig",
 	},
-	"🎬 Video_Projects": {
+	"🎬 Video Projects": {
 		".fcpbundle", ".fcpxml", ".fcpxmld", ".drp", ".veg", ".vf", ".kdenlive",
 		".mlt", ".wlmp", ".motn", ".imovieproj", ".rcproject", ".vpj",
 		".dmsm", ".dmsd",
 	},
-	"🖌️ Design_Projects": {
+	"🖌️ Design Projects": {
 		".psd", ".psb", ".pdd", ".ait", ".indt", ".indl", ".indb", ".inx",
 		".idml", ".fig", ".xd", ".afdesign", ".afphoto", ".afpub", ".cdt",
 		".xjt", ".kra", ".krz", ".sai", ".sai2", ".clip", ".pxd", ".pxa", ".pxm",
@@ -323,12 +323,12 @@ func GetTargetFolder(filename string) string {
 	}
 	priority := []string{
 		"🎥 Videos", "🎵 Music", "📸 Images", "📄 Documents", "📊 Spreadsheets",
-		"🖼️ Presentations", "📖 Ebooks", "🌊 Torrents", "📦 Archives", "💿 Disk_Images",
-		"🛠️ Applications", "📜 Subtitles", "💻 Development", "🔤 Fonts", "🧊 3D_Models",
-		"🏗️ CAD", "🗄️ Databases", "⚙️ Configurations", "📜 Scripts", "🎮 Game_Files",
-		"🖥️ System_Files", "📋 Log_Files", "🗑️ Temporary_Files", "💾 Backups",
-		"🔒 Encrypted", "✉️ Email", "📅 Calendar", "👥 Contacts", "🎨 Vector_Graphics",
-		"🎹 Audio_Projects", "🎬 Video_Projects", "🖌️ Design_Projects", "🩺 Medical",
+		"🖼️ Presentations", "📖 Ebooks", "🌊 Torrents", "📦 Archives", "💿 Disk Images",
+		"🛠️ Applications", "📜 Subtitles", "💻 Development", "🔤 Fonts", "🧊 3D Models",
+		"🏗️ CAD", "🗄️ Databases", "⚙️ Configurations", "📜 Scripts", "🎮 Game Files",
+		"🖥️ System Files", "📋 Log Files", "🗑️ Temporary Files", "💾 Backups",
+		"🔒 Encrypted", "✉️ Email", "📅 Calendar", "👥 Contacts", "🎨 Vector Graphics",
+		"🎹 Audio Projects", "🎬 Video Projects", "🖌️ Design Projects", "🩺 Medical",
 		"🔬 Scientific", "🗺️ GIS", "🎧 Playlists", "📋 Metadata",
 	}
 	for _, folder := range priority {
@@ -382,7 +382,7 @@ func IsApplicationFile(filename string) bool { return isInCategory(filename, "�
 func IsSubtitleFile(filename string) bool    { return isInCategory(filename, "📜 Subtitles") }
 func IsDevelopmentFile(filename string) bool { return isInCategory(filename, "💻 Development") }
 func IsFontFile(filename string) bool        { return isInCategory(filename, "🔤 Fonts") }
-func Is3DModelFile(filename string) bool     { return isInCategory(filename, "🧊 3D_Models") }
+func Is3DModelFile(filename string) bool     { return isInCategory(filename, "🧊 3D Models") }
 func IsCADFile(filename string) bool         { return isInCategory(filename, "🏗️ CAD") }
 func IsDatabaseFile(filename string) bool    { return isInCategory(filename, "🗄️ Databases") }
 func IsConfigurationFile(filename string) bool {
@@ -395,22 +395,22 @@ func IsTorrentFile(filename string) bool {
 	return isInCategory(filename, "🌊 Torrents") ||
 		strings.HasSuffix(strings.ToLower(filename), ".torrent")
 }
-func IsDiskImageFile(filename string) bool     { return isInCategory(filename, "💿 Disk_Images") }
-func IsSystemFile(filename string) bool        { return isInCategory(filename, "🖥️ System_Files") }
-func IsGameFile(filename string) bool          { return isInCategory(filename, "🎮 Game_Files") }
+func IsDiskImageFile(filename string) bool     { return isInCategory(filename, "💿 Disk Images") }
+func IsSystemFile(filename string) bool        { return isInCategory(filename, "🖥️ System Files") }
+func IsGameFile(filename string) bool          { return isInCategory(filename, "🎮 Game Files") }
 func IsScriptFile(filename string) bool        { return isInCategory(filename, "📜 Scripts") }
-func IsLogFile(filename string) bool           { return isInCategory(filename, "📋 Log_Files") }
-func IsTemporaryFile(filename string) bool     { return isInCategory(filename, "🗑️ Temporary_Files") }
+func IsLogFile(filename string) bool           { return isInCategory(filename, "📋 Log Files") }
+func IsTemporaryFile(filename string) bool     { return isInCategory(filename, "🗑️ Temporary Files") }
 func IsBackupFile(filename string) bool        { return isInCategory(filename, "💾 Backups") }
 func IsEncryptedFile(filename string) bool     { return isInCategory(filename, "🔒 Encrypted") }
 func IsEmailFile(filename string) bool         { return isInCategory(filename, "✉️ Email") }
 func IsCalendarFile(filename string) bool      { return isInCategory(filename, "📅 Calendar") }
 func IsContactFile(filename string) bool       { return isInCategory(filename, "👥 Contacts") }
-func IsVectorGraphicFile(filename string) bool { return isInCategory(filename, "🎨 Vector_Graphics") }
-func IsAudioProjectFile(filename string) bool  { return isInCategory(filename, "🎹 Audio_Projects") }
-func IsVideoProjectFile(filename string) bool  { return isInCategory(filename, "🎬 Video_Projects") }
+func IsVectorGraphicFile(filename string) bool { return isInCategory(filename, "🎨 Vector Graphics") }
+func IsAudioProjectFile(filename string) bool  { return isInCategory(filename, "🎹 Audio Projects") }
+func IsVideoProjectFile(filename string) bool  { return isInCategory(filename, "🎬 Video Projects") }
 func IsDesignProjectFile(filename string) bool {
-	return isInCategory(filename, "🖌️ Design_Projects")
+	return isInCategory(filename, "🖌️ Design Projects")
 }
 func IsMedicalFile(filename string) bool    { return isInCategory(filename, "🩺 Medical") }
 func IsScientificFile(filename string) bool { return isInCategory(filename, "🔬 Scientific") }
