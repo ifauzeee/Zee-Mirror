@@ -314,33 +314,31 @@ var Categories = map[string][]string{
 		".diz", ".ion", ".sfv", ".md5", ".sha1", ".sha256", ".sha512",
 		".par", ".par2",
 	},
+	"📂 Others": {},
 }
 
 func GetTargetFolder(filename string) string {
 	ext := strings.ToLower(filepath.Ext(filename))
-	if ext == "" {
-		return ""
-	}
 	priority := []string{
 		"🎥 Videos", "🎵 Music", "📸 Images", "📄 Documents", "📊 Spreadsheets",
 		"🖼️ Presentations", "📖 Ebooks", "🌊 Torrents", "📦 Archives", "💿 Disk Images",
 		"🛠️ Applications", "📜 Subtitles", "💻 Development", "🔤 Fonts", "🧊 3D Models",
 		"🏗️ CAD", "🗄️ Databases", "⚙️ Configurations", "📜 Scripts", "🎮 Game Files",
 		"🖥️ System Files", "📋 Log Files", "🗑️ Temporary Files", "💾 Backups",
-		"🔒 Encrypted", "✉️ Email", "📅 Calendar", "👥 Contacts", "🎨 Vector Graphics",
-		"🎹 Audio Projects", "🎬 Video Projects", "🖌️ Design Projects", "🩺 Medical",
-		"🔬 Scientific", "🗺️ GIS", "🎧 Playlists", "📋 Metadata",
+		"🔒 Encrypted", "✉️ Email", "📅 Calendar", "👥 Contacts", "🎨 Vector Graphics", "🎹 Audio Projects", "🎬 Video Projects", "🖌️ Design Projects",
+		"🩺 Medical", "🔬 Scientific", "🗺️ GIS", "🎧 Playlists", "📋 Metadata",
+		"📂 Others",
 	}
 	for _, folder := range priority {
 		if extensions, ok := Categories[folder]; ok {
 			for _, e := range extensions {
-				if ext == e {
+				if ext != "" && ext == e {
 					return folder
 				}
 			}
 		}
 	}
-	return ""
+	return "📂 Others"
 }
 
 func isInCategory(filename, category string) bool {
@@ -417,3 +415,4 @@ func IsScientificFile(filename string) bool { return isInCategory(filename, "�
 func IsGISFile(filename string) bool        { return isInCategory(filename, "🗺️ GIS") }
 func IsPlaylistFile(filename string) bool   { return isInCategory(filename, "🎧 Playlists") }
 func IsMetadataFile(filename string) bool   { return isInCategory(filename, "📋 Metadata") }
+func IsOtherFile(filename string) bool      { return isInCategory(filename, "📂 Others") }
