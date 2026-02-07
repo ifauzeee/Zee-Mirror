@@ -766,6 +766,8 @@ func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
 	expectedSize := task.TotalSize
 	task.Mu.RUnlock()
 
+	s.updateTaskStatus(task)
+
 	lastUpdate := time.Now()
 	var sameSizeCount int
 	var lastSize int64
@@ -845,11 +847,63 @@ func (s *BotService) handleLocalFileDownload(task *Task, outputDir string) {
 	}
 	defer func() { _ = dest.Close() }()
 
-	_, err = io.Copy(dest, source)
-	if err != nil {
-		task.SetError(fmt.Sprintf("Failed to copy file: %v", err))
-		s.updateTaskStatus(task)
-		return
+	buf := make([]byte, 32*1024)
+	var copied int64
+	startTime := time.Now()
+	lastUpdate = time.Now()
+
+	task.Mu.Lock()
+	task.DownloadedSize = 0
+	task.Progress = 0
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	for {
+		nr, readErr := source.Read(buf)
+		if nr > 0 {
+			nw, writeErr := dest.Write(buf[0:nr])
+			if nw > 0 {
+				copied += int64(nw)
+			}
+			if writeErr != nil {
+				task.SetError(fmt.Sprintf("Failed to copy file: %v", writeErr))
+				s.updateTaskStatus(task)
+				return
+			}
+			if nr != nw {
+				task.SetError("Failed to copy file: short write")
+				s.updateTaskStatus(task)
+				return
+			}
+		}
+
+		if time.Since(lastUpdate) >= 1*time.Second {
+			task.Mu.Lock()
+			task.DownloadedSize = copied
+			if task.TotalSize > 0 {
+				task.Progress = float64(copied) / float64(task.TotalSize) * 100
+			}
+			elapsed := time.Since(startTime).Seconds()
+			if elapsed > 0 {
+				task.Speed = int64(float64(copied) / elapsed)
+				if task.Speed > 0 && task.TotalSize > 0 {
+					remaining := task.TotalSize - copied
+					task.ETA = time.Duration(remaining/task.Speed) * time.Second
+				}
+			}
+			task.Mu.Unlock()
+			s.updateTaskStatus(task)
+			lastUpdate = time.Now()
+		}
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+			task.SetError(fmt.Sprintf("Failed to copy file: %v", readErr))
+			s.updateTaskStatus(task)
+			return
+		}
 	}
 
 	task.Mu.Lock()
@@ -974,6 +1028,10 @@ func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 	}
 
 	if err != nil {
+		if task.Status == StatusCancelled {
+			s.cleanupTask(task)
+			return
+		}
 		task.SetError(fmt.Sprintf("Upload failed: %v", err))
 	} else {
 		task.SetStatus(StatusCompleted)
@@ -1074,6 +1132,10 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 	}
 
 	if uploadErr != nil {
+		if task.Status == StatusCancelled {
+			s.cleanupTask(task)
+			return
+		}
 		task.SetError(fmt.Sprintf("Upload failed: %v", uploadErr))
 	} else {
 		task.SetStatus(StatusCompleted)
