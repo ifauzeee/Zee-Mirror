@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -123,7 +125,7 @@ func (u *UserBot) Start() error {
 	return nil
 }
 
-func (u *UserBot) DownloadFile(link string, outputDir string) (string, error) {
+func (u *UserBot) DownloadFile(link string, outputDir string, onProgress func(downloaded, total int64)) (string, error) {
 	u.Mu.RLock()
 	if !u.Started {
 		u.Mu.RUnlock()
@@ -218,9 +220,11 @@ func (u *UserBot) DownloadFile(link string, outputDir string) (string, error) {
 	dl := downloader.NewDownloader()
 
 	outPath := filepath.Join(outputDir, fmt.Sprintf("userbot_dl_%d", msgID))
+	var totalSize int64
 
 	if doc, ok := media.(*tg.MessageMediaDocument); ok {
 		if d, ok := doc.Document.(*tg.Document); ok {
+			totalSize = d.Size
 			for _, attr := range d.Attributes {
 				if fn, ok := attr.(*tg.DocumentAttributeFilename); ok {
 					outPath = filepath.Join(outputDir, fn.FileName)
@@ -230,6 +234,12 @@ func (u *UserBot) DownloadFile(link string, outputDir string) (string, error) {
 		}
 	}
 
+	f, err := os.Create(outPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %v", err)
+	}
+	defer f.Close()
+
 	location, err := getFileLocation(media)
 	if err != nil {
 		return "", err
@@ -237,12 +247,35 @@ func (u *UserBot) DownloadFile(link string, outputDir string) (string, error) {
 
 	dlCtx := context.Background()
 
-	_, err = dl.Download(u.Client.API(), location).ToPath(dlCtx, outPath)
-	if err != nil {
+	pw := &ProgressWriter{
+		w:          f,
+		onProgress: onProgress,
+		total:      totalSize,
+	}
+
+	if _, err := dl.Download(u.Client.API(), location).Stream(dlCtx, pw); err != nil {
 		return "", fmt.Errorf("download failed: %v", err)
 	}
 
 	return outPath, nil
+}
+
+type ProgressWriter struct {
+	w          io.Writer
+	onProgress func(downloaded, total int64)
+	total      int64
+	current    int64
+}
+
+func (pw *ProgressWriter) Write(p []byte) (int, error) {
+	n, err := pw.w.Write(p)
+	if n > 0 {
+		pw.current += int64(n)
+		if pw.onProgress != nil {
+			pw.onProgress(pw.current, pw.total)
+		}
+	}
+	return n, err
 }
 
 func getFileLocation(media tg.MessageMediaClass) (tg.InputFileLocationClass, error) {
