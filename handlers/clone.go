@@ -259,12 +259,12 @@ func (s *BotService) handleRcloneLine(task *Task, line string) {
 }
 
 func extractDriveID(urlStr string) (string, bool) {
-	folderRegex := regexp.MustCompile(`folders/([a-zA-Z0-9_-]{25,})`)
+	folderRegex := regexp.MustCompile(`folders/([a-zA-Z0-9_-]+)`)
 	if matches := folderRegex.FindStringSubmatch(urlStr); len(matches) >= 2 {
 		return matches[1], true
 	}
 
-	fileRegex := regexp.MustCompile(`(?:d/|id=)([a-zA-Z0-9_-]{25,})`)
+	fileRegex := regexp.MustCompile(`(?:d/|id=)([a-zA-Z0-9_-]+)`)
 	if matches := fileRegex.FindStringSubmatch(urlStr); len(matches) >= 2 {
 		return matches[1], false
 	}
@@ -273,14 +273,7 @@ func extractDriveID(urlStr string) (string, bool) {
 }
 
 func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, error) {
-	scrapeURL := urlStr
-	if id != "" {
-		if isFolder {
-			scrapeURL = fmt.Sprintf("https://drive.google.com/drive/folders/%s", id)
-		} else {
-			scrapeURL = fmt.Sprintf("https://drive.google.com/file/d/%s/view", id)
-		}
-	}
+	scrapeURL := constructScrapeURL(id, isFolder, urlStr)
 
 	name := getDriveNameFromURL(scrapeURL)
 	if name != "" {
