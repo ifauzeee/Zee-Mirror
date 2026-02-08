@@ -284,23 +284,30 @@ func isIgnoredFileName(name string) bool {
 
 func getFileNameFromQuery(u *url.URL) string {
 	q := u.Query()
-	if zipName := q.Get("zipname"); zipName != "" {
-		return SanitizeFileName(zipName)
+
+	if rcd := q.Get("response-content-disposition"); rcd != "" {
+		if _, params, err := mime.ParseMediaType(rcd); err == nil {
+			if filename, ok := params["filename"]; ok && filename != "" {
+				return SanitizeFileName(filename)
+			}
+		}
 	}
-	if fileName := q.Get("filename"); fileName != "" {
-		return SanitizeFileName(fileName)
+
+	keys := []string{"filename", "dn", "file", "zipname"}
+	for _, key := range keys {
+		if val := q.Get(key); val != "" {
+			return SanitizeFileName(val)
+		}
 	}
-	if dn := q.Get("dn"); dn != "" {
-		return SanitizeFileName(dn)
-	}
+
 	return ""
 }
 
 func getFileNameFromPixelDrain(u *url.URL) string {
 	if strings.Contains(u.Host, "pixeldrain.com") && strings.HasPrefix(u.Path, "/api/file/") {
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-		if len(parts) >= 3 {
-			return SanitizeFileName(parts[2])
+		if len(parts) >= 4 {
+			return SanitizeFileName(parts[3])
 		}
 	}
 	return ""
@@ -316,9 +323,11 @@ func GetFileNameFromURL(urlStr string) string {
 		if name := getFileNameFromQuery(u); name != "" {
 			return name
 		}
+
 		if name := getFileNameFromPixelDrain(u); name != "" {
 			return name
 		}
+
 		if name := getPathFileName(u.Path); name != "" {
 			return name
 		}

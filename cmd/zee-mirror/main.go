@@ -145,14 +145,27 @@ func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {
 func processUpdates(updates tgbotapi.UpdatesChannel, service *handlers.BotService, r *router.Router) {
 	for update := range updates {
 		if update.Message != nil {
-			if !service.IsAuthorized(update.Message.From.ID) {
-				slog.Warn("Unauthorized access", "userID", update.Message.From.ID, "username", update.Message.From.UserName)
+			isStart := update.Message.IsCommand() && update.Message.Command() == "start"
+
+			if !service.IsAuthorized(update.Message.From.ID) && !isStart {
+				slog.Warn("Unauthorized access attempt", "userID", update.Message.From.ID, "username", update.Message.From.UserName, "text", update.Message.Text)
+
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, handlers.GetErrorMessage("ACCESS DENIED", "Anda belum terautentikasi untuk menggunakan bot ini.\nSilakan hubungi Owner untuk mendapatkan akses."))
+				msg.ParseMode = handlers.MarkdownV2
+				msg.ReplyToMessageID = update.Message.MessageID
+				_, _ = service.Bot.Send(msg)
 				continue
 			}
 			go r.HandleMessage(update.Message)
 		} else if update.CallbackQuery != nil {
-			if !service.IsAuthorized(update.CallbackQuery.From.ID) {
-				slog.Warn("Unauthorized callback", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName)
+			data := update.CallbackQuery.Data
+			isHelp := strings.HasPrefix(data, "help:")
+
+			if !service.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
+				slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
+
+				cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
+				_, _ = service.Bot.Request(cb)
 				continue
 			}
 			go r.HandleCallback(update.CallbackQuery)
