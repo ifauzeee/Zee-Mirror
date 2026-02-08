@@ -525,3 +525,10 @@ func ScanLinesWithCR(data []byte, atEOF bool) (advance int, token []byte, err er
 	}
 	return 0, nil, nil
 }
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

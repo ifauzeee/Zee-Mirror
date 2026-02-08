@@ -1439,6 +1439,12 @@ func (s *BotService) processTask(task *Task) {
 		}
 	}
 
+	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "drive.google.com") || strings.Contains(url, "docs.google.com") || strings.Contains(url, "drive.usercontent.google.com")) {
+		slog.Info("Detected Google Drive URL for Mirror/Leech, switching to local Rclone download", "taskID", task.ID)
+		s.downloadGDriveWithRclone(task)
+		return
+	}
+
 	switch task.Type {
 	case TypeMirror, TypeLeech, TypeTorrent, TypeViking:
 		s.downloadWithAria2(task)

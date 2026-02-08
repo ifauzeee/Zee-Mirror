@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -116,6 +117,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		"--drive-pacer-burst", "200",
 		"--drive-server-side-across-configs",
 		"--drive-acknowledge-abuse",
+		"--drive-description", "Mirrored by Zee-Mirror",
 		"--log-level", "NOTICE",
 	}
 
@@ -138,6 +140,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 			dest,
 			"--config", configPath,
 			"-o", "drive-acknowledge-abuse=true",
+			"-o", "drive-description=Mirrored by Zee-Mirror",
 		}
 	}
 
@@ -190,6 +193,116 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	s.generateRcloneLink(ctx, task, configPath, isDir)
 	task.SetStatus(StatusCompleted)
 	s.updateTaskStatus(task)
+}
+
+func (s *BotService) downloadGDriveWithRclone(task *Task) {
+	task.SetStatus(StatusDownloading)
+	task.Mu.Lock()
+	task.StartedAt = time.Now()
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	driveID, isFolderHint := extractDriveID(task.URL)
+	if driveID == "" {
+		slog.Warn("Failed to extract Drive ID from URL, falling back to Aria2", "url", task.URL)
+		s.downloadWithAria2(task)
+		return
+	}
+
+	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
+	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
+
+	driveName, isDir, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	if err != nil {
+		slog.Warn("Failed to get Google Drive info", "error", err)
+	}
+
+	task.Mu.Lock()
+	if driveName != "" && (task.FileName == "" || task.FileName == "download" || utils.GetFileNameFromURL(task.URL) == task.FileName) {
+		task.FileName = driveName
+	}
+	name := task.FileName
+	task.Mu.Unlock()
+	s.updateTaskStatus(task)
+
+	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
+		task.SetError(fmt.Sprintf("Failed to create download directory: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	commonArgs := []string{
+		"--config", configPath,
+		"--progress",
+		"--stats", "1s",
+		"--stats-one-line",
+		"--transfers", "10",
+		"--checkers", "20",
+		"--drive-chunk-size", "256M",
+		"--buffer-size", "128M",
+		"--use-mmap",
+		"--no-traverse",
+		"--drive-pacer-min-sleep", "10ms",
+		"--drive-pacer-burst", "200",
+		"--drive-acknowledge-abuse",
+		"--log-level", "NOTICE",
+	}
+
+	var args []string
+	if isDir {
+		src := fmt.Sprintf("%s,root_folder_id=%s:", remoteName, driveID)
+		dest := filepath.Join(outputDir, name)
+		args = []string{
+			"copy",
+			src,
+			dest,
+		}
+		args = append(args, commonArgs...)
+	} else {
+		src := fmt.Sprintf("%s,root_folder_id=%s:%s", remoteName, driveID, name)
+		dest := filepath.Join(outputDir, name)
+		args = []string{
+			"copyto",
+			src,
+			dest,
+		}
+		args = append(args, commonArgs...)
+	}
+
+	slog.Info("Starting local Rclone download", "taskID", task.ID, "args", strings.Join(args, " "))
+
+	ctx, cancel := context.WithCancel(task.Ctx)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "rclone", args...)
+	stderr, _ := cmd.StderrPipe()
+
+	if err := cmd.Start(); err != nil {
+		task.SetError(fmt.Sprintf("rclone failed to start: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	s.parseCloneProgress(task, stderr)
+
+	if err := cmd.Wait(); err != nil {
+		if task.Status == StatusCancelled {
+			s.cleanupTask(task)
+			return
+		}
+		task.SetError(fmt.Sprintf("Local rclone download failed: %v", err))
+		s.updateTaskStatus(task)
+		s.cleanupTask(task)
+		return
+	}
+
+	if task.Status == StatusCancelled {
+		s.cleanupTask(task)
+		return
+	}
+
+	s.handlePostDownload(task, outputDir)
 }
 
 func (s *BotService) parseCloneProgress(task *Task, reader io.ReadCloser) {

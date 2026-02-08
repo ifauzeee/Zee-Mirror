@@ -232,27 +232,112 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 
 	lsArgs := []string{
 		"lsjson",
+		"--stat",
 		currentRemotePath,
 		"--config", configPath,
 		"--no-modtime",
 		"--no-mimetype",
-		"--depth", "0",
 	}
-	lsCmd := exec.CommandContext(ctx, "rclone", lsArgs...)
-	if lsOutput, err := lsCmd.Output(); err == nil {
-		var files []map[string]interface{}
-		if json.Unmarshal(lsOutput, &files) == nil && len(files) > 0 {
-			if id, ok := files[0]["ID"].(string); ok {
+
+	var lsOutput []byte
+	var err error
+
+	for i := 0; i < 5; i++ {
+		lsCmd := exec.CommandContext(ctx, "rclone", lsArgs...)
+		lsOutput, err = lsCmd.Output()
+		if err == nil {
+			break
+		}
+		time.Sleep(3 * time.Second)
+	}
+
+	if err == nil {
+		var entry map[string]interface{}
+		if json.Unmarshal(lsOutput, &entry) == nil {
+			if id, ok := entry["ID"].(string); ok {
 				fileID = id
-			} else if id, ok := files[0]["Id"].(string); ok {
+			} else if id, ok := entry["Id"].(string); ok {
 				fileID = id
+			}
+		} else {
+			var files []map[string]interface{}
+			if json.Unmarshal(lsOutput, &files) == nil && len(files) > 0 {
+				if id, ok := files[0]["ID"].(string); ok {
+					fileID = id
+				} else if id, ok := files[0]["Id"].(string); ok {
+					fileID = id
+				}
 			}
 		}
 	} else {
-		slog.Warn("Failed to get File ID", "path", currentRemotePath, "error", err)
+		slog.Warn("Failed to get File ID directly, trying fallback via parent listing", "path", currentRemotePath, "error", err)
 	}
 
 	parentPath := path.Dir(currentRemotePath)
+
+	if fileID == "" {
+		slog.Info("Attempting fallback to find file ID in parent directory", "parentPath", parentPath)
+		params := []string{
+			"lsjson",
+			parentPath,
+			"--config", configPath,
+			"--no-modtime",
+			"--no-mimetype",
+			"--depth", "1",
+			"--files-only",
+		}
+
+		for i := 0; i < 15; i++ {
+			cmd := exec.CommandContext(ctx, "rclone", params...)
+			out, errFallback := cmd.Output()
+			if errFallback == nil {
+				var files []map[string]interface{}
+				if json.Unmarshal(out, &files) == nil {
+					targetName := task.FileName
+					var foundNames []string
+
+					for _, f := range files {
+						name, nameOk := f["Name"].(string)
+						pathVal, pathOk := f["Path"].(string)
+						if nameOk {
+							if i == 0 || i > 10 {
+								foundNames = append(foundNames, name)
+							}
+						} else if pathOk {
+							if i == 0 || i > 10 {
+								foundNames = append(foundNames, path.Base(pathVal))
+							}
+						}
+
+						candidate := name
+						if candidate == "" && pathOk {
+							candidate = path.Base(pathVal)
+						}
+
+						if candidate == targetName {
+							if id, ok := f["ID"].(string); ok {
+								fileID = id
+							} else if id, ok := f["Id"].(string); ok {
+								fileID = id
+							}
+							break
+						}
+					}
+
+					if len(foundNames) > 0 {
+						slog.Info("Files found in parent during fallback", "iteration", i, "count", len(files), "sample", strings.Join(foundNames[:utils.Min(len(foundNames), 5)], ", "))
+					}
+				}
+				if fileID != "" {
+					slog.Info("Found File ID via fallback parent listing", "fileID", fileID)
+					break
+				}
+			} else {
+				slog.Debug("Fallback lsjson returned error", "error", errFallback)
+			}
+			time.Sleep(3 * time.Second)
+		}
+	}
 	if strings.HasSuffix(parentPath, ":") || parentPath == "." {
 		if strings.HasSuffix(parentPath, ":") {
 			rootLsArgs := []string{
@@ -283,9 +368,15 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 		grandParentPath := path.Dir(parentPath)
 		parentName := path.Base(parentPath)
 
+		searchPath := grandParentPath
+		if strings.HasSuffix(parentPath, ":") {
+			searchPath = parentPath
+			parentName = ""
+		}
+
 		linkArgsParent := []string{
 			"lsjson",
-			grandParentPath,
+			searchPath,
 			"--config", configPath,
 			"--dirs-only",
 			"--no-modtime",
@@ -315,8 +406,9 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 	if fileID != "" && parentID != "" {
 		baseURL := strings.TrimRight(s.Config.IndexURL, "/")
 		encodedFileName := url.PathEscape(task.FileName)
+		encodedFileName = strings.ReplaceAll(encodedFileName, "%2F", "/")
 
-		task.RemoteURL = fmt.Sprintf("%s/en/folder/%s/file/%s/%s", baseURL, parentID, fileID, encodedFileName)
+		task.RemoteURL = fmt.Sprintf("%s/id/folder/%s/file/%s/%s", baseURL, parentID, fileID, encodedFileName)
 		slog.Info("Generated ID-based Index URL", "url", task.RemoteURL)
 		return true
 	}
@@ -348,6 +440,7 @@ func (s *BotService) generatePathBasedIndexURL(task *Task, currentRemotePath str
 		pathParts[i] = url.PathEscape(part)
 	}
 	encodedPath := strings.Join(pathParts, "/")
+	encodedPath = strings.ReplaceAll(encodedPath, "%2F", "/")
 
 	baseURL := strings.TrimRight(s.Config.IndexURL, "/")
 	task.RemoteURL = fmt.Sprintf("%s/%s", baseURL, encodedPath)

@@ -533,6 +533,7 @@ func (s *BotService) uploadBatchResults(batch *BatchTask) error {
 		"--no-traverse",
 		"--drive-pacer-min-sleep", "10ms",
 		"--drive-pacer-burst", "200",
+		"--drive-description", "Mirrored by Zee-Mirror",
 		"-v",
 	}
 
