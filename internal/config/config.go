@@ -30,6 +30,7 @@ type Config struct {
 	AppID                    int
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
+	MaxRetries               int
 }
 
 func LoadConfig() *Config {
@@ -49,6 +50,7 @@ func LoadConfig() *Config {
 		DefaultMaxDailyTasks:     getEnvInt("DEFAULT_MAX_DAILY_TASKS", -1),
 		DefaultMaxDailyBandwidth: utils.ParseBytesString(getEnv("DEFAULT_MAX_DAILY_BANDWIDTH", "-1")),
 		StopDuplicate:            getEnvBool("STOP_DUPLICATE", false),
+		MaxRetries:               getEnvInt("MAX_RETRIES", 3),
 		VikingUserHash:           os.Getenv("VIKING_USER_HASH"),
 		AppID:                    getEnvInt("APP_ID", 0),
 		AppHash:                  os.Getenv("APP_HASH"),

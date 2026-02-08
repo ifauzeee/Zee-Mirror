@@ -66,6 +66,8 @@ type Task struct {
 	ReplyMessageID  int
 	Zip             bool
 	Unzip           bool
+	RetryCount      int
+	MaxRetries      int
 }
 
 type TaskRecord struct {
@@ -89,6 +91,7 @@ type TaskRecord struct {
 	UserID         int64
 	Zip            bool
 	Unzip          bool
+	RetryCount     int
 }
 
 type UserStats struct {
@@ -143,6 +146,8 @@ type TaskSnapshot struct {
 	ReplyMessageID  int           `json:"replyMessageID"`
 	Zip             bool          `json:"zip"`
 	Unzip           bool          `json:"unzip"`
+	RetryCount      int           `json:"retryCount"`
+	MaxRetries      int           `json:"maxRetries"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {
@@ -179,5 +184,7 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		OrigFileName:    t.OrigFileName,
 		ResultMessageID: t.ResultMessageID,
 		ReplyMessageID:  t.ReplyMessageID,
+		RetryCount:      t.RetryCount,
+		MaxRetries:      t.MaxRetries,
 	}
 }

@@ -133,6 +133,50 @@ func TestTaskOperations(t *testing.T) {
 	}
 }
 
+func TestGetRecoverable(t *testing.T) {
+	db, tempDir := setupTestDB(t)
+	defer func() { _ = os.RemoveAll(tempDir) }()
+	defer func() { _ = db.Close() }()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	tasks := []domain.TaskRecord{
+		{ID: "t1", Status: "downloading", CreatedAt: now.Add(-1 * time.Hour), Type: "mirror", ChatID: 1, UserID: 1},
+		{ID: "t2", Status: "queued", CreatedAt: now.Add(-2 * time.Hour), Type: "mirror", ChatID: 1, UserID: 1},
+		{ID: "t3", Status: "completed", CreatedAt: now.Add(-3 * time.Hour), Type: "mirror", ChatID: 1, UserID: 1},
+		{ID: "t4", Status: "downloading", CreatedAt: now.Add(-25 * time.Hour), Type: "mirror", ChatID: 1, UserID: 1},
+	}
+
+	for _, task := range tasks {
+		_ = db.Save(ctx, task)
+	}
+
+	recoverable, err := db.GetRecoverable(ctx)
+	if err != nil {
+		t.Errorf("GetRecoverable failed: %v", err)
+	}
+
+	if len(recoverable) != 2 {
+		t.Errorf("GetRecoverable got %d tasks, want 2 (t1 and t2)", len(recoverable))
+	}
+
+	foundT1 := false
+	foundT2 := false
+	for _, rt := range recoverable {
+		if rt.ID == "t1" {
+			foundT1 = true
+		}
+		if rt.ID == "t2" {
+			foundT2 = true
+		}
+	}
+
+	if !foundT1 || !foundT2 {
+		t.Errorf("GetRecoverable missed t1 or t2")
+	}
+}
+
 func TestSettingsOperations(t *testing.T) {
 	db, tempDir := setupTestDB(t)
 	defer func() { _ = os.RemoveAll(tempDir) }()

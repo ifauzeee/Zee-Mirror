@@ -79,6 +79,7 @@ type TaskManager struct {
 	Aria2Engine          *downloader.Aria2Engine
 	YTDLPEngine          *downloader.YTDLPEngine
 	UserbotEngine        *downloader.UserbotEngine
+	Config               *config.Config
 	Tasks                map[string]*Task
 	Queue                chan *Task
 	LastStatusMsg        map[int64]int
@@ -136,6 +137,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		LastDashUpdateAt:     make(map[int64]time.Time),
 		LastDashProgressSum:  make(map[int64]float64),
 		LastTasksCount:       make(map[int64]int),
+		Config:               cfg,
 	}
 
 	if db != nil {
@@ -167,6 +169,8 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 						Error:          rt.Error,
 						Ctx:            taskCtx,
 						CancelFunc:     cancel,
+						RetryCount:     rt.RetryCount,
+						MaxRetries:     cfg.MaxRetries,
 					},
 					DB: db,
 				}
@@ -264,10 +268,11 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 			Unzip:          unzip,
 			Password:       password,
 			Quality:        quality,
-			CreatedAt:      time.Now(),
+			CreatedAt:      time.Now().UTC(),
 			Ctx:            ctx,
 			CancelFunc:     cancel,
 			TotalSize:      expectedTotalSize,
+			MaxRetries:     tm.Config.MaxRetries,
 		},
 		DB: tm.DB,
 	}
@@ -396,7 +401,7 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 	}
 
 	task.Status = StatusCancelled
-	task.CompletedAt = time.Now()
+	task.CompletedAt = time.Now().UTC()
 	if task.CancelFunc != nil {
 		task.CancelFunc()
 	}
@@ -455,6 +460,15 @@ func (tm *TaskManager) worker(_ int) {
 	}
 }
 
+func (tm *TaskManager) IsShuttingDown() bool {
+	select {
+	case <-tm.ShutdownChan:
+		return true
+	default:
+		return false
+	}
+}
+
 func (t *Task) UpdateFromProgressUpdate(up downloader.ProgressUpdate) {
 	t.Mu.Lock()
 	defer t.Mu.Unlock()
@@ -498,7 +512,7 @@ func (t *Task) SetStatus(status TaskStatus) {
 		}
 	}
 	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
-		t.CompletedAt = time.Now()
+		t.CompletedAt = time.Now().UTC()
 	}
 	t.Mu.Unlock()
 	_ = t.SaveToDB()
@@ -508,7 +522,7 @@ func (t *Task) SetError(err string) {
 	t.Mu.Lock()
 	t.Error = err
 	t.Status = StatusFailed
-	t.CompletedAt = time.Now()
+	t.CompletedAt = time.Now().UTC()
 	t.Mu.Unlock()
 	_ = t.SaveToDB()
 }

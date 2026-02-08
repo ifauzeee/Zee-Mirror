@@ -884,6 +884,12 @@ func (s *BotService) downloadWithAria2(task *Task) {
 	})
 
 	if err != nil && task.Status != StatusCancelled {
+		if s.TaskManager.IsShuttingDown() {
+			return
+		}
+		if s.retryTask(task, err.Error()) {
+			return
+		}
 		task.SetError(err.Error())
 		s.updateTaskStatus(task)
 		s.cleanupTask(task)
@@ -984,6 +990,14 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 			return
 		}
 
+		if s.TaskManager.IsShuttingDown() {
+			return
+		}
+
+		if s.retryTask(task, err.Error()) {
+			return
+		}
+
 		task.SetError(err.Error())
 		s.updateTaskStatus(task)
 		s.cleanupTask(task)
@@ -1019,6 +1033,12 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 	if uploadErr != nil {
 		if task.Status == StatusCancelled {
 			s.cleanupTask(task)
+			return
+		}
+		if s.TaskManager.IsShuttingDown() {
+			return
+		}
+		if s.retryTask(task, uploadErr.Error()) {
 			return
 		}
 		task.SetError(fmt.Sprintf("Upload failed: %v", uploadErr))
@@ -1272,6 +1292,53 @@ func (s *BotService) processTask(task *Task) {
 	case TypeClone:
 		s.cloneWithRclone(task)
 	}
+}
+
+func (s *BotService) retryTask(task *Task, originalErr string) bool {
+	task.Mu.Lock()
+	if task.Status == StatusCancelled {
+		task.Mu.Unlock()
+		return false
+	}
+
+	if task.RetryCount >= task.MaxRetries {
+		task.Mu.Unlock()
+		return false
+	}
+
+	task.RetryCount++
+	retries := task.RetryCount
+	task.Mu.Unlock()
+
+	backoff := 5 * time.Second
+	for i := 1; i < retries; i++ {
+		backoff *= 2
+		if backoff > 5*time.Minute {
+			backoff = 5 * time.Minute
+			break
+		}
+	}
+
+	slog.Info("Retrying task due to error",
+		"taskID", task.ID,
+		"retry", retries,
+		"max", task.MaxRetries,
+		"backoff", backoff,
+		"error", originalErr)
+
+	go func() {
+		time.Sleep(backoff)
+
+		task.Mu.Lock()
+		task.Status = StatusQueued
+		task.Error = ""
+		task.Mu.Unlock()
+
+		s.updateTaskStatus(task)
+		s.TaskManager.Queue <- task
+	}()
+
+	return true
 }
 
 func isGenericName(name string) bool {

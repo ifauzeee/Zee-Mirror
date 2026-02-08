@@ -112,8 +112,18 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 
 func (s *BotService) Shutdown() {
 	if s.TaskManager != nil {
+		slog.Info("Shutting down TaskManager, cancelling active tasks...")
+
+		activeTasks := s.TaskManager.GetActiveTasks()
+		for _, task := range activeTasks {
+			if task.CancelFunc != nil {
+				task.CancelFunc()
+			}
+		}
+
 		close(s.TaskManager.ShutdownChan)
 		s.TaskManager.Wg.Wait()
+		slog.Info("All tasks stopped.")
 	}
 }
 

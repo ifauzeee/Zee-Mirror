@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"zee-mirror/handlers"
 	"zee-mirror/internal/api"
@@ -67,16 +69,18 @@ func main() {
 
 	updates := bot.GetUpdatesChan(u)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	go func() {
-		<-sigChan
-		slog.Info("Shutting down...")
+		<-ctx.Done()
+		slog.Info("Shutting down gracefully...")
 		service.Shutdown()
+		time.Sleep(1 * time.Second)
 		os.Exit(0)
 	}()
 
-	processUpdates(updates, service, r)
+	processUpdates(ctx, updates, service, r)
 }
 
 func setupLogger(cfg *config.Config) {
@@ -142,33 +146,42 @@ func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {
 	return bot, nil
 }
 
-func processUpdates(updates tgbotapi.UpdatesChannel, service *handlers.BotService, r *router.Router) {
-	for update := range updates {
-		if update.Message != nil {
-			isStart := update.Message.IsCommand() && update.Message.Command() == "start"
-
-			if !service.IsAuthorized(update.Message.From.ID) && !isStart {
-				slog.Warn("Unauthorized access attempt", "userID", update.Message.From.ID, "username", update.Message.From.UserName, "text", update.Message.Text)
-
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, handlers.GetErrorMessage("ACCESS DENIED", "Anda belum terautentikasi untuk menggunakan bot ini.\nSilakan hubungi Owner untuk mendapatkan akses."))
-				msg.ParseMode = handlers.MarkdownV2
-				msg.ReplyToMessageID = update.Message.MessageID
-				_, _ = service.Bot.Send(msg)
-				continue
+func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, service *handlers.BotService, r *router.Router) {
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("Update processor stopping...")
+			return
+		case update, ok := <-updates:
+			if !ok {
+				return
 			}
-			go r.HandleMessage(update.Message)
-		} else if update.CallbackQuery != nil {
-			data := update.CallbackQuery.Data
-			isHelp := strings.HasPrefix(data, "help:")
+			if update.Message != nil {
+				isStart := update.Message.IsCommand() && update.Message.Command() == "start"
 
-			if !service.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
-				slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
+				if !service.IsAuthorized(update.Message.From.ID) && !isStart {
+					slog.Warn("Unauthorized access attempt", "userID", update.Message.From.ID, "username", update.Message.From.UserName, "text", update.Message.Text)
 
-				cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
-				_, _ = service.Bot.Request(cb)
-				continue
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, handlers.GetErrorMessage("ACCESS DENIED", "Anda belum terautentikasi untuk menggunakan bot ini.\nSilakan hubungi Owner untuk mendapatkan akses."))
+					msg.ParseMode = handlers.MarkdownV2
+					msg.ReplyToMessageID = update.Message.MessageID
+					_, _ = service.Bot.Send(msg)
+					continue
+				}
+				go r.HandleMessage(update.Message)
+			} else if update.CallbackQuery != nil {
+				data := update.CallbackQuery.Data
+				isHelp := strings.HasPrefix(data, "help:")
+
+				if !service.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
+					slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
+
+					cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
+					_, _ = service.Bot.Request(cb)
+					continue
+				}
+				go r.HandleCallback(update.CallbackQuery)
 			}
-			go r.HandleCallback(update.CallbackQuery)
 		}
 	}
 }
