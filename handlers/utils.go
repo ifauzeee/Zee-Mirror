@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func GenerateThumbnail(videoPath, downloadDir string) (string, error) {
@@ -30,4 +32,18 @@ func GenerateThumbnail(videoPath, downloadDir string) (string, error) {
 		}
 	}
 	return thumbnailPath, nil
+}
+
+func IsMediaMessage(msg *tgbotapi.Message) bool {
+	if msg == nil {
+		return false
+	}
+	return msg.Document != nil ||
+		msg.Video != nil ||
+		msg.Audio != nil ||
+		msg.Voice != nil ||
+		msg.VideoNote != nil ||
+		msg.Animation != nil ||
+		len(msg.Photo) > 0 ||
+		msg.Sticker != nil
 }

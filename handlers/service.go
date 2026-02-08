@@ -169,7 +169,7 @@ func (s *BotService) handleAutoDelete(task *Task) {
 
 func (s *BotService) AutoDeleteCommandAndReply(message *tgbotapi.Message) {
 	s.AutoDeleteMessage(message.Chat.ID, message.MessageID, 0)
-	if message.ReplyToMessage != nil {
+	if message.ReplyToMessage != nil && !IsMediaMessage(message.ReplyToMessage) {
 		s.AutoDeleteMessage(message.Chat.ID, message.ReplyToMessage.MessageID, 0)
 	}
 }
