@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -16,6 +14,7 @@ import (
 
 	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/organizer"
+	"zee-mirror/pkg/i18n"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -79,7 +78,7 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nReply ke file atau berikan URL\\.")
+	msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgReplyRequired)
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
 }
@@ -139,7 +138,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	}
 
 	if url == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL untuk di\\-leech\\.")
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgInvalidURL)
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
@@ -196,7 +195,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	}
 
 	if url == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nBerikan URL video atau reply ke pesan yang berisi link\\.")
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgInvalidURL)
 		msg.ParseMode = MarkdownV2
 		if sentMsg, err := s.Bot.Send(msg); err == nil {
 			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 30*time.Second)
@@ -240,37 +239,23 @@ func (s *BotService) isYTDLPPlaylist(url string) bool {
 
 func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name string, zip bool, password string, taskType TaskType) {
 	if s.isYTDLPPlaylist(url) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\n\nURL yang Anda berikan adalah link Channel atau Playlist\\. Bot ini hanya mendukung download video tunggal untuk saat ini\\.")
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgYTDLPPlaylistError)
 		msg.ParseMode = MarkdownV2
 		sentMsg, _ := s.Bot.Send(msg)
 		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 15*time.Second)
 		return
 	}
 
-	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, "🎬 Menganalisa kualitas video…"))
-
-	args := s.getYTDLPAnalysisArgs(url)
+	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, i18n.MsgYTDLPAnalysis))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
-
-	output, err := cmd.Output()
+	resMap, err := s.TaskManager.YTDLPEngine.GetFormats(ctx, url)
 	if err != nil {
-		stderr := ""
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			stderr = string(exitErr.Stderr)
-		}
-		slog.Error("YTDLP analysis failed", "error", err, "stderr", stderr)
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal menganalisa video:* %v\n\n_Pastikan URL valid atau coba lagi nanti\\._", utils.EscapeMarkdownV2(err.Error())))
+		slog.Error("YTDLP analysis failed", "error", err)
+		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf(i18n.MsgYTDLPAnalysisFailed, utils.EscapeMarkdownV2(err.Error())))
 		s.AutoDeleteMessage(statusMsg.Chat.ID, statusMsg.MessageID, 20*time.Second)
-		return
-	}
-
-	resMap, err := s.parseYTDLPFormats(output)
-	if err != nil {
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("❌ *Gagal memproses data video:* %v", utils.EscapeMarkdownV2(err.Error())))
 		return
 	}
 
@@ -279,68 +264,15 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name s
 	sessionID := s.createYTDLPSession(url, name, zip, password, taskType)
 	keyboard := s.buildYTDLPKeyboard(sortedHeights, resMap, sessionID)
 
-	text := "📽️ *Pilih Kualitas Video*\n\nVideo ini mendukung resolusi berikut:"
+	text := i18n.MsgYTDLPSelectQuality
 	if len(sortedHeights) == 0 {
-		text = "📽️ *Pilih Kualitas Video*\n\nResolusi tidak terdeteksi, gunakan kualitas terbaik:"
+		text = i18n.MsgYTDLPNoResolution
 	}
 
 	editMsg := tgbotapi.NewEditMessageText(statusMsg.Chat.ID, statusMsg.MessageID, text)
 	editMsg.ParseMode = MarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
-}
-
-func (s *BotService) getYTDLPAnalysisArgs(url string) []string {
-	args := []string{
-		"-j",
-		"--no-playlist",
-		"--no-check-certificate",
-		"--extractor-args", "youtube:player-client=web,web_embedded,mweb",
-		"--socket-timeout", "60",
-		"--add-header", "Accept-Language: en-US,en;q=0.9",
-		"--add-header", "Referer: https://www.youtube.com/",
-		"--remote-components", "ejs:github",
-		"--js-runtime", "node",
-		"--playlist-items", "0",
-	}
-
-	cookiesPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
-	if _, err := os.Stat(cookiesPath); err == nil {
-		slog.Debug("Using YTDLP cookies", "path", cookiesPath)
-		args = append(args, "--cookies", cookiesPath)
-		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-	}
-
-	args = append(args, url)
-	return args
-}
-
-func (s *BotService) parseYTDLPFormats(output []byte) (map[int]float64, error) {
-	var data struct {
-		Formats []struct {
-			FormatID string  `json:"format_id"`
-			VCodec   string  `json:"vcodec"`
-			FPS      float64 `json:"fps"`
-			Height   int     `json:"height"`
-		} `json:"formats"`
-	}
-
-	if err := json.Unmarshal(output, &data); err != nil {
-		return nil, err
-	}
-
-	resMap := make(map[int]float64)
-	for _, f := range data.Formats {
-		if strings.HasPrefix(f.FormatID, "sb") {
-			continue
-		}
-		if f.Height > 0 && f.VCodec != "" && f.VCodec != "none" {
-			if f.FPS > resMap[f.Height] {
-				resMap[f.Height] = f.FPS
-			}
-		}
-	}
-	return resMap, nil
 }
 
 func (s *BotService) getSortedHeights(resMap map[int]float64) []int {
@@ -941,29 +873,7 @@ func (s *BotService) downloadWithAria2(task *Task) {
 	var firstUpdate = true
 	lastUpdate := time.Now()
 	err := s.TaskManager.Aria2Engine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
-		task.Mu.Lock()
-		if up.Downloaded != 0 {
-			task.DownloadedSize = up.Downloaded
-		}
-		if up.Total != 0 {
-			task.TotalSize = up.Total
-		}
-		if up.Speed != 0 {
-			task.Speed = up.Speed
-		}
-		if up.Progress != 0 {
-			task.Progress = up.Progress
-		}
-		if up.Connections != 0 {
-			task.Connections = up.Connections
-		}
-		if up.ETA != 0 {
-			task.ETA = up.ETA
-		}
-		if up.Error != "" {
-			task.Error = up.Error
-		}
-		task.Mu.Unlock()
+		task.UpdateFromProgressUpdate(up)
 
 		if firstUpdate || time.Since(lastUpdate) >= 3*time.Second {
 			s.updateTaskStatus(task)
@@ -1042,32 +952,6 @@ func (s *BotService) handlePostDownload(task *Task, outputDir string) {
 	s.handleAutoDelete(task)
 }
 
-func (s *BotService) updateTaskProgress(task *Task, up downloader.ProgressUpdate) {
-	task.Mu.Lock()
-	if up.FileName != "" {
-		task.FileName = up.FileName
-	}
-	if up.Progress != 0 {
-		task.Progress = up.Progress
-	}
-	if up.Total != 0 {
-		task.TotalSize = up.Total
-	}
-	if up.Downloaded != 0 {
-		task.DownloadedSize = up.Downloaded
-	}
-	if up.Speed != 0 {
-		task.Speed = up.Speed
-	}
-	if up.ETA != 0 {
-		task.ETA = up.ETA
-	}
-	if up.Error != "" {
-		task.Error = up.Error
-	}
-	task.Mu.Unlock()
-}
-
 func (s *BotService) downloadWithYTDLP(task *Task) {
 	task.SetStatus(StatusDownloading)
 	task.Mu.Lock()
@@ -1085,7 +969,7 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 
 	lastUpdate := time.Now()
 	err := s.TaskManager.YTDLPEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
-		s.updateTaskProgress(task, up)
+		task.UpdateFromProgressUpdate(up)
 
 		if time.Since(lastUpdate) >= 5*time.Second {
 			s.updateTaskStatus(task)
@@ -1216,72 +1100,6 @@ func (s *BotService) updateTaskStatus(task *Task) {
 	s.sendFinalMessage(task, text)
 }
 
-func buildTaskStatusText(snapshot TaskSnapshot) string {
-	var text string
-	switch snapshot.Status {
-	case StatusCompleted:
-		duration := calculateDuration(snapshot)
-		sizeStr := determineSizeString(snapshot)
-
-		text = fmt.Sprintf("✅ *Completed\\!*\n\n"+
-			"📄 *Name:* `%s`\n"+
-			"📦 *Size:* `%s`\n"+
-			"⏱ *Time:* `%s`\n"+
-			"📁 *Path:* `%s`",
-			utils.EscapeMarkdownV2(snapshot.FileName),
-			utils.EscapeMarkdownV2(sizeStr),
-			utils.EscapeMarkdownV2(utils.FormatDuration(duration)),
-			utils.EscapeMarkdownV2(snapshot.RemotePath))
-	case StatusFailed:
-		text = fmt.Sprintf("❌ *Failed\\!*\n📄 `%s`\nError: `%s`",
-			utils.EscapeMarkdownV2(snapshot.FileName),
-			utils.EscapeMarkdownV2(utils.TruncateString(snapshot.Error, 100)))
-	default:
-		return ""
-	}
-	return text
-}
-
-func calculateDuration(snapshot TaskSnapshot) time.Duration {
-	duration := snapshot.CompletedAt.Sub(snapshot.StartedAt)
-	if snapshot.StartedAt.IsZero() {
-		duration = snapshot.CompletedAt.Sub(snapshot.CreatedAt)
-	}
-	return duration
-}
-
-func determineSizeString(snapshot TaskSnapshot) string {
-	sizeStr := UnknownSize
-
-	if snapshot.LocalPath != "" {
-		if info, err := os.Stat(snapshot.LocalPath); err == nil && info.IsDir() {
-			if dirSize, err := utils.CalculateDirSize(snapshot.LocalPath); err == nil && dirSize > 0 {
-				sizeStr = utils.FormatBytes(dirSize)
-			} else {
-				if snapshot.TotalSize > 0 {
-					sizeStr = utils.FormatBytes(snapshot.TotalSize)
-				} else if snapshot.DownloadedSize > 0 {
-					sizeStr = utils.FormatBytes(snapshot.DownloadedSize)
-				}
-			}
-		} else {
-			if snapshot.TotalSize > 0 {
-				sizeStr = utils.FormatBytes(snapshot.TotalSize)
-			} else if snapshot.DownloadedSize > 0 {
-				sizeStr = utils.FormatBytes(snapshot.DownloadedSize)
-			}
-		}
-	} else {
-		if snapshot.TotalSize > 0 {
-			sizeStr = utils.FormatBytes(snapshot.TotalSize)
-		} else if snapshot.DownloadedSize > 0 {
-			sizeStr = utils.FormatBytes(snapshot.DownloadedSize)
-		}
-	}
-
-	return sizeStr
-}
-
 func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 	snapshot := task.GetSnapshot()
 	if thumb, err := GenerateThumbnail(snapshot.LocalPath, s.TaskManager.DownloadDir); err == nil {
@@ -1389,7 +1207,7 @@ func (s *BotService) downloadWithUserbot(task *Task) {
 	var firstUpdate = true
 	lastUpdate := time.Now()
 	err := s.TaskManager.UserbotEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
-		s.updateTaskProgress(task, up)
+		task.UpdateFromProgressUpdate(up)
 
 		if firstUpdate || time.Since(lastUpdate) >= 3*time.Second {
 			s.updateTaskStatus(task)

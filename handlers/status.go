@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/pkg/i18n"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -62,7 +63,7 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 		}
 		tm.Mu.Unlock()
 		if forceNew {
-			msg := tgbotapi.NewMessage(chatID, "❌ *Tidak ada task aktif\\.*")
+			msg := tgbotapi.NewMessage(chatID, i18n.MsgNoActiveTasks)
 			msg.ParseMode = MarkdownV2
 			sentMsg, err := s.Bot.Send(msg)
 			if err == nil {
@@ -81,7 +82,7 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 
 func (s *BotService) HandleRefreshStatusCallback(callback *tgbotapi.CallbackQuery) {
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
-	callbackConfig := tgbotapi.NewCallback(callback.ID, "🔄 Dashboard direfresh")
+	callbackConfig := tgbotapi.NewCallback(callback.ID, i18n.MsgDashboardRefreshed)
 	_, _ = s.Bot.Request(callbackConfig)
 }
 
@@ -126,7 +127,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	}
 
 	if start >= totalTasks {
-		return GetErrorMessage("PAGING ERROR", "Halaman tidak ditemukan.")
+		return GetErrorMessage("PAGING ERROR", i18n.MsgPagingError)
 	}
 
 	visibleItems := allTasks[start:end]
@@ -249,14 +250,14 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 
 func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	if args == "" {
-		s.reply(message, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID\\>\n\nLihat daftar task dengan /status"))
+		s.reply(message, GetErrorMessage("CANCEL ERROR", "Gunakan: /cancel <TaskID>\n\nLihat daftar task dengan /status"))
 		return
 	}
 
 	taskID := args
 
 	if s.TaskManager.CancelTask(taskID) {
-		s.reply(message, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf("Task `%s` telah dibatalkan.", taskID)))
+		s.reply(message, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf(i18n.MsgTaskCancelled, taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
@@ -285,23 +286,23 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	if foundBatch {
 		targetBatch.CancelFunc()
 		targetBatch.SetStatus(StatusCancelled)
-		s.reply(message, fmt.Sprintf("✅ *Batch `%s` dibatalkan*", taskID))
+		s.reply(message, GetSuccessMessage("BATCH CANCELLED", fmt.Sprintf(i18n.MsgBatchCancelled, taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
 
 	if s.checkBatchSubTaskCancellation(taskID) {
-		s.reply(message, fmt.Sprintf("✅ *Sub-Task `%s` dibatalkan*", taskID))
+		s.reply(message, GetSuccessMessage("SUB-TASK CANCELLED", fmt.Sprintf(i18n.MsgSubTaskCancelled, taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
 
-	s.reply(message, fmt.Sprintf("❌ *Task/Batch `%s` tidak ditemukan*", utils.EscapeMarkdownV2(taskID)))
+	s.reply(message, GetErrorMessage("NOT FOUND", fmt.Sprintf(i18n.MsgTaskNotFound, utils.EscapeMarkdownV2(taskID))))
 }
 
 func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
 	if !s.IsAdmin(message.From.ID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("PERMISSION DENIED", "Fitur ini hanya untuk Admin/Owner."))
+		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("PERMISSION DENIED", i18n.MsgAdminOnly))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
@@ -331,7 +332,7 @@ func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
 		s.BatchManager.Mu.Unlock()
 	}
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf("%d tugas/batch aktif telah dibatalkan.", count)))
+	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf(i18n.MsgAllTasksCancelled, count)))
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
 	s.UpdateSharedDashboard(message.Chat.ID, false)

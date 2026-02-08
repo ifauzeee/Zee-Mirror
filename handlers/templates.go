@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"os"
+	"time"
 	"zee-mirror/internal/domain"
+	"zee-mirror/pkg/i18n"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -12,7 +15,76 @@ const (
 	LineSeparator    = "━━━━━━━━━━━━━━━━━━━━━━"
 	CompactSeparator = "──────────────────────"
 	RepoURL          = "https://github.com/ifauzeee/Zee-Mirror"
+	UnknownSize      = "Unknown"
 )
+
+func buildTaskStatusText(snapshot domain.TaskSnapshot) string {
+	var text string
+	switch snapshot.Status {
+	case domain.StatusCompleted:
+		duration := calculateDuration(snapshot)
+		sizeStr := determineSizeString(snapshot)
+
+		text = fmt.Sprintf("%s\n\n"+
+			"📄 *Name:* `%s`\n"+
+			"📦 *Size:* `%s`\n"+
+			"⏱ *Time:* `%s`\n"+
+			"📁 *Path:* `%s`",
+			i18n.MsgStatusCompleted,
+			utils.EscapeMarkdownV2(snapshot.FileName),
+			utils.EscapeMarkdownV2(sizeStr),
+			utils.EscapeMarkdownV2(utils.FormatDuration(duration)),
+			utils.EscapeMarkdownV2(snapshot.RemotePath))
+	case domain.StatusFailed:
+		text = fmt.Sprintf("%s\n📄 `%s`\nError: `%s`",
+			i18n.MsgStatusFailed,
+			utils.EscapeMarkdownV2(snapshot.FileName),
+			utils.EscapeMarkdownV2(utils.TruncateString(snapshot.Error, 100)))
+	default:
+		return ""
+	}
+	return text
+}
+
+func calculateDuration(snapshot domain.TaskSnapshot) time.Duration {
+	duration := snapshot.CompletedAt.Sub(snapshot.StartedAt)
+	if snapshot.StartedAt.IsZero() {
+		duration = snapshot.CompletedAt.Sub(snapshot.CreatedAt)
+	}
+	return duration
+}
+
+func determineSizeString(snapshot domain.TaskSnapshot) string {
+	sizeStr := UnknownSize
+
+	if snapshot.LocalPath != "" {
+		if info, err := os.Stat(snapshot.LocalPath); err == nil && info.IsDir() {
+			if dirSize, err := utils.CalculateDirSize(snapshot.LocalPath); err == nil && dirSize > 0 {
+				sizeStr = utils.FormatBytes(dirSize)
+			} else {
+				if snapshot.TotalSize > 0 {
+					sizeStr = utils.FormatBytes(snapshot.TotalSize)
+				} else if snapshot.DownloadedSize > 0 {
+					sizeStr = utils.FormatBytes(snapshot.DownloadedSize)
+				}
+			}
+		} else {
+			if snapshot.TotalSize > 0 {
+				sizeStr = utils.FormatBytes(snapshot.TotalSize)
+			} else if snapshot.DownloadedSize > 0 {
+				sizeStr = utils.FormatBytes(snapshot.DownloadedSize)
+			}
+		}
+	} else {
+		if snapshot.TotalSize > 0 {
+			sizeStr = utils.FormatBytes(snapshot.TotalSize)
+		} else if snapshot.DownloadedSize > 0 {
+			sizeStr = utils.FormatBytes(snapshot.DownloadedSize)
+		}
+	}
+
+	return sizeStr
+}
 
 func ProfessionalMessage(title string, content string) string {
 	return fmt.Sprintf("✨ *%s* ✨\n%s\n\n%s\n\n%s",

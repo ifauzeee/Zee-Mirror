@@ -3,6 +3,7 @@ package downloader
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,10 +18,70 @@ type YTDLPEngine struct {
 	ConfigDir string
 }
 
+type VideoFormat struct {
+	Height int
+	FPS    float64
+}
+
 func NewYTDLPEngine(configDir string) *YTDLPEngine {
 	return &YTDLPEngine{
 		ConfigDir: configDir,
 	}
+}
+
+func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float64, error) {
+	args := []string{
+		"-j",
+		"--no-playlist",
+		"--no-check-certificate",
+		"--extractor-args", "youtube:player-client=web,web_embedded,mweb",
+		"--socket-timeout", "60",
+		"--add-header", "Accept-Language: en-US,en;q=0.9",
+		"--add-header", "Referer: https://www.youtube.com/",
+		"--remote-components", "ejs:github",
+		"--js-runtime", "node",
+		"--playlist-items", "0",
+	}
+
+	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
+	if _, err := os.Stat(cookiesPath); err == nil {
+		args = append(args, "--cookies", cookiesPath)
+		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+	}
+
+	args = append(args, url)
+	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var data struct {
+		Formats []struct {
+			FormatID string  `json:"format_id"`
+			VCodec   string  `json:"vcodec"`
+			FPS      float64 `json:"fps"`
+			Height   int     `json:"height"`
+		} `json:"formats"`
+	}
+
+	if err := json.Unmarshal(output, &data); err != nil {
+		return nil, err
+	}
+
+	resMap := make(map[int]float64)
+	for _, f := range data.Formats {
+		if strings.HasPrefix(f.FormatID, "sb") {
+			continue
+		}
+		if f.Height > 0 && f.VCodec != "" && f.VCodec != "none" {
+			if f.FPS > resMap[f.Height] {
+				resMap[f.Height] = f.FPS
+			}
+		}
+	}
+	return resMap, nil
 }
 
 func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {

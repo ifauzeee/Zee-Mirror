@@ -45,7 +45,6 @@ const (
 	MarkdownV2       = "MarkdownV2"
 	StatusHeaderText = "📊 *Status Task Aktif*\n\n"
 	UnknownFile      = "unknown_file"
-	UnknownSize      = "Unknown"
 	UnlimitedStr     = "Unlimited"
 
 	ModeLeech  = "leech"
@@ -77,9 +76,9 @@ type TorrentFile = domain.TorrentFile
 type TaskManager struct {
 	Bot                  *tgbotapi.BotAPI
 	DB                   repository.TaskRepository
-	Aria2Engine          downloader.DownloadEngine
-	YTDLPEngine          downloader.DownloadEngine
-	UserbotEngine        downloader.DownloadEngine
+	Aria2Engine          *downloader.Aria2Engine
+	YTDLPEngine          *downloader.YTDLPEngine
+	UserbotEngine        *downloader.UserbotEngine
 	Tasks                map[string]*Task
 	Queue                chan *Task
 	LastStatusMsg        map[int64]int
@@ -450,21 +449,33 @@ func (tm *TaskManager) worker(_ int) {
 	}
 }
 
-func (t *Task) UpdateProgress(downloaded, total int64, speed int64) {
+func (t *Task) UpdateFromProgressUpdate(up downloader.ProgressUpdate) {
 	t.Mu.Lock()
 	defer t.Mu.Unlock()
 
-	t.DownloadedSize = downloaded
-	t.TotalSize = total
-	t.Speed = speed
-
-	if total > 0 {
-		t.Progress = float64(downloaded) / float64(total) * 100
+	if up.FileName != "" {
+		t.FileName = up.FileName
 	}
-
-	if speed > 0 {
-		remaining := total - downloaded
-		t.ETA = time.Duration(remaining/speed) * time.Second
+	if up.Downloaded != 0 {
+		t.DownloadedSize = up.Downloaded
+	}
+	if up.Total != 0 {
+		t.TotalSize = up.Total
+	}
+	if up.Speed != 0 {
+		t.Speed = up.Speed
+	}
+	if up.Progress != 0 {
+		t.Progress = up.Progress
+	}
+	if up.Connections != 0 {
+		t.Connections = up.Connections
+	}
+	if up.ETA != 0 {
+		t.ETA = up.ETA
+	}
+	if up.Error != "" {
+		t.Error = up.Error
 	}
 }
 
