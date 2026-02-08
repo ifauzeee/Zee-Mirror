@@ -85,6 +85,9 @@ type TaskManager struct {
 	StatusPages          map[int64]int
 	YTDLPSessions        map[string]*YTDLPSession
 	TorrentSessions      map[string]*TorrentSession
+	LastDashUpdateAt     map[int64]time.Time
+	LastDashProgressSum  map[int64]float64
+	LastTasksCount       map[int64]int
 	ShutdownChan         chan struct{}
 	ProcessTaskFunc      func(*Task)
 	RefreshDashboardFunc func(int64, bool)
@@ -130,6 +133,9 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		Aria2Engine:          downloader.NewAria2Engine(configDir),
 		YTDLPEngine:          downloader.NewYTDLPEngine(configDir),
 		UserbotEngine:        downloader.NewUserbotEngine(cfg),
+		LastDashUpdateAt:     make(map[int64]time.Time),
+		LastDashProgressSum:  make(map[int64]float64),
+		LastTasksCount:       make(map[int64]int),
 	}
 
 	if db != nil {

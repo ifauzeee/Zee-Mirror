@@ -59,6 +59,8 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(chatID, lastMsgID))
 			delete(tm.LastStatusMsg, chatID)
 			delete(lastStatusText, chatID)
+			delete(tm.LastDashUpdateAt, chatID)
+			delete(tm.LastDashProgressSum, chatID)
 			_ = s.SettingsRepo.Set(context.Background(), fmt.Sprintf("dashboard_msg_%d", chatID), "")
 		}
 		tm.Mu.Unlock()
@@ -72,6 +74,38 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 		}
 		return
 	}
+
+	var currentProgressSum float64
+	for _, t := range tasks {
+		snapshot := t.GetSnapshot()
+		currentProgressSum += snapshot.Progress
+	}
+	for _, b := range batches {
+		b.Mu.RLock()
+		currentProgressSum += b.Progress
+		b.Mu.RUnlock()
+	}
+
+	tm.Mu.Lock()
+	lastUpdateAt := tm.LastDashUpdateAt[chatID]
+	lastProgressSum := tm.LastDashProgressSum[chatID]
+	lastCount := tm.LastTasksCount[chatID]
+
+	shouldUpdate := forceNew ||
+		totalTasks != lastCount ||
+		time.Since(lastUpdateAt) >= 3*time.Second ||
+		(currentProgressSum-lastProgressSum) >= 5.0 ||
+		(lastProgressSum-currentProgressSum) >= 5.0
+
+	if !shouldUpdate {
+		tm.Mu.Unlock()
+		return
+	}
+
+	tm.LastDashUpdateAt[chatID] = time.Now()
+	tm.LastDashProgressSum[chatID] = currentProgressSum
+	tm.LastTasksCount[chatID] = totalTasks
+	tm.Mu.Unlock()
 
 	text := s.buildStatusDashboardText(tasks, batches, page)
 	totalPages := (totalTasks + 4) / 5
