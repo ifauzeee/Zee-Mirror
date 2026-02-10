@@ -661,9 +661,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	if err := s.Service.DB.Delete(ctx, req.ID); err != nil {
+	if dbErr := s.Service.DB.Delete(ctx, req.ID); dbErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": err.Error()}); encErr != nil {
+		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": dbErr.Error()}); encErr != nil {
 			slog.Debug("Failed to encode error response", "error", encErr)
 		}
 		return
