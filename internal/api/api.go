@@ -349,10 +349,10 @@ func (s *Server) handleRemoteExplorer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cmd := exec.Command("rclone", "purge", remotePath, "--config", configPath)
-		if err := cmd.Run(); err != nil {
+		if purgeErr := cmd.Run(); purgeErr != nil {
 			cmd = exec.Command("rclone", "deletefile", remotePath, "--config", configPath)
-			if err := cmd.Run(); err != nil {
-				http.Error(w, fmt.Sprintf("Delete failed: %v", err), http.StatusInternalServerError)
+			if deleteErr := cmd.Run(); deleteErr != nil {
+				http.Error(w, fmt.Sprintf("Delete failed: %v", deleteErr), http.StatusInternalServerError)
 				return
 			}
 		}
@@ -603,8 +603,8 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		if err := json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"}); err != nil {
-			slog.Debug("Failed to encode error response", "error", err)
+		if encodeErr := json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"}); encodeErr != nil {
+			slog.Debug("Failed to encode error response", "error", encodeErr)
 		}
 		return
 	}
@@ -612,23 +612,23 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if req.Role != "" {
-		if err := s.Service.DB.SetRole(ctx, req.ID, req.Role); err != nil {
-			slog.Error("Failed to update role", "error", err)
+		if roleErr := s.Service.DB.SetRole(ctx, req.ID, req.Role); roleErr != nil {
+			slog.Error("Failed to update role", "error", roleErr)
 		}
 	}
 
-	if err := s.Service.DB.SetLimits(ctx, req.ID, req.MaxDailyTasks, req.MaxDailyBandwidth); err != nil {
-		slog.Error("Failed to update limits", "error", err)
+	if limitsErr := s.Service.DB.SetLimits(ctx, req.ID, req.MaxDailyTasks, req.MaxDailyBandwidth); limitsErr != nil {
+		slog.Error("Failed to update limits", "error", limitsErr)
 	}
 
 	if req.ExpiresAt != "" {
-		if exp, err := time.Parse(time.RFC3339, req.ExpiresAt); err == nil {
-			if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
-				slog.Error("Failed to update expiration", "error", err)
+		if exp, parseErr := time.Parse(time.RFC3339, req.ExpiresAt); parseErr == nil {
+			if expErr := s.Service.DB.SetExpiration(ctx, req.ID, exp); expErr != nil {
+				slog.Error("Failed to update expiration", "error", expErr)
 			}
-		} else if exp, err := time.Parse("2006-01-02", req.ExpiresAt); err == nil {
-			if err := s.Service.DB.SetExpiration(ctx, req.ID, exp); err != nil {
-				slog.Error("Failed to update expiration", "error", err)
+		} else if exp, parseErr := time.Parse("2006-01-02", req.ExpiresAt); parseErr == nil {
+			if expErr := s.Service.DB.SetExpiration(ctx, req.ID, exp); expErr != nil {
+				slog.Error("Failed to update expiration", "error", expErr)
 			}
 		}
 	}
@@ -676,37 +676,36 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		data, err := os.ReadFile(".env")
-		if err != nil {
-			data, err = os.ReadFile(filepath.Join(".", ".env"))
-			if err != nil {
+		data, readErr := os.ReadFile(".env")
+		if readErr != nil {
+			data, readErr = os.ReadFile(filepath.Join(".", ".env"))
+			if readErr != nil {
 				http.Error(w, "Failed to read .env", http.StatusInternalServerError)
 				return
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]string{"config": string(data)}); err != nil {
-			slog.Error("Failed to encode config response", "error", err)
+		if encodeErr := json.NewEncoder(w).Encode(map[string]string{"config": string(data)}); encodeErr != nil {
+			slog.Error("Failed to encode config response", "error", encodeErr)
 		}
 	case http.MethodPost:
 		var req struct {
 			Config string `json:"config"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 
-		err := os.WriteFile(".env", []byte(req.Config), 0600)
-		if err != nil {
+		if writeErr := os.WriteFile(".env", []byte(req.Config), 0600); writeErr != nil {
 			http.Error(w, "Failed to write .env", http.StatusInternalServerError)
 			return
 		}
 
 		slog.Info("Configuration updated from dashboard", "by", r.RemoteAddr)
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(map[string]string{"status": "Configuration updated. Restart may be required for some changes."}); err != nil {
-			slog.Error("Failed to encode config update response", "error", err)
+		if encodeErr := json.NewEncoder(w).Encode(map[string]string{"status": "Configuration updated. Restart may be required for some changes."}); encodeErr != nil {
+			slog.Error("Failed to encode config update response", "error", encodeErr)
 		}
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -799,9 +798,9 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.ExpiresAt != "" {
-		if t, err := time.Parse(time.RFC3339, req.ExpiresAt); err == nil {
+		if t, parseErr := time.Parse(time.RFC3339, req.ExpiresAt); parseErr == nil {
 			user.ExpiresAt = sql.NullTime{Time: t, Valid: true}
-		} else if t, err := time.Parse("2006-01-02", req.ExpiresAt); err == nil {
+		} else if t, parseErr := time.Parse("2006-01-02", req.ExpiresAt); parseErr == nil {
 			user.ExpiresAt = sql.NullTime{Time: t, Valid: true}
 		}
 	}
@@ -811,12 +810,12 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	if err := s.Service.DB.Upsert(ctx, user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if upsertErr := s.Service.DB.Upsert(ctx, user); upsertErr != nil {
+		http.Error(w, upsertErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
-		slog.Debug("Failed to encode success response", "error", err)
+	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); encodeErr != nil {
+		slog.Debug("Failed to encode success response", "error", encodeErr)
 	}
 }
