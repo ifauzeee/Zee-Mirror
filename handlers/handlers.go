@@ -379,7 +379,7 @@ func (tm *TaskManager) GetActiveTasks() []*Task {
 	}
 
 	sort.Slice(active, func(i, j int) bool {
-		return active[i].CreatedAt.After(active[j].CreatedAt)
+		return active[i].CreatedAt.Before(active[j].CreatedAt)
 	})
 
 	return active

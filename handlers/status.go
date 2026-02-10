@@ -26,8 +26,9 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 	tm := s.TaskManager
 	tm.Mu.RLock()
 	page := tm.StatusPages[chatID]
-	tasks := tm.GetActiveTasks()
 	tm.Mu.RUnlock()
+
+	tasks := tm.GetActiveTasks()
 
 	bm := s.BatchManager
 	bm.Mu.RLock()
@@ -150,7 +151,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 			timeJ = b.CreatedAt
 		}
 
-		return timeI.After(timeJ)
+		return timeI.Before(timeJ)
 	})
 
 	totalTasks := len(allTasks)
