@@ -1117,6 +1117,7 @@ func (s *BotService) updateTaskStatus(task *Task) {
 		}
 	}
 
+	slog.Debug("Sending final task message", "task_id", task.ID, "status", snapshot.Status)
 	s.sendFinalMessage(task, text)
 }
 
@@ -1144,6 +1145,8 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 			slog.Info("Captured result video message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
 			_ = os.Remove(thumb)
 			return true
+		} else {
+			slog.Error("Failed to send video with thumbnail", "error", err, "task_id", task.ID)
 		}
 		_ = os.Remove(thumb)
 	}
@@ -1158,8 +1161,8 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 	task.Mu.RUnlock()
 
 	if msgID != 0 {
-		edit := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
-		edit.ParseMode = MarkdownV2
+		editCaption := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
+		editCaption.ParseMode = MarkdownV2
 		if snapshot.RemoteURL != "" {
 			btnText := BtnTextCloudLink
 			if s.Config.IndexURL != "" {
@@ -1170,13 +1173,33 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 				),
 			)
-			edit.ReplyMarkup = &keyboard
+			editCaption.ReplyMarkup = &keyboard
 		}
-		if _, err := s.Bot.Send(edit); err != nil {
-			slog.Warn("Failed to edit caption, falling back to sending new message", "error", err)
-		} else {
+
+		if _, err := s.Bot.Send(editCaption); err == nil {
 			return
 		}
+
+		editText := tgbotapi.NewEditMessageText(snapshot.ChatID, msgID, text)
+		editText.ParseMode = MarkdownV2
+		if snapshot.RemoteURL != "" {
+			btnText := BtnTextCloudLink
+			if s.Config.IndexURL != "" {
+				btnText = BtnTextIndexURL
+			}
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
+				),
+			)
+			editText.ReplyMarkup = &keyboard
+		}
+
+		if _, err := s.Bot.Send(editText); err == nil {
+			return
+		}
+
+		slog.Warn("Failed to edit existing message, sending new one", "taskID", task.ID, "msgID", msgID)
 	}
 
 	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
@@ -1199,7 +1222,9 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 		task.Mu.Lock()
 		task.ResultMessageID = sentMsg.MessageID
 		task.Mu.Unlock()
-		slog.Info("Captured result final message ID", "messageID", sentMsg.MessageID, "taskID", task.ID)
+		slog.Info("Captured result final message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
+	} else {
+		slog.Error("Failed to send final task message", "error", err, "task_id", task.ID, "chatID", snapshot.ChatID)
 	}
 }
 

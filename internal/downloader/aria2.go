@@ -2,13 +2,16 @@ package downloader
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/parser"
 	"zee-mirror/pkg/utils"
@@ -31,6 +34,10 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 
 	args := e.buildAria2Args(task, outputDir)
 	cmd := exec.CommandContext(ctx, "aria2c", args...)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdout pipe: %v", err)
@@ -40,11 +47,41 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 		return fmt.Errorf("aria2c failed to start: %v", errStart)
 	}
 
-	go e.parseProgress(stdout, onProgress)
+	var lastLines []string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		e.parseProgress(stdout, onProgress, &lastLines)
+	}()
 
 	err = cmd.Wait()
+	wg.Wait()
+
 	if err != nil && ctx.Err() == nil {
-		return fmt.Errorf("aria2c execution failed: %v", err)
+		var errorDetails []string
+		for _, line := range lastLines {
+			if strings.Contains(line, "ERROR") ||
+				strings.Contains(line, "Exception") ||
+				strings.Contains(line, "ErrorCode") ||
+				strings.Contains(line, "status=") {
+				errorDetails = append(errorDetails, strings.TrimSpace(line))
+			}
+		}
+
+		if len(errorDetails) > 0 {
+			return fmt.Errorf("aria2c failed: %v, details: %s", err, strings.Join(errorDetails, " | "))
+		}
+
+		tail := ""
+		if len(lastLines) > 0 {
+			start := 0
+			if len(lastLines) > 3 {
+				start = len(lastLines) - 3
+			}
+			tail = strings.Join(lastLines[start:], " | ")
+		}
+		return fmt.Errorf("aria2c failed: %v, stderr: %s, tail: %s", err, stderr.String(), tail)
 	}
 
 	return nil
@@ -122,20 +159,21 @@ func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []stri
 	return args
 }
 
-func (e *Aria2Engine) parseProgress(stdout interface{}, onProgress func(ProgressUpdate)) {
-	reader, ok := stdout.(interface {
-		Close() error
-		Read(p []byte) (n int, err error)
-	})
-	if !ok {
-		return
-	}
+func (e *Aria2Engine) parseProgress(reader io.ReadCloser, onProgress func(ProgressUpdate), lastLines *[]string) {
 	defer func() { _ = reader.Close() }()
 
 	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		if lastLines != nil {
+			*lastLines = append(*lastLines, line)
+			if len(*lastLines) > 15 {
+				*lastLines = (*lastLines)[1:]
+			}
+		}
+
 		update := ProgressUpdate{}
 
 		if strings.Contains(line, "ERROR") || strings.Contains(line, "Exception") || strings.Contains(line, "ErrorCode") {

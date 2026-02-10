@@ -31,15 +31,15 @@ func buildTaskStatusText(snapshot domain.TaskSnapshot) string {
 			"⏱ *Time:* `%s`\n"+
 			"📁 *Path:* `%s`",
 			i18n.MsgStatusCompleted,
-			utils.EscapeMarkdownV2(snapshot.FileName),
-			utils.EscapeMarkdownV2(sizeStr),
-			utils.EscapeMarkdownV2(utils.FormatDuration(duration)),
-			utils.EscapeMarkdownV2(snapshot.RemotePath))
+			utils.EscapeMarkdownV2Code(snapshot.FileName),
+			utils.EscapeMarkdownV2Code(sizeStr),
+			utils.EscapeMarkdownV2Code(utils.FormatDuration(duration)),
+			utils.EscapeMarkdownV2Code(snapshot.RemotePath))
 	case domain.StatusFailed:
 		text = fmt.Sprintf("%s\n📄 `%s`\nError: `%s`",
 			i18n.MsgStatusFailed,
-			utils.EscapeMarkdownV2(snapshot.FileName),
-			utils.EscapeMarkdownV2(utils.TruncateString(snapshot.Error, 100)))
+			utils.EscapeMarkdownV2Code(snapshot.FileName),
+			utils.EscapeMarkdownV2Code(utils.TruncateString(snapshot.Error, 100)))
 	default:
 		return ""
 	}
