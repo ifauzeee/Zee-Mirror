@@ -293,7 +293,7 @@ func getFileNameFromQuery(u *url.URL) string {
 		}
 	}
 
-	keys := []string{"filename", "dn", "file", "zipname"}
+	keys := []string{"filename", "file_name", "dn", "file", "zipname"}
 	for _, key := range keys {
 		if val := q.Get(key); val != "" {
 			return SanitizeFileName(val)
