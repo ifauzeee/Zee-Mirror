@@ -2,7 +2,7 @@
 
 Bot Telegram berperforma tinggi untuk mirror dan leech file ke Google Drive, ditulis menggunakan bahasa **Go**.
 
-![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
