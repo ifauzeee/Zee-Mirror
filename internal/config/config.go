@@ -105,11 +105,9 @@ func getEnvBool(key string, fallback bool) bool {
 func (c *Config) Validate() bool {
 	if c.BotToken == "" {
 		log.Fatal("❌ BOT_TOKEN tidak ditemukan! Set environment variable BOT_TOKEN")
-		return false
 	}
 	if c.OwnerID == 0 {
 		log.Fatal("❌ OWNER_ID tidak ditemukan! Set environment variable OWNER_ID")
-		return false
 	}
 	if c.RcloneDest == "" {
 		log.Println("⚠️ RCLONE_DEST tidak di-set, menggunakan default: gdrive:/MirrorBot")

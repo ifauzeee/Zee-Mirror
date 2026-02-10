@@ -47,7 +47,9 @@ func (s *Server) Start() {
 			if apiKey != expectedKey {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
+				if err := json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"}); err != nil {
+					slog.Debug("Failed to encode unauthorized response", "error", err)
+				}
 				return
 			}
 			next(w, r)
@@ -159,7 +161,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	stats["users_count"] = usersCount
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		slog.Error("Failed to encode stats response", "error", err)
+	}
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +181,9 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		snapshots = append(snapshots, t.GetSnapshot())
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(snapshots)
+	if err := json.NewEncoder(w).Encode(snapshots); err != nil {
+		slog.Error("Failed to encode tasks response", "error", err)
+	}
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +212,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	s.Service.Settings.Mu.RLock()
 	defer s.Service.Settings.Mu.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(s.Service.Settings)
+	if err := json.NewEncoder(w).Encode(s.Service.Settings); err != nil {
+		slog.Error("Failed to encode settings response", "error", err)
+	}
 }
 
 func (s *Server) handleSystem(w http.ResponseWriter, _ *http.Request) {
@@ -229,7 +237,9 @@ func (s *Server) handleSystem(w http.ResponseWriter, _ *http.Request) {
 		"arch":   h.KernelArch,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(sysInfo)
+	if err := json.NewEncoder(w).Encode(sysInfo); err != nil {
+		slog.Error("Failed to encode system response", "error", err)
+	}
 }
 
 func (s *Server) handleExplorer(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +290,9 @@ func (s *Server) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		slog.Error("Failed to encode explorer response", "error", err)
+	}
 }
 
 func (s *Server) shouldSkipFile(path, name string) bool {
@@ -403,14 +415,18 @@ func (s *Server) handleWipeOrphans(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"wiped": count})
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"wiped": count}); err != nil {
+		slog.Error("Failed to encode wipe orphans response", "error", err)
+	}
 }
 
 func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	weekly, _ := s.Service.DB.GetWeeklyStats(ctx)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(weekly)
+	if err := json.NewEncoder(w).Encode(weekly); err != nil {
+		slog.Error("Failed to encode analytics response", "error", err)
+	}
 }
 
 func (s *Server) handleLogs(w http.ResponseWriter, _ *http.Request) {
@@ -434,9 +450,11 @@ func (s *Server) handleLogs(w http.ResponseWriter, _ *http.Request) {
 	lastLines := lines[start:]
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"logs": strings.Join(lastLines, "\n"),
-	})
+	}); err != nil {
+		slog.Error("Failed to encode logs response", "error", err)
+	}
 }
 
 func (s *Server) handleTorrentSession(w http.ResponseWriter, r *http.Request) {
@@ -464,7 +482,9 @@ func (s *Server) handleTorrentSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Failed to encode torrent session response", "error", err)
+	}
 }
 
 func (s *Server) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
@@ -485,20 +505,24 @@ func (s *Server) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 
 	if len(session.Files) > 0 {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"files":   session.Files,
 			"loading": false,
-		})
+		}); err != nil {
+			slog.Error("Failed to encode torrent files response", "error", err)
+		}
 		return
 	}
 
 	if session.Error != "" {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"files":   []domain.TorrentFile{},
 			"loading": false,
 			"error":   session.Error,
-		})
+		}); err != nil {
+			slog.Error("Failed to encode torrent error response", "error", err)
+		}
 		return
 	}
 
@@ -540,10 +564,12 @@ func (s *Server) handleTorrentStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Torrent download started",
-	})
+	}); err != nil {
+		slog.Error("Failed to encode torrent start response", "error", err)
+	}
 }
 
 func (s *Server) handleGetUsers(w http.ResponseWriter, r *http.Request) {
@@ -556,7 +582,9 @@ func (s *Server) handleGetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(users)
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		slog.Error("Failed to encode users response", "error", err)
+	}
 }
 
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -575,7 +603,9 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"}); err != nil {
+			slog.Debug("Failed to encode error response", "error", err)
+		}
 		return
 	}
 
@@ -624,14 +654,18 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	if s.Service.IsOwner(req.ID) {
 		w.WriteHeader(http.StatusForbidden)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete owner"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete owner"}); err != nil {
+			slog.Debug("Failed to encode error response", "error", err)
+		}
 		return
 	}
 
 	ctx := r.Context()
 	if err := s.Service.DB.Delete(ctx, req.ID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if err := json.NewEncoder(w).Encode(map[string]string{"error": err.Error()}); err != nil {
+			slog.Debug("Failed to encode error response", "error", err)
+		}
 		return
 	}
 
@@ -651,7 +685,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"config": string(data)})
+		if err := json.NewEncoder(w).Encode(map[string]string{"config": string(data)}); err != nil {
+			slog.Error("Failed to encode config response", "error", err)
+		}
 	case http.MethodPost:
 		var req struct {
 			Config string `json:"config"`
@@ -669,7 +705,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		slog.Info("Configuration updated from dashboard", "by", r.RemoteAddr)
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "Configuration updated. Restart may be required for some changes."})
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "Configuration updated. Restart may be required for some changes."}); err != nil {
+			slog.Error("Failed to encode config update response", "error", err)
+		}
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -721,7 +759,9 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	slog.Info("File uploaded from dashboard", "name", handler.Filename, "size", handler.Size, "dest", destPath)
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "Upload successful", "file": handler.Filename})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "Upload successful", "file": handler.Filename}); err != nil {
+		slog.Error("Failed to encode upload response", "error", err)
+	}
 }
 
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -776,6 +816,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
+		slog.Debug("Failed to encode success response", "error", err)
+	}
 }
