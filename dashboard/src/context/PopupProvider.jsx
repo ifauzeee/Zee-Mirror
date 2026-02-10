@@ -1,0 +1,96 @@
+import { useState, useCallback } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import Dialog from '../components/Popups/Dialog'
+import Toast from '../components/Popups/Toast'
+import { PopupContext } from './PopupContext.js'
+
+export const PopupProvider = ({ children }) => {
+  const [modal, setModal] = useState(null)
+  const [toasts, setToasts] = useState([])
+
+  const showConfirm = useCallback((title, content, options = {}) => {
+    return new Promise((resolve) => {
+      setModal({
+        title,
+        content,
+        type: 'confirm',
+        confirmText: options.confirmText || 'Confirm',
+        cancelText: options.cancelText || 'Cancel',
+        onConfirm: () => {
+          setModal(null)
+          resolve(true)
+        },
+        onClose: () => {
+          setModal(null)
+          resolve(false)
+        },
+        ...options,
+      })
+    })
+  }, [])
+
+  const showAlert = useCallback((title, content, options = {}) => {
+    return new Promise((resolve) => {
+      setModal({
+        title,
+        content,
+        type: options.type || 'info',
+        confirmText: options.confirmText || 'OK',
+        showCancel: false,
+        onConfirm: () => {
+          setModal(null)
+          resolve(true)
+        },
+        onClose: () => {
+          setModal(null)
+          resolve(true)
+        },
+        ...options,
+      })
+    })
+  }, [])
+
+  const showToast = useCallback((message, type = 'info', duration = 3000) => {
+    const id = Date.now()
+    setToasts((prev) => [...prev, { id, message, type, duration }])
+  }, [])
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }, [])
+
+  return (
+    <PopupContext.Provider value={{ showConfirm, showAlert, showToast }}>
+      {children}
+
+      {}
+      <Dialog
+        isOpen={!!modal}
+        onClose={modal?.onClose}
+        onConfirm={modal?.onConfirm}
+        title={modal?.title}
+        type={modal?.type}
+        confirmText={modal?.confirmText}
+        cancelText={modal?.cancelText}
+        showCancel={modal?.showCancel}
+      >
+        {modal?.content}
+      </Dialog>
+
+      {}
+      <div className="fixed bottom-8 right-8 z-[110] flex flex-col items-end space-y-4 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              message={toast.message}
+              type={toast.type}
+              duration={toast.duration}
+              onClose={() => removeToast(toast.id)}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+    </PopupContext.Provider>
+  )
+}
