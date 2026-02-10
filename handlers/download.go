@@ -1138,16 +1138,16 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 				),
 			)
 		}
-		if sentMsg, err := s.Bot.Send(photo); err == nil {
+		sentMsg, sendErr := s.Bot.Send(photo)
+		if sendErr == nil {
 			task.Mu.Lock()
 			task.ResultMessageID = sentMsg.MessageID
 			task.Mu.Unlock()
 			slog.Info("Captured result video message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
 			_ = os.Remove(thumb)
 			return true
-		} else {
-			slog.Error("Failed to send video with thumbnail", "error", err, "task_id", task.ID)
 		}
+		slog.Error("Failed to send video with thumbnail", "error", sendErr, "task_id", task.ID)
 		_ = os.Remove(thumb)
 	}
 	return false

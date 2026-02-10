@@ -291,6 +291,10 @@ func setupMediaRoutes(r *router.Router) {
 			s.HandleScreenshots(m, args)
 		case "subtitle":
 			s.HandleEmbedSubtitle(m, args)
+		case "hardsub":
+			s.HandleHardsub(m, args)
+		case "rescale":
+			s.HandleRescale(m, args)
 		case "convert":
 			s.HandleConvertFormat(m, args)
 		case "mediainfo":
@@ -302,6 +306,8 @@ func setupMediaRoutes(r *router.Router) {
 	r.RegisterCommand("thumbnail", mediaHandler)
 	r.RegisterCommand("screenshots", mediaHandler)
 	r.RegisterCommand("subtitle", mediaHandler)
+	r.RegisterCommand("hardsub", mediaHandler)
+	r.RegisterCommand("rescale", mediaHandler)
 	r.RegisterCommand("convert", mediaHandler)
 	r.RegisterCommand("mediainfo", mediaHandler)
 }

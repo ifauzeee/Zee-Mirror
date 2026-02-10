@@ -801,3 +801,175 @@ func (s *BotService) HasAudioStream(inputPath string) (bool, error) {
 
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
+
+func (s *BotService) HandleHardsub(message *tgbotapi.Message, args string) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	fileID, fileName := s.getFileFromMessage(message)
+	var videoPath, subPath string
+
+	parts := strings.Fields(args)
+	if fileID != "" {
+		var err error
+		videoPath, err = s.downloadTelegramFile(fileID, fileName)
+		if err != nil {
+			s.reply(message, "❌ *Gagal download file*")
+			return
+		}
+		if len(parts) > 0 {
+			subPath = parts[0]
+		}
+	} else {
+		if len(parts) < 2 {
+			s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/hardsub video.mp4 subtitle.srt` atau reply ke video dengan `/hardsub subtitle.srt`")
+			return
+		}
+		videoPath = parts[0]
+		subPath = parts[1]
+	}
+
+	if videoPath == "" || subPath == "" {
+		s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/hardsub video.mp4 subtitle.srt` atau reply ke video dengan `/hardsub subtitle.srt`")
+		return
+	}
+
+	statusMsg := tgbotapi.NewMessage(message.Chat.ID, "🔥 *Burning subtitle (Hard-sub)...*\n_Proses ini memakan waktu lebih lama karena harus re-encoding._")
+	statusMsg.ParseMode = MarkdownV2
+	sent, err := s.Bot.Send(statusMsg)
+	if err != nil {
+		slog.Error("Failed to send status message", "error", err)
+		return
+	}
+
+	ext := filepath.Ext(videoPath)
+	outputPath := strings.TrimSuffix(videoPath, ext) + "_hardsub" + ext
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+	defer cancel()
+
+	absSubPath, _ := filepath.Abs(subPath)
+	ffmpegSubPath := strings.ReplaceAll(absSubPath, "\\", "/")
+	ffmpegSubPath = strings.ReplaceAll(ffmpegSubPath, ":", "\\:")
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", videoPath,
+		"-vf", fmt.Sprintf("subtitles='%s'", ffmpegSubPath),
+		"-c:v", "libx264", "-crf", "23", "-preset", "medium",
+		"-c:a", "copy",
+		outputPath, "-y")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal burn subtitle*\n\nError: %s\n\nOutput (tail):\n`%s`",
+			utils.EscapeMarkdownV2(err.Error()),
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15))))
+		return
+	}
+
+	content := fmt.Sprintf("🎬 Output: `%s`\\!\n\nKlik tombol di bawah untuk upload ke Drive\\.",
+		utils.EscapeMarkdownV2Code(filepath.Base(outputPath)))
+	pathID := s.StorePath(outputPath)
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📤 Upload ke Drive", "media_m:"+pathID),
+		),
+	)
+	s.editMessageWithMarkup(sent.Chat.ID, sent.MessageID, GetSuccessMessage("SUBTITLE BURNED", content), &keyboard)
+}
+
+func (s *BotService) HandleRescale(message *tgbotapi.Message, args string) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	fileID, fileName := s.getFileFromMessage(message)
+	var inputPath, resolution string
+
+	parts := strings.Fields(args)
+	if fileID != "" {
+		if len(parts) == 0 {
+			s.reply(message, "⚠️ *Format Salah*\n\nReply ke video dengan `/rescale 1280x720` atau `/rescale 720p`")
+			return
+		}
+		var err error
+		inputPath, err = s.downloadTelegramFile(fileID, fileName)
+		if err != nil {
+			s.reply(message, "❌ *Gagal download file*")
+			return
+		}
+		resolution = parts[0]
+	} else {
+		if len(parts) < 2 {
+			s.reply(message, "⚠️ *Format Salah*\n\nGunakan: `/rescale video.mp4 1280x720` atau `/rescale video.mp4 720p`")
+			return
+		}
+		inputPath = parts[0]
+		resolution = parts[1]
+	}
+
+	scale := ""
+	switch strings.ToLower(resolution) {
+	case "4k":
+		scale = "3840:2160"
+	case "2k":
+		scale = "2560:1440"
+	case "1080p":
+		scale = "1920:1080"
+	case "720p":
+		scale = "1280:720"
+	case "480p":
+		scale = "854:480"
+	case "360p":
+		scale = "640:360"
+	default:
+		switch {
+		case strings.Contains(resolution, "x"):
+			scale = strings.Replace(resolution, "x", ":", 1)
+		case strings.Contains(resolution, ":"):
+			scale = resolution
+		default:
+			s.reply(message, "❌ *Resolusi tidak valid*\n\nGunakan format: `1280x720` atau `720p`")
+			return
+		}
+	}
+
+	statusMsg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("📐 *Rescaling video to %s\\.\\.\\.*", resolution))
+	statusMsg.ParseMode = MarkdownV2
+	sent, err := s.Bot.Send(statusMsg)
+	if err != nil {
+		slog.Error("Failed to send status message", "error", err)
+		return
+	}
+
+	ext := filepath.Ext(inputPath)
+	outputPath := strings.TrimSuffix(inputPath, ext) + "_" + resolution + ext
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", inputPath,
+		"-vf", fmt.Sprintf("scale=%s:force_original_aspect_ratio=decrease,pad=%s:(ow-iw)/2:(oh-ih)/2", scale, scale),
+		"-c:v", "libx264", "-crf", "23", "-preset", "medium",
+		"-c:a", "copy",
+		outputPath, "-y")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		s.editMessage(sent.Chat.ID, sent.MessageID, fmt.Sprintf("❌ *Gagal rescale video*\n\nError: %s\n\nOutput (tail):\n`%s`",
+			utils.EscapeMarkdownV2(err.Error()),
+			utils.EscapeMarkdownV2Code(utils.GetLastLines(string(output), 15))))
+		return
+	}
+
+	content := fmt.Sprintf("🎬 Output: `%s`\\!\n📐 Resolution: %s\n\nKlik tombol di bawah untuk upload ke Drive\\.",
+		utils.EscapeMarkdownV2Code(filepath.Base(outputPath)),
+		utils.EscapeMarkdownV2(resolution))
+	pathID := s.StorePath(outputPath)
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📤 Upload ke Drive", "media_m:"+pathID),
+		),
+	)
+	s.editMessageWithMarkup(sent.Chat.ID, sent.MessageID, GetSuccessMessage("VIDEO RESCALED", content), &keyboard)
+}

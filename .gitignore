@@ -49,9 +49,10 @@ vendor/
 *.out
 
 # Logs
-# Logs
 *.log
 logs/
+logs.txt
+logs_v2.txt
 
 # Database
 config/*.db

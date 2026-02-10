@@ -83,7 +83,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
 	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
 
-	driveName, isDir, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	driveName, isDir, driveSize, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
 	if err != nil {
 		task.SetError(fmt.Sprintf("Gagal mendapatkan info Google Drive: %v", err))
 		s.updateTaskStatus(task)
@@ -95,6 +95,9 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		task.FileName = driveName
 	}
 	name := task.FileName
+	if driveSize > 0 {
+		task.TotalSize = driveSize
+	}
 	task.Mu.Unlock()
 	s.updateTaskStatus(task)
 
@@ -182,10 +185,16 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	task.Mu.RUnlock()
 
 	if currentSize <= 0 {
-		if finalSize, err := s.getRcloneSize(ctx, dest, configPath); err == nil {
+		if finalSize, err := s.getRcloneSize(ctx, dest, configPath); err == nil && finalSize > 0 {
 			task.Mu.Lock()
 			task.TotalSize = finalSize
 			task.DownloadedSize = finalSize
+			task.Mu.Unlock()
+		} else {
+			task.Mu.Lock()
+			if task.DownloadedSize > 0 {
+				task.TotalSize = task.DownloadedSize
+			}
 			task.Mu.Unlock()
 		}
 	}
@@ -212,7 +221,7 @@ func (s *BotService) downloadGDriveWithRclone(task *Task) {
 	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
 	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
 
-	driveName, isDir, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	driveName, isDir, driveSize, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
 	if err != nil {
 		slog.Warn("Failed to get Google Drive info", "error", err)
 	}
@@ -220,6 +229,9 @@ func (s *BotService) downloadGDriveWithRclone(task *Task) {
 	task.Mu.Lock()
 	if driveName != "" && (task.FileName == "" || task.FileName == "download" || utils.GetFileNameFromURL(task.URL) == task.FileName) {
 		task.FileName = driveName
+		if driveSize > 0 {
+			task.TotalSize = driveSize
+		}
 	}
 	name := task.FileName
 	task.Mu.Unlock()
@@ -385,15 +397,7 @@ func extractDriveID(urlStr string) (string, bool) {
 	return "", false
 }
 
-func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, error) {
-	scrapeURL := constructScrapeURL(id, isFolder, urlStr)
-
-	name := getDriveNameFromURL(scrapeURL)
-	if name != "" {
-		slog.Debug("Resolved GDrive name from title", "id", id, "name", name)
-		return name, isFolder, nil
-	}
-
+func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, int64, error) {
 	args := []string{
 		"backend", "info",
 		fmt.Sprintf("%s:", remoteName),
@@ -409,58 +413,57 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 		if unmarshalErr := json.Unmarshal(output, &info); unmarshalErr == nil {
 			fileName, _ := info["name"].(string)
 			mimeType, _ := info["mimeType"].(string)
-			size, _ := info["size"].(float64)
+			sizeVal := int64(0)
+			if s, ok := info["size"].(float64); ok {
+				sizeVal = int64(s)
+			} else if sStr, ok := info["size"].(string); ok {
+				sizeVal, _ = strconv.ParseInt(sStr, 10, 64)
+			}
 
 			isDir := strings.Contains(mimeType, "folder")
 
 			if fileName != "" {
-				slog.Debug("Resolved GDrive info from backend info", "id", id, "name", fileName, "mimeType", mimeType, "size", size)
-				return fileName, isDir, nil
+				slog.Debug("Resolved GDrive info from backend info", "id", id, "name", fileName, "isDir", isDir, "size", sizeVal)
+				return fileName, isDir, sizeVal, nil
 			}
 		}
 	}
 
-	slog.Debug("Failed to get info with backend info, trying lsjson", "id", id, "error", err)
-
-	args = []string{
+	idArgs := []string{
 		"lsjson",
-		fmt.Sprintf("%s:", remoteName),
-		"--drive-root-folder-id", id,
+		fmt.Sprintf("%s,id=%s:", remoteName, id),
 		"--max-depth", "0",
 		"--config", configPath,
 	}
-
-	cmd = exec.Command("rclone", args...)
-	output, err = cmd.Output()
-	if err != nil {
-		if isFolder {
-			return "Folder_" + id, true, nil
+	idCmd := exec.Command("rclone", idArgs...)
+	if out, err := idCmd.Output(); err == nil {
+		var infos []map[string]interface{}
+		if json.Unmarshal(out, &infos) == nil && len(infos) > 0 {
+			info := infos[0]
+			fileName, _ := info["Name"].(string)
+			isDirVal, _ := info["IsDir"].(bool)
+			sizeVal := int64(0)
+			if s, ok := info["Size"].(float64); ok {
+				sizeVal = int64(s)
+			}
+			if fileName != "" {
+				slog.Debug("Resolved GDrive info from lsjson id notation", "id", id, "name", fileName, "isDir", isDirVal)
+				return fileName, isDirVal, sizeVal, nil
+			}
 		}
-		return "File_" + id, false, nil
 	}
 
-	var infos []map[string]interface{}
-	if err := json.Unmarshal(output, &infos); err != nil || len(infos) == 0 {
-		if isFolder {
-			return "Folder_" + id, true, nil
-		}
-		return "File_" + id, false, nil
-	}
-
-	if len(infos) > 0 {
-		info := infos[0]
-		fileName, _ := info["Name"].(string)
-		isDirVal, _ := info["IsDir"].(bool)
-		if fileName != "" {
-			slog.Debug("Resolved GDrive name from lsjson", "id", id, "name", fileName, "isDir", isDirVal)
-			return fileName, isDirVal, nil
-		}
+	scrapeURL := constructScrapeURL(id, isFolder, urlStr)
+	name := getDriveNameFromURL(scrapeURL)
+	if name != "" {
+		slog.Debug("Resolved GDrive name from title", "id", id, "name", name)
+		return name, isFolder, 0, nil
 	}
 
 	if isFolder {
-		return "Folder_" + id, true, nil
+		return "Folder_" + id, true, 0, nil
 	}
-	return "File_" + id, false, nil
+	return "File_" + id, false, 0, nil
 }
 
 func getDriveNameFromURL(urlStr string) string {
@@ -469,7 +472,7 @@ func getDriveNameFromURL(urlStr string) string {
 	}
 
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 	resp, err := client.Get(urlStr)
 	if err != nil {

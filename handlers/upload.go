@@ -242,13 +242,13 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 	var lsOutput []byte
 	var err error
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		lsCmd := exec.CommandContext(ctx, "rclone", lsArgs...)
 		lsOutput, err = lsCmd.Output()
 		if err == nil {
 			break
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	if err == nil {
@@ -284,10 +284,9 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 			"--no-modtime",
 			"--no-mimetype",
 			"--depth", "1",
-			"--files-only",
 		}
 
-		for i := 0; i < 15; i++ {
+		for i := 0; i < 3; i++ {
 			cmd := exec.CommandContext(ctx, "rclone", params...)
 			out, errFallback := cmd.Output()
 			if errFallback == nil {
@@ -335,7 +334,7 @@ func (s *BotService) generateIDBasedIndexURL(ctx context.Context, task *Task, co
 			} else {
 				slog.Debug("Fallback lsjson returned error", "error", errFallback)
 			}
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}
 	if strings.HasSuffix(parentPath, ":") || parentPath == "." {

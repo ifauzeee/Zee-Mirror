@@ -127,7 +127,9 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 		"• `/compress` ─ Kompres ukuran video\n" +
 		"• `/thumbnail` ─ Generate thumbnail\n" +
 		"• `/screenshots` ─ Multi screenshot\n" +
-		"• `/subtitle` ─ Embed subtitle ke video\n" +
+		"• `/subtitle` ─ Soft-sub (Embed subtitle)\n" +
+		"• `/hardsub` ─ Hard-sub (Burn subtitle)\n" +
+		"• `/rescale` ─ Ubah resolusi video\n" +
 		"• `/convert` ─ Konversi format file\n" +
 		"• `/mediainfo` ─ Info detail file\n\n" +
 		"💡 *Cara pakai:* Reply ke file video dengan command"
@@ -144,7 +146,11 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 			tgbotapi.NewInlineKeyboardButtonData("📸 Screenshots", "media:screens"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💬 Subtitle", "media:subtitle"),
+			tgbotapi.NewInlineKeyboardButtonData("💬 Soft-sub", "media:subtitle"),
+			tgbotapi.NewInlineKeyboardButtonData("🔥 Hard-sub", "media:hardsub"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📐 Rescale", "media:rescale"),
 			tgbotapi.NewInlineKeyboardButtonData("🔄 Convert", "media:convert"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
@@ -246,6 +252,24 @@ func (s *BotService) getDashboardModeText(action string) string {
 			"Cari torrent dari berbagai sumber\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• `/search` \\<keyword\\>")
+
+	case "hardsub":
+		return ProfessionalMessage("HARD-SUB MODE",
+			"Burn subtitle permanen ke dalam video\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• Reply ke video dengan `/hardsub subtitle.srt`\n"+
+				"• Atau: `/hardsub video.mp4 subtitle.srt`\n\n"+
+				"🔥 *INFO*\n"+
+				"Proses ini memerlukan re-encoding video, jadi akan memakan waktu lebih lama dibanding soft-sub.")
+
+	case "rescale":
+		return ProfessionalMessage("RESCALE MODE",
+			"Ubah resolusi video (Transcoding)\\.\n\n"+
+				"📌 *CARA PAKAI*\n"+
+				"• Reply ke video dengan `/rescale 720p`\n"+
+				"• Atau: `/rescale video.mp4 1280x720`\n\n"+
+				"🏷️ *PRESET*\n"+
+				"`4k`, `2k`, `1080p`, `720p`, `480p`, `360p` atau format custom `WxH`.")
 
 	case "back":
 		return ""

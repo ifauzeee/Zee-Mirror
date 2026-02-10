@@ -262,10 +262,30 @@ func getHelpScreenshots() string {
 
 func getHelpSubtitle() string {
 	return HelpDetailMessage(
-		"💬 SUBTITLE",
-		"Embed subtitle track ke dalam container video \\(Softsub\\)\\.",
+		"💬 SOFT-SUB (SUBTITLE)",
+		"Embed subtitle track ke dalam container video \\(Soft-sub\\)\\.\nSubtitle bisa di-on/off saat nonton.",
 		"1\\. Kirim subtitle \\(\\.srt/\\.vtt\\)\n2\\. Reply ke video dengan `/subtitle`",
 		"Reply ke video lalu ketik `/subtitle`",
+		"",
+	)
+}
+
+func getHelpHardsub() string {
+	return HelpDetailMessage(
+		"🔥 HARD-SUB (BURN SUBTITLE)",
+		"Membakar subtitle permanen ke dalam gambar video \\(Hard-sub\\)\\.\nSubtitle akan menempel selamanya di video dan tidak bisa dimatikan.",
+		"1\\. Kirim subtitle \\(\\.srt/\\.ssa/\\.ass\\)\n2\\. Reply ke video dengan `/hardsub`",
+		"Reply ke video lalu ketik `/hardsub`",
+		"⚠️ *INFO:* Proses ini memakan waktu lama karena bot harus melakukan re-encoding video.",
+	)
+}
+
+func getHelpRescale() string {
+	return HelpDetailMessage(
+		"📐 RESCALE (TRANSCODE)",
+		"Mengubah resolusi/dimensi video \\(Transcoding\\)\\.",
+		"• Reply ke video dengan `/rescale <preset|WxH\\>`\n\n🏷️ *PRESET*\n`4k`, `2k`, `1080p`, `720p`, `480p`, `360p`",
+		"Reply ke video dengan `/rescale 720p` atau `/rescale 1280x720`",
 		"",
 	)
 }
@@ -444,7 +464,9 @@ func getHelpAllCommands() string {
 		"• `/compress` ─ Kompres Video\n" +
 		"• `/thumbnail` ─ Buat Thumb\n" +
 		"• `/screenshots` ─ Screenshot\n" +
-		"• `/subtitle` ─ Embed Sub\n" +
+		"• `/subtitle` ─ Soft-sub (Embed Sub)\n" +
+		"• `/hardsub` ─ Hard-sub (Burn Sub)\n" +
+		"• `/rescale` ─ Ubah Resolusi\n" +
 		"• `/convert` ─ Ganti Format\n" +
 		"• `/mediainfo` ─ Detail Media\n\n" +
 		"👑 *ADMINISTRATION*\n" +

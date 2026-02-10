@@ -356,7 +356,11 @@ func (s *BotService) handleMediaHelp(callback *tgbotapi.CallbackQuery, action st
 				tgbotapi.NewInlineKeyboardButtonData("📸 Screenshots", "help:cmd_screenshots"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("💬 Subtitle", "help:cmd_subtitle"),
+				tgbotapi.NewInlineKeyboardButtonData("💬 Soft-sub", "help:cmd_subtitle"),
+				tgbotapi.NewInlineKeyboardButtonData("🔥 Hard-sub", "help:cmd_hardsub"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📐 Rescale", "help:cmd_rescale"),
 				tgbotapi.NewInlineKeyboardButtonData("🔄 Convert", "help:cmd_convert"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
@@ -390,6 +394,18 @@ func (s *BotService) handleMediaHelp(callback *tgbotapi.CallbackQuery, action st
 		))
 	case "cmd_subtitle":
 		text = getHelpSubtitle()
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+			backToCat,
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+		))
+	case "cmd_hardsub":
+		text = getHelpHardsub()
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+			backToCat,
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+		))
+	case "cmd_rescale":
+		text = getHelpRescale()
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
 			backToCat,
 			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
