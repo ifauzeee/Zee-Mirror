@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/organizer"
 	"zee-mirror/pkg/utils"
 
@@ -29,6 +30,7 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 	task.Progress = 0
 	task.Mu.Unlock()
 	s.updateTaskStatus(task)
+	startTime := time.Now()
 
 	uploadPath := task.LocalPath
 	if uploadPath == "" {
@@ -123,6 +125,7 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 	close(done)
 
 	if err != nil {
+		metrics.UploadDuration.WithLabelValues("rclone", "failed").Observe(time.Since(startTime).Seconds())
 		if task.Status == StatusCancelled {
 			return fmt.Errorf("task cancelled")
 		}
@@ -130,6 +133,7 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 	}
 
 	if task.Status == StatusCancelled {
+		metrics.UploadDuration.WithLabelValues("rclone", "failed").Observe(time.Since(startTime).Seconds())
 		return fmt.Errorf("task cancelled")
 	}
 
@@ -142,6 +146,7 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 	task.Mu.Lock()
 	task.Progress = 100
 	task.Mu.Unlock()
+	metrics.UploadDuration.WithLabelValues("rclone", "success").Observe(time.Since(startTime).Seconds())
 	return nil
 }
 
@@ -624,6 +629,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 	task.Progress = 0
 	task.Mu.Unlock()
 	s.updateTaskStatus(task)
+	startTime := time.Now()
 
 	filePath := task.LocalPath
 	if filePath == "" {
@@ -671,8 +677,10 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
+		metrics.UploadDuration.WithLabelValues("telegram", "failed").Observe(time.Since(startTime).Seconds())
 		return fmt.Errorf("telegram upload failed: %v", err)
 	}
+	metrics.UploadDuration.WithLabelValues("telegram", "success").Observe(time.Since(startTime).Seconds())
 
 	task.Mu.Lock()
 	task.ResultMessageID = sentMsg.MessageID

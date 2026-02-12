@@ -16,8 +16,10 @@ import (
 	"zee-mirror/internal/api"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
+	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
 	"zee-mirror/internal/userbot"
+	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -73,6 +75,23 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := os.Stat(cfg.DownloadDir); err == nil {
+					size, _ := utils.CalculateDirSize(cfg.DownloadDir)
+					metrics.StorageUsage.WithLabelValues(cfg.DownloadDir).Set(float64(size))
+					slog.Info("Storage usage metric updated", "size", size)
+				}
+			}
+		}
+	}()
 
 	go func() {
 		<-ctx.Done()
@@ -204,6 +223,8 @@ func setupBasicRoutes(r *router.Router) {
 	r.RegisterCommand("ping", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandlePing(m) })
 	r.RegisterCommand("speed", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSpeed(m) })
 	r.RegisterCommand("stats", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStats(m) })
+	r.RegisterCommand("lang", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLanguage(m) })
+	r.RegisterCommand("language", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLanguage(m) })
 }
 
 func setupDownloadRoutes(r *router.Router) {

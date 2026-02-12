@@ -1,15 +1,20 @@
 .git
 .gitignore
+.github/
 .env
 .env.*
 !.env.example
 README.md
 LICENSE
 *.md
+Taskfile.yml
+.golangci.yml
 
-# Config dengan credentials
+# Config with credentials
 config/rclone.conf
+config/cookies.txt
 config/*.json
+config/*.db*
 
 # Downloads
 downloads/
@@ -18,6 +23,7 @@ downloads/
 # IDE
 .idea/
 .vscode/
+.task/
 
 # OS
 .DS_Store
@@ -27,5 +33,23 @@ Thumbs.db
 *.log
 logs/
 
-# Test files
+# Test files & coverage
 *_test.go
+coverage.out
+coverage
+coverage.html
+
+# Build artifacts
+bin/
+dist/
+tmp/
+temp/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Dashboard dev
+dashboard/node_modules/
+dashboard/.eslintcache
+dashboard/.stylelintcache

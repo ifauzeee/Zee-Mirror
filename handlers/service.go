@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
@@ -190,20 +190,8 @@ func (s *BotService) handleCreateTaskError(chatID int64, messageID int, err erro
 	slog.Info("handleCreateTaskError called", "chatID", chatID, "error", err)
 
 	text := ""
-	var keyboard *tgbotapi.InlineKeyboardMarkup
-
-	if dupErr, ok := err.(*DuplicateTaskError); ok {
-		slog.Info("Duplicate detected", "msg", dupErr.Message, "remoteURL", dupErr.RemoteURL)
-		text = fmt.Sprintf("⚠️ *Download Dibatalkan*\n\n%s", utils.EscapeMarkdownV2(dupErr.Message))
-
-		if dupErr.RemoteURL != "" && strings.HasPrefix(dupErr.RemoteURL, "http") {
-			kb := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL(BtnTextCloudLink, dupErr.RemoteURL),
-				),
-			)
-			keyboard = &kb
-		}
+	if errors.Is(err, domain.ErrDuplicateTask) {
+		text = fmt.Sprintf("⚠️ *Download Dibatalkan*\n\n%s", utils.EscapeMarkdownV2(err.Error()))
 	} else {
 		text = fmt.Sprintf("❌ *Gagal membuat task:*\n%s", utils.EscapeMarkdownV2(err.Error()))
 	}
@@ -211,9 +199,6 @@ func (s *BotService) handleCreateTaskError(chatID int64, messageID int, err erro
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyToMessageID = messageID
-	if keyboard != nil {
-		msg.ReplyMarkup = keyboard
-	}
 
 	_, sendErr := s.Bot.Send(msg)
 	if sendErr != nil {

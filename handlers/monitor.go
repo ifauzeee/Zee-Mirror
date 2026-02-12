@@ -82,7 +82,7 @@ func (s *BotService) getSystemStats() SystemStats {
 		stats.DiskUsage = float64(diskUsed) / float64(diskTotal) * 100
 	}
 
-	stats.QueuedTasks = len(s.TaskManager.Queue)
+	stats.QueuedTasks = s.TaskManager.Queue.Count()
 
 	return stats
 }

@@ -226,11 +226,6 @@ func IsMagnetLink(s string) bool {
 	return strings.HasPrefix(s, "magnet:?")
 }
 
-func GetFileExtension(filename string) string {
-	ext := filepath.Ext(filename)
-	return strings.ToLower(ext)
-}
-
 func TruncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -533,13 +528,21 @@ func ScanLinesWithCR(data []byte, atEOF bool) (advance int, token []byte, err er
 	}
 	return 0, nil, nil
 }
+
 func Min(a, b int) int {
-	return min(a, b)
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func Max(a, b int) int {
-	return max(a, b)
+	if a > b {
+		return a
+	}
+	return b
 }
+
 func CopyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -576,4 +579,16 @@ func DownloadFile(url, dst string) error {
 
 	_, err = io.Copy(out, resp.Body)
 	return err
+}
+
+func IsAdmin(userID int64, ownerID int64, authorizedUsers []int64) bool {
+	if userID == ownerID {
+		return true
+	}
+	for _, id := range authorizedUsers {
+		if id == userID {
+			return true
+		}
+	}
+	return false
 }

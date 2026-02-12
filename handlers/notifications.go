@@ -35,12 +35,6 @@ func (n *NotificationService) SetAlertChannel(channelID int64) {
 	n.AlertChannelID = channelID
 }
 
-func (n *NotificationService) SetDiskThreshold(threshold float64) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.DiskThreshold = threshold
-}
-
 func (n *NotificationService) SendAlert(alertType, title, message string) {
 	targetID := n.AlertChannelID
 	if targetID == 0 {

@@ -367,52 +367,21 @@ func isInCategory(filename, category string) bool {
 	return false
 }
 
+// IsVideoFile checks if the file is a video file
 func IsVideoFile(filename string) bool { return isInCategory(filename, "🎥 Videos") }
-func IsMusicFile(filename string) bool { return isInCategory(filename, "🎵 Music") }
-func IsImageFile(filename string) bool { return isInCategory(filename, "📸 Images") }
+
+// IsDocumentFile checks if the file is a document file
 func IsDocumentFile(filename string) bool {
 	return isInCategory(filename, "📄 Documents") ||
 		isInCategory(filename, "📊 Spreadsheets") ||
 		isInCategory(filename, "🖼️ Presentations")
 }
-func IsArchiveFile(filename string) bool     { return isInCategory(filename, "📦 Archives") }
-func IsApplicationFile(filename string) bool { return isInCategory(filename, "🛠️ Applications") }
-func IsSubtitleFile(filename string) bool    { return isInCategory(filename, "📜 Subtitles") }
-func IsDevelopmentFile(filename string) bool { return isInCategory(filename, "💻 Development") }
-func IsFontFile(filename string) bool        { return isInCategory(filename, "🔤 Fonts") }
-func Is3DModelFile(filename string) bool     { return isInCategory(filename, "🧊 3D Models") }
-func IsCADFile(filename string) bool         { return isInCategory(filename, "🏗️ CAD") }
-func IsDatabaseFile(filename string) bool    { return isInCategory(filename, "🗄️ Databases") }
-func IsConfigurationFile(filename string) bool {
-	return isInCategory(filename, "⚙️ Configurations")
-}
-func IsSpreadsheetFile(filename string) bool  { return isInCategory(filename, "📊 Spreadsheets") }
-func IsPresentationFile(filename string) bool { return isInCategory(filename, "🖼️ Presentations") }
-func IsEbookFile(filename string) bool        { return isInCategory(filename, "📖 Ebooks") }
+
+// IsArchiveFile checks if the file is an archive file
+func IsArchiveFile(filename string) bool { return isInCategory(filename, "📦 Archives") }
+
+// IsTorrentFile checks if the file is a torrent file
 func IsTorrentFile(filename string) bool {
 	return isInCategory(filename, "🌊 Torrents") ||
 		strings.HasSuffix(strings.ToLower(filename), ".torrent")
 }
-func IsDiskImageFile(filename string) bool     { return isInCategory(filename, "💿 Disk Images") }
-func IsSystemFile(filename string) bool        { return isInCategory(filename, "🖥️ System Files") }
-func IsGameFile(filename string) bool          { return isInCategory(filename, "🎮 Game Files") }
-func IsScriptFile(filename string) bool        { return isInCategory(filename, "📜 Scripts") }
-func IsLogFile(filename string) bool           { return isInCategory(filename, "📋 Log Files") }
-func IsTemporaryFile(filename string) bool     { return isInCategory(filename, "🗑️ Temporary Files") }
-func IsBackupFile(filename string) bool        { return isInCategory(filename, "💾 Backups") }
-func IsEncryptedFile(filename string) bool     { return isInCategory(filename, "🔒 Encrypted") }
-func IsEmailFile(filename string) bool         { return isInCategory(filename, "✉️ Email") }
-func IsCalendarFile(filename string) bool      { return isInCategory(filename, "📅 Calendar") }
-func IsContactFile(filename string) bool       { return isInCategory(filename, "👥 Contacts") }
-func IsVectorGraphicFile(filename string) bool { return isInCategory(filename, "🎨 Vector Graphics") }
-func IsAudioProjectFile(filename string) bool  { return isInCategory(filename, "🎹 Audio Projects") }
-func IsVideoProjectFile(filename string) bool  { return isInCategory(filename, "🎬 Video Projects") }
-func IsDesignProjectFile(filename string) bool {
-	return isInCategory(filename, "🖌️ Design Projects")
-}
-func IsMedicalFile(filename string) bool    { return isInCategory(filename, "🩺 Medical") }
-func IsScientificFile(filename string) bool { return isInCategory(filename, "🔬 Scientific") }
-func IsGISFile(filename string) bool        { return isInCategory(filename, "🗺️ GIS") }
-func IsPlaylistFile(filename string) bool   { return isInCategory(filename, "🎧 Playlists") }
-func IsMetadataFile(filename string) bool   { return isInCategory(filename, "📋 Metadata") }
-func IsOtherFile(filename string) bool      { return isInCategory(filename, "📂 Others") }

@@ -25,4 +25,26 @@ var (
 		Name: "zeemirror_api_requests_total",
 		Help: "Total number of API requests to the dashboard",
 	}, []string{"path", "method", "status"})
+
+	DownloadDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "zeemirror_download_duration_seconds",
+		Help:    "Duration of downloads in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"type", "status"})
+
+	UploadDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "zeemirror_upload_duration_seconds",
+		Help:    "Duration of uploads in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"storage_type", "status"})
+
+	QueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeemirror_queue_depth",
+		Help: "Number of tasks in queue",
+	}, []string{"priority"})
+
+	StorageUsage = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeemirror_storage_usage_bytes",
+		Help: "Current storage usage in bytes",
+	}, []string{"path"})
 )

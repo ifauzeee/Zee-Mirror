@@ -29,7 +29,7 @@ func NewAria2Engine(configDir string) *Aria2Engine {
 
 func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
 	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
-		return fmt.Errorf("failed to create output dir: %v", errDir)
+		return &domain.StorageError{Path: outputDir, Err: errDir}
 	}
 
 	args := e.buildAria2Args(task, outputDir)
@@ -40,11 +40,11 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe: %v", err)
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("failed to get stdout pipe: %v", err)}
 	}
 
 	if errStart := cmd.Start(); errStart != nil {
-		return fmt.Errorf("aria2c failed to start: %v", errStart)
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("aria2c failed to start: %v", errStart)}
 	}
 
 	var lastLines []string
@@ -70,7 +70,8 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 		}
 
 		if len(errorDetails) > 0 {
-			return fmt.Errorf("aria2c failed: %v, details: %s", err, strings.Join(errorDetails, " | "))
+			detailErr := fmt.Errorf("aria2c failed: %v, details: %s", err, strings.Join(errorDetails, " | "))
+			return domain.CategorizeError(detailErr)
 		}
 
 		tail := ""
@@ -81,7 +82,8 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 			}
 			tail = strings.Join(lastLines[start:], " | ")
 		}
-		return fmt.Errorf("aria2c failed: %v, stderr: %s, tail: %s", err, stderr.String(), tail)
+		combinedErr := fmt.Errorf("aria2c failed: %v, stderr: %s, tail: %s", err, stderr.String(), tail)
+		return domain.CategorizeError(combinedErr)
 	}
 
 	return nil

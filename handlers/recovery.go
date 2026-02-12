@@ -68,7 +68,11 @@ func (tr *TaskRecovery) RecoverIncompleteTasks() error {
 		tr.TaskManager.Mu.Unlock()
 
 		go func(t *Task) {
-			tr.TaskManager.Queue <- t
+			tr.TaskManager.Queue.Enqueue(t, 0)
+			select {
+			case tr.TaskManager.QueueSignal <- struct{}{}:
+			default:
+			}
 		}(task)
 
 		recovered++

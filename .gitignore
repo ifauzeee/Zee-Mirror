@@ -1,22 +1,30 @@
-# .gitignore untuk Zee-Mirror Bot
-
-# Binary
+# Binaries
 /zee-mirror
 /zee-mirror.exe
 /zee-mirror-bot
+/zee-mirror-tmp
+/tmp.exe
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
 
 # Environment files
 .env
 *.env.local
 
-# Web Dashboard
+# Dashboard
 /dist/
 dashboard/node_modules/
 dashboard/dist/
 .eslintcache
 .stylelintcache
 
-# Config files dengan credentials
+# Config files with credentials
 config/rclone.conf
 config/cookies.txt
 config/*.json
@@ -40,13 +48,12 @@ Thumbs.db
 
 # Go
 vendor/
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
+
+# Test coverage
+coverage
+coverage.out
+coverage.html
+*.cover
 
 # Logs
 *.log
@@ -65,8 +72,6 @@ config/*.db-wal
 *.db-wal
 
 # Temp
-view_file
 tmp/
 temp/
 *.tmp
-zee-mirror-tmp

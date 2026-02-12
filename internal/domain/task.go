@@ -201,3 +201,11 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		Hardsub:         t.Hardsub,
 	}
 }
+
+type TaskCheckpoint struct {
+	LastUpdate      time.Time
+	TaskID          string
+	DownloadedBytes int64
+	TotalBytes      int64
+	Progress        float64
+}

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"zee-mirror/internal/downloader"
+	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/organizer"
 )
 
@@ -24,6 +27,10 @@ func (s *BotService) processTask(task *Task) {
 	}
 
 	slog.Info("Starting task processing", "taskID", task.ID, "type", task.Type)
+
+	if s.TaskManager.CheckpointManager != nil {
+		go s.TaskManager.CheckpointManager.StartPeriodicCheckpoint(task.Ctx, &task.Task, 30*time.Second)
+	}
 
 	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/")) {
 		if s.Config.UserSessionString != "" {
@@ -170,6 +177,9 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 	}
 
 	if uploadErr != nil {
+		if !task.StartedAt.IsZero() {
+			metrics.DownloadDuration.WithLabelValues(string(task.Type), "failed").Observe(time.Since(task.StartedAt).Seconds())
+		}
 		if task.Status == StatusCancelled {
 			s.cleanupTask(task)
 			return
@@ -222,6 +232,12 @@ func (s *BotService) downloadWithUserbot(task *Task) {
 			s.cleanupTask(task)
 			return
 		}
+
+		if errors.Is(err, context.Canceled) {
+			slog.Info("Task interrupted by shutdown, preserving checkpoint", "taskID", task.ID)
+			return
+		}
+
 		task.SetError(err.Error())
 		s.updateTaskStatus(task)
 		s.cleanupTask(task)
@@ -336,7 +352,11 @@ func (s *BotService) retryTask(task *Task, originalErr string) bool {
 		task.Mu.Unlock()
 
 		s.updateTaskStatus(task)
-		s.TaskManager.Queue <- task
+		s.TaskManager.Queue.Enqueue(task, 0)
+		select {
+		case s.TaskManager.QueueSignal <- struct{}{}:
+		default:
+		}
 	}()
 
 	return true

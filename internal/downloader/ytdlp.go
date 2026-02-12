@@ -85,18 +85,6 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 	return resMap, nil
 }
 
-type PlaylistEntry struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	URL   string `json:"url"`
-	Index int    `json:"playlist_index"`
-}
-
-type PlaylistMetadata struct {
-	Title   string          `json:"title"`
-	Entries []PlaylistEntry `json:"entries"`
-}
-
 func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*PlaylistMetadata, error) {
 	args := []string{
 		"--flat-playlist",
@@ -140,7 +128,7 @@ func (e *YTDLPEngine) IsPlaylist(url string) bool {
 
 func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
 	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
-		return fmt.Errorf("failed to create output dir: %v", errDir)
+		return &domain.StorageError{Path: outputDir, Err: errDir}
 	}
 
 	args := e.buildYTDLPArgs(task, outputDir)
@@ -148,16 +136,16 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe: %v", err)
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("failed to get stdout pipe: %v", err)}
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Errorf("failed to get stderr pipe: %v", err)
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("failed to get stderr pipe: %v", err)}
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("yt-dlp failed to start: %v", err)
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("yt-dlp failed to start: %v", err)}
 	}
 
 	errorOutput := ""
@@ -189,11 +177,13 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 				}
 			}
 			if len(errors) > 0 {
-				return fmt.Errorf("yt-dlp failed: %s", strings.Join(errors, "\n"))
+				errorMsg := fmt.Errorf("yt-dlp failed: %s", strings.Join(errors, "\n"))
+				return domain.CategorizeError(errorMsg)
 			}
-			return fmt.Errorf("yt-dlp failed: %s", errorOutput)
+			errorMsg := fmt.Errorf("yt-dlp failed: %s", errorOutput)
+			return domain.CategorizeError(errorMsg)
 		}
-		return fmt.Errorf("yt-dlp error: %v", err)
+		return domain.CategorizeError(fmt.Errorf("yt-dlp error: %v", err))
 	}
 
 	if task.Hardsub && task.SubtitleLangs != "" {

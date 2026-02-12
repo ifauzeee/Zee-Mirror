@@ -8,9 +8,12 @@ import (
 	"sync"
 	"time"
 	"zee-mirror/internal/config"
+	"zee-mirror/internal/database"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/metrics"
+	"zee-mirror/internal/queue"
+	"zee-mirror/internal/recovery"
 	"zee-mirror/internal/repository"
 	"zee-mirror/pkg/utils"
 
@@ -84,7 +87,9 @@ type TaskManager struct {
 	UserbotEngine        *downloader.UserbotEngine
 	Config               *config.Config
 	Tasks                map[string]*Task
-	Queue                chan *Task
+	Queue                *queue.PriorityQueue
+	QueueSignal          chan struct{}
+	RateLimiter          *queue.UserRateLimiter
 	LastStatusMsg        map[int64]int
 	StatusPages          map[int64]int
 	YTDLPSessions        map[string]*YTDLPSession
@@ -95,6 +100,7 @@ type TaskManager struct {
 	ShutdownChan         chan struct{}
 	ProcessTaskFunc      func(*Task)
 	RefreshDashboardFunc func(int64, bool)
+	CheckpointManager    *recovery.CheckpointManager
 	DownloadDir          string
 	RcloneDest           string
 	ConfigDir            string
@@ -106,21 +112,14 @@ type TaskManager struct {
 	StopDuplicate        bool
 }
 
-type DuplicateTaskError struct {
-	Message   string
-	RemoteURL string
-}
-
-func (e *DuplicateTaskError) Error() string {
-	return e.Message
-}
-
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository) *TaskManager {
 	cfg := config.LoadConfig()
 
 	tm := &TaskManager{
 		Tasks:                make(map[string]*Task),
-		Queue:                make(chan *Task, 100),
+		Queue:                queue.NewPriorityQueue(),
+		QueueSignal:          make(chan struct{}, 1000),
+		RateLimiter:          queue.NewUserRateLimiter(5, 10),
 		MaxConcurrent:        maxConcurrent,
 		DownloadDir:          downloadDir,
 		RcloneDest:           rcloneDest,
@@ -141,6 +140,10 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		LastDashProgressSum:  make(map[int64]float64),
 		LastTasksCount:       make(map[int64]int),
 		Config:               cfg,
+	}
+
+	if dbInstance, ok := db.(*database.DB); ok {
+		tm.CheckpointManager = recovery.NewCheckpointManager(dbInstance)
 	}
 
 	if db != nil {
@@ -180,8 +183,22 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 				if rt.CompletedAt.Valid {
 					task.CompletedAt = rt.CompletedAt.Time
 				}
+
+				if tm.CheckpointManager != nil {
+					if cp, err := tm.CheckpointManager.GetCheckpoint(task.ID); err == nil && cp != nil {
+						task.DownloadedSize = cp.DownloadedBytes
+						task.TotalSize = cp.TotalBytes
+						task.Progress = cp.Progress
+						slog.Info("Restored task from checkpoint", "taskID", task.ID, "progress", task.Progress)
+					}
+				}
+
 				tm.Tasks[task.ID] = task
-				tm.Queue <- task
+				tm.Queue.Enqueue(task, 0)
+				select {
+				case tm.QueueSignal <- struct{}{}:
+				default:
+				}
 			}
 			slog.Info("Loaded active tasks from database", "count", len(activeTasks))
 		}
@@ -250,6 +267,10 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		}
 	}
 
+	if !tm.RateLimiter.Allow(userID) {
+		return nil, fmt.Errorf("%w: limit 5 tasks/min exceeded", domain.ErrLimitExceeded)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	task := &Task{
@@ -284,27 +305,19 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 	tm.Mu.Unlock()
 
 	_ = task.SaveToDB()
-	tm.Queue <- task
+
+	priority := 0
+	if utils.IsAdmin(userID, tm.Config.OwnerID, tm.Config.AuthorizedUsers) {
+		priority = 100
+	}
+
+	tm.Queue.Enqueue(task, priority)
+	select {
+	case tm.QueueSignal <- struct{}{}:
+	default:
+	}
 
 	return task, nil
-}
-
-func (tm *TaskManager) FindActiveTaskByURL(url string, quality string) *Task {
-	tm.Mu.RLock()
-	defer tm.Mu.RUnlock()
-
-	for _, task := range tm.Tasks {
-		task.Mu.RLock()
-		isFinished := task.Status == StatusCompleted || task.Status == StatusFailed || task.Status == StatusCancelled
-		sameURL := task.URL == url
-		sameQuality := task.Quality == quality
-		task.Mu.RUnlock()
-
-		if !isFinished && sameURL && sameQuality {
-			return task
-		}
-	}
-	return nil
 }
 
 func (t *Task) SaveToDB() error {
@@ -390,6 +403,12 @@ func (tm *TaskManager) GetActiveTasks() []*Task {
 func (tm *TaskManager) CancelTask(taskID string) bool {
 	tm.Mu.Lock()
 	task, exists := tm.Tasks[taskID]
+	if tm.CheckpointManager != nil && exists {
+		if err := tm.CheckpointManager.DeleteCheckpoint(task.ID); err != nil {
+			slog.Warn("Failed to delete checkpoint", "taskID", task.ID, "error", err)
+		}
+	}
+	delete(tm.Tasks, task.ID)
 	tm.Mu.Unlock()
 
 	if !exists {
@@ -452,12 +471,17 @@ func (tm *TaskManager) worker(_ int) {
 		select {
 		case <-tm.ShutdownChan:
 			return
-		case task := <-tm.Queue:
-			tm.Wg.Add(1)
-			if tm.ProcessTaskFunc != nil {
-				tm.ProcessTaskFunc(task)
+		case <-tm.QueueSignal:
+			item := tm.Queue.DequeueNonBlocking()
+			if item != nil {
+				if task, ok := item.(*Task); ok {
+					tm.Wg.Add(1)
+					if tm.ProcessTaskFunc != nil {
+						tm.ProcessTaskFunc(task)
+					}
+					tm.Wg.Done()
+				}
 			}
-			tm.Wg.Done()
 		}
 	}
 }

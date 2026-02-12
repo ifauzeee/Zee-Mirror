@@ -42,6 +42,26 @@ func (s *BotService) HandleSettings(message *tgbotapi.Message) {
 	}
 }
 
+func (s *BotService) HandleLanguage(message *tgbotapi.Message) {
+	lang := s.GetUserLanguage(message.From.ID)
+	text := "🌐 *Select Language / Pilih Bahasa*"
+	switch lang {
+	case "en":
+		text = "🌐 *Select Language*"
+	case "ja":
+		text = "🌐 *言語を選択*"
+	case "zh":
+		text = "🌐 *选择语言*"
+	}
+	keyboard := s.getSettingsKeyboard(message.From.ID)
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ParseMode = MarkdownV2
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = message.MessageID
+	_, _ = s.Bot.Send(msg)
+}
+
 func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 2 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
@@ -117,6 +137,14 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		_ = s.DB.SetLanguage(ctx, callback.From.ID, "en")
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🇺🇸 Language: English"))
 
+	case "lang_ja":
+		_ = s.DB.SetLanguage(ctx, callback.From.ID, "ja")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🇯🇵 言語: 日本語"))
+
+	case "lang_zh":
+		_ = s.DB.SetLanguage(ctx, callback.From.ID, "zh")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🇨🇳 语言: 简体中文"))
+
 	default:
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
@@ -148,9 +176,16 @@ func (s *BotService) formatSettingsMessage(userID int64) string {
 
 	langFlag := "🇮🇩"
 	langName := "Indonesia"
-	if lang == "en" {
+	switch lang {
+	case "en":
 		langFlag = "🇺🇸"
 		langName = "English"
+	case "ja":
+		langFlag = "🇯🇵"
+		langName = "日本語"
+	case "zh":
+		langFlag = "🇨🇳"
+		langName = "简体中文"
 	}
 
 	cookiesStatus := "❌ Missing"
@@ -211,6 +246,10 @@ func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMa
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🇮🇩 Indonesia", "settings:lang_id"),
 			tgbotapi.NewInlineKeyboardButtonData("🇺🇸 English", "settings:lang_en"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🇯🇵 日本語", "settings:lang_ja"),
+			tgbotapi.NewInlineKeyboardButtonData("🇨🇳 简体中文", "settings:lang_zh"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), "help:back"),

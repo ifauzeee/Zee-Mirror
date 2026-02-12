@@ -119,6 +119,12 @@ func (s *BotService) createZipArchive(task *Task) error {
 }
 
 func (s *BotService) cleanupTask(task *Task) {
+	if s.TaskManager.CheckpointManager != nil {
+		if err := s.TaskManager.CheckpointManager.DeleteCheckpoint(task.ID); err != nil {
+			slog.Warn("Failed to delete checkpoint", "taskID", task.ID, "error", err)
+		}
+	}
+
 	taskDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
 	_ = os.RemoveAll(taskDir)
 }
