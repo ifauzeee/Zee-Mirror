@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"zee-mirror/internal/domain"
@@ -62,6 +63,20 @@ func (db *DB) RunMigrations(migrationsDir string) error {
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		// If the migration failed because it's "dirty", and it's version 1,
+		// we can try to force version 1 because our migration is idempotent (IF NOT EXISTS)
+		if strings.Contains(err.Error(), "Dirty database version 1") {
+			slog.Warn("Database is dirty at version 1, attempting to force version 1 and retry...")
+			if errForce := m.Force(1); errForce != nil {
+				return fmt.Errorf("failed to force migration: %w", errForce)
+			}
+			// Retry migration
+			if errRetry := m.Up(); errRetry != nil && errRetry != migrate.ErrNoChange {
+				return fmt.Errorf("migration failed after force: %w", errRetry)
+			}
+			slog.Info("Database migration fixed and completed successfully")
+			return nil
+		}
 		return err
 	}
 
