@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/i18n"
@@ -18,7 +19,7 @@ const (
 	UnknownSize      = "Unknown"
 )
 
-func buildTaskStatusText(snapshot domain.TaskSnapshot) string {
+func buildTaskStatusText(lang string, snapshot domain.TaskSnapshot) string {
 	var text string
 	switch snapshot.Status {
 	case domain.StatusCompleted:
@@ -30,14 +31,14 @@ func buildTaskStatusText(snapshot domain.TaskSnapshot) string {
 			"📦 *Size:* `%s`\n"+
 			"⏱ *Time:* `%s`\n"+
 			"📁 *Path:* `%s`",
-			i18n.MsgStatusCompleted,
+			i18n.T(lang, "status_completed"),
 			utils.EscapeMarkdownV2Code(snapshot.FileName),
 			utils.EscapeMarkdownV2Code(sizeStr),
 			utils.EscapeMarkdownV2Code(utils.FormatDuration(duration)),
 			utils.EscapeMarkdownV2Code(snapshot.RemotePath))
 	case domain.StatusFailed:
 		text = fmt.Sprintf("%s\n📄 `%s`\nError: `%s`",
-			i18n.MsgStatusFailed,
+			i18n.T(lang, "status_failed"),
 			utils.EscapeMarkdownV2Code(snapshot.FileName),
 			utils.EscapeMarkdownV2Code(utils.TruncateString(snapshot.Error, 100)))
 	default:
@@ -116,21 +117,16 @@ func HelpDetailMessage(title, kegunaan, caraPakai, contoh, extra string) string 
 	return ProfessionalMessage(title, content)
 }
 
-func GetWelcomeMessage(userName string) string {
-	content := fmt.Sprintf("👋 Hai, *%s*\\!\n\n"+
-		"Selamat datang di *ZEE\\-MIRROR*\\.\n"+
-		"Bot serbaguna untuk Mirror, Leech, dan Media Tools\\.\n\n"+
-		"🚀 *Didesain untuk kecepatan dan kemudahan\\.*",
-		utils.EscapeMarkdownV2(userName))
-
-	return ProfessionalMessage("ZEE-MIRROR BOT", content)
+func GetWelcomeMessage(lang, userName string) string {
+	content := i18n.T(lang, "welcome_content", utils.EscapeMarkdownV2(userName))
+	return ProfessionalMessage(i18n.T(lang, "welcome_title"), content)
 }
 
 func GetStatusHeader() string {
 	return fmt.Sprintf("📊 *STATUS TASK AKTIF*\n%s\n\n", LineSeparator)
 }
 
-func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
+func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) string {
 	emoji := utils.StatusEmoji(string(taskSnapshot.Status))
 	bar := utils.ProgressBar(taskSnapshot.Progress, 10)
 
@@ -153,7 +149,7 @@ func FormatTaskProfessional(taskSnapshot domain.TaskSnapshot) string {
 			"🚫 *Cancel:* /cancel\\_%s\n",
 		utils.EscapeMarkdownV2Code(taskSnapshot.ID),
 		emoji,
-		utils.EscapeMarkdownV2(utils.FormatStatus(string(taskSnapshot.Status))),
+		utils.EscapeMarkdownV2(i18n.T(lang, strings.ToLower(string(taskSnapshot.Status)))),
 		utils.EscapeMarkdownV2(bar),
 		utils.EscapeMarkdownV2Code(utils.TruncateString(taskSnapshot.FileName, 35)),
 		utils.EscapeMarkdownV2Code(utils.FormatBytes(processedSize)),
@@ -171,46 +167,45 @@ func GetSuccessMessage(title, text string) string {
 		utils.EscapeMarkdownV2(text))
 }
 
-func GetStartKeyboard() tgbotapi.InlineKeyboardMarkup {
+func GetStartKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("💻 Code Repo", RepoURL),
-			tgbotapi.NewInlineKeyboardButtonData("❓ Help", "help:main"),
+			tgbotapi.NewInlineKeyboardButtonData("❓ "+i18n.T(lang, "help_back"), "help:main"),
 		),
 	)
 }
 
-func GetHelpMainText() string {
-	content := "Silakan pilih kategori bantuan di bawah untuk melihat detail fungsi dan cara penggunaan\\.\n\n" +
-		"💡 *Klik tombol untuk membuka sub\\-menu\\.*"
-	return ProfessionalMessage("PANDUAN BANTUAN", content)
+func GetHelpMainText(lang string) string {
+	content := i18n.T(lang, "help_content")
+	return ProfessionalMessage(i18n.T(lang, "help_title"), content)
 }
 
-func GetHelpKeyboard() tgbotapi.InlineKeyboardMarkup {
+func GetHelpKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📥 DOWNLOAD", "help:download"),
-			tgbotapi.NewInlineKeyboardButtonData("📊 MONITOR", "help:monitor"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_download"), "help:download"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_monitor"), "help:monitor"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📁 FILES", "help:files"),
-			tgbotapi.NewInlineKeyboardButtonData("🎵 MEDIA", "help:media"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_files"), "help:files"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_media"), "help:media"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📋 TASK", "help:task"),
-			tgbotapi.NewInlineKeyboardButtonData("💾 STORAGE", "help:storage"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_task"), "help:task"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_storage"), "help:storage"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("👑 ADMIN", "help:admin"),
-			tgbotapi.NewInlineKeyboardButtonData("🔧 RECOVERY", "help:recovery"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_admin"), "help:admin"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_recovery"), "help:recovery"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⚙️ SETTINGS", "help:settings"),
-			tgbotapi.NewInlineKeyboardButtonData("📋 ALL COMMANDS", "help:all"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_settings"), "help:settings"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_all"), "help:all"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 HOME", "help:back"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_home"), "help:back"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_close"), "help:close"),
 		),
 	)
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"zee-mirror/pkg/i18n"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -25,8 +26,8 @@ func NewSettings() *Settings {
 }
 
 func (s *BotService) HandleSettings(message *tgbotapi.Message) {
-	text := s.formatSettingsMessage()
-	keyboard := s.getSettingsKeyboard()
+	text := s.formatSettingsMessage(message.From.ID)
+	keyboard := s.getSettingsKeyboard(message.From.ID)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
@@ -83,12 +84,20 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		_ = s.DB.Set(ctx, "default_mode", string(TypeLeech))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
+	case "lang_id":
+		_ = s.DB.SetLanguage(ctx, callback.From.ID, "id")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🇮🇩 Bahasa: Indonesia"))
+
+	case "lang_en":
+		_ = s.DB.SetLanguage(ctx, callback.From.ID, "en")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🇺🇸 Language: English"))
+
 	default:
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	}
 
-	text := s.formatSettingsMessage()
-	keyboard := s.getSettingsKeyboard()
+	text := s.formatSettingsMessage(callback.From.ID)
+	keyboard := s.getSettingsKeyboard(callback.From.ID)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = MarkdownV2
@@ -96,9 +105,11 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 	_, _ = s.Bot.Send(editMsg)
 }
 
-func (s *BotService) formatSettingsMessage() string {
+func (s *BotService) formatSettingsMessage(userID int64) string {
 	s.Settings.Mu.RLock()
 	defer s.Settings.Mu.RUnlock()
+
+	lang := s.GetUserLanguage(userID)
 
 	autoDeleteStatus := "❌ OFF"
 	if s.Settings.AutoDeleteMessages {
@@ -110,6 +121,13 @@ func (s *BotService) formatSettingsMessage() string {
 		defaultModeEmoji = "🔗"
 	}
 
+	langFlag := "🇮🇩"
+	langName := "Indonesia"
+	if lang == "en" {
+		langFlag = "🇺🇸"
+		langName = "English"
+	}
+
 	return fmt.Sprintf(`⚙️ *Pengaturan Bot*
  
 *Auto Delete Messages:* %s
@@ -117,18 +135,23 @@ _Hapus pesan status setelah task selesai \(60 detik\)_
  
 *Default Mode:* %s %s
 _Mode yang digunakan saat tidak ada flag_
+
+*Language / Bahasa:* %s %s
  
 Klik tombol di bawah untuk mengubah pengaturan\.`,
 		autoDeleteStatus,
 		defaultModeEmoji,
 		utils.EscapeMarkdownV2(s.Settings.DefaultMode),
+		langFlag,
+		langName,
 	)
 }
 
-func (s *BotService) getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
+func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
 	s.Settings.Mu.RLock()
 	defer s.Settings.Mu.RUnlock()
 
+	lang := s.GetUserLanguage(userID)
 	autoDeleteLabel := "🔕 Auto Delete: OFF"
 	if s.Settings.AutoDeleteMessages {
 		autoDeleteLabel = "🔔 Auto Delete: ON"
@@ -143,7 +166,11 @@ func (s *BotService) getSettingsKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("🔗 Set Leech", "settings:default_leech"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", "help:back"),
+			tgbotapi.NewInlineKeyboardButtonData("🇮🇩 Indonesia", "settings:lang_id"),
+			tgbotapi.NewInlineKeyboardButtonData("🇺🇸 English", "settings:lang_en"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), "help:back"),
 		),
 	)
 }

@@ -37,8 +37,9 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 
 	switch action {
 	case "main":
-		text = GetHelpMainText()
-		keyboard = GetHelpKeyboard()
+		lang := s.GetUserLanguage(callback.From.ID)
+		text = GetHelpMainText(lang)
+		keyboard = GetHelpKeyboard(lang)
 
 	case "settings":
 		text = getHelpSettings()
@@ -64,8 +65,9 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 		)
 
 	case ActionBack:
-		content := GetWelcomeMessage(callback.From.FirstName)
-		kb := GetStartKeyboard()
+		lang := s.GetUserLanguage(callback.From.ID)
+		content := GetWelcomeMessage(lang, callback.From.FirstName)
+		kb := GetStartKeyboard(lang)
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 		editMsg.ReplyMarkup = &kb

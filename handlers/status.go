@@ -66,7 +66,8 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 		}
 		tm.Mu.Unlock()
 		if forceNew {
-			msg := tgbotapi.NewMessage(chatID, i18n.MsgNoActiveTasks)
+			lang := s.GetUserLanguage(chatID)
+			msg := tgbotapi.NewMessage(chatID, i18n.T(lang, "no_active_tasks"))
 			msg.ParseMode = MarkdownV2
 			sentMsg, err := s.Bot.Send(msg)
 			if err == nil {
@@ -108,7 +109,8 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 	tm.LastTasksCount[chatID] = totalTasks
 	tm.Mu.Unlock()
 
-	text := s.buildStatusDashboardText(tasks, batches, page)
+	lang := s.GetUserLanguage(chatID)
+	text := s.buildStatusDashboardText(lang, tasks, batches, page)
 	totalPages := (totalTasks + 4) / 5
 	keyboard := buildNavigationKeyboard(page, totalPages)
 
@@ -117,7 +119,8 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 
 func (s *BotService) HandleRefreshStatusCallback(callback *tgbotapi.CallbackQuery) {
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
-	callbackConfig := tgbotapi.NewCallback(callback.ID, i18n.MsgDashboardRefreshed)
+	lang := s.GetUserLanguage(callback.From.ID)
+	callbackConfig := tgbotapi.NewCallback(callback.ID, i18n.T(lang, "dashboard_refreshed"))
 	_, _ = s.Bot.Request(callbackConfig)
 }
 
@@ -125,7 +128,7 @@ func calculateTotalPages(totalTasks int) int {
 	return (totalTasks + 4) / 5
 }
 
-func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTask, page int) string {
+func (s *BotService) buildStatusDashboardText(lang string, tasks []*Task, batches []*BatchTask, page int) string {
 	text := GetStatusHeader()
 
 	allTasks := make([]interface{}, 0, len(tasks)+len(batches))
@@ -162,7 +165,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 	}
 
 	if start >= totalTasks {
-		return GetErrorMessage("PAGING ERROR", i18n.MsgPagingError)
+		return GetErrorMessage("PAGING ERROR", i18n.T(lang, "paging_error"))
 	}
 
 	visibleItems := allTasks[start:end]
@@ -189,7 +192,7 @@ func (s *BotService) buildStatusDashboardText(tasks []*Task, batches []*BatchTas
 		} else if task, ok := item.(*Task); ok {
 			visibleTasksCount++
 			snapshot := task.GetSnapshot()
-			text += FormatTaskProfessional(snapshot) + "\n"
+			text += FormatTaskProfessional(lang, snapshot) + "\n"
 		}
 	}
 
@@ -292,7 +295,8 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	taskID := args
 
 	if s.TaskManager.CancelTask(taskID) {
-		s.reply(message, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf(i18n.MsgTaskCancelled, taskID)))
+		lang := s.GetUserLanguage(message.From.ID)
+		s.reply(message, GetSuccessMessage("TASK CANCELLED", fmt.Sprintf(i18n.T(lang, "task_cancelled"), taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
@@ -319,25 +323,29 @@ func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {
 	bm.Mu.RUnlock()
 
 	if foundBatch {
+		lang := s.GetUserLanguage(message.From.ID)
 		targetBatch.CancelFunc()
 		targetBatch.SetStatus(StatusCancelled)
-		s.reply(message, GetSuccessMessage("BATCH CANCELLED", fmt.Sprintf(i18n.MsgBatchCancelled, taskID)))
+		s.reply(message, GetSuccessMessage("BATCH CANCELLED", fmt.Sprintf(i18n.T(lang, "batch_cancelled"), taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
 
 	if s.checkBatchSubTaskCancellation(taskID) {
-		s.reply(message, GetSuccessMessage("SUB-TASK CANCELLED", fmt.Sprintf(i18n.MsgSubTaskCancelled, taskID)))
+		lang := s.GetUserLanguage(message.From.ID)
+		s.reply(message, GetSuccessMessage("SUB-TASK CANCELLED", fmt.Sprintf(i18n.T(lang, "sub_task_cancelled"), taskID)))
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		return
 	}
 
-	s.reply(message, GetErrorMessage("NOT FOUND", fmt.Sprintf(i18n.MsgTaskNotFound, utils.EscapeMarkdownV2(taskID))))
+	lang := s.GetUserLanguage(message.From.ID)
+	s.reply(message, GetErrorMessage("NOT FOUND", fmt.Sprintf(i18n.T(lang, "task_not_found"), utils.EscapeMarkdownV2(taskID))))
 }
 
 func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
 	if !s.IsAdmin(message.From.ID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("PERMISSION DENIED", i18n.MsgAdminOnly))
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, GetErrorMessage("PERMISSION DENIED", i18n.T(lang, "admin_only")))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
@@ -367,7 +375,8 @@ func (s *BotService) HandleCancelAll(message *tgbotapi.Message) {
 		s.BatchManager.Mu.Unlock()
 	}
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf(i18n.MsgAllTasksCancelled, count)))
+	lang := s.GetUserLanguage(message.From.ID)
+	msg := tgbotapi.NewMessage(message.Chat.ID, GetSuccessMessage("CANCEL ALL", fmt.Sprintf(i18n.T(lang, "all_tasks_cancelled"), count)))
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
 	s.UpdateSharedDashboard(message.Chat.ID, false)

@@ -29,6 +29,7 @@ type UserRepository interface {
 	SetRole(ctx context.Context, id int64, role string) error
 	SetLimits(ctx context.Context, id int64, maxTasks int, maxBandwidth int64) error
 	SetExpiration(ctx context.Context, id int64, expiresAt time.Time) error
+	SetLanguage(ctx context.Context, id int64, lang string) error
 	GetAll(ctx context.Context) ([]domain.User, error)
 	GetCount(ctx context.Context) (int, error)
 	Delete(ctx context.Context, id int64) error

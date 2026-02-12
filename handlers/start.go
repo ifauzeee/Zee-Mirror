@@ -23,8 +23,9 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 		userName = "User"
 	}
 
-	welcomeText := GetWelcomeMessage(userName)
-	keyboard := GetStartKeyboard()
+	lang := s.GetUserLanguage(message.From.ID)
+	welcomeText := GetWelcomeMessage(lang, userName)
+	keyboard := GetStartKeyboard(lang)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, welcomeText)
 	msg.ParseMode = MarkdownV2
@@ -36,10 +37,10 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 	}
 }
-
 func (s *BotService) HandleHelp(message *tgbotapi.Message) {
-	helpText := GetHelpMainText()
-	keyboard := GetHelpKeyboard()
+	lang := s.GetUserLanguage(message.From.ID)
+	helpText := GetHelpMainText(lang)
+	keyboard := GetHelpKeyboard(lang)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
 	msg.ParseMode = MarkdownV2
@@ -104,8 +105,9 @@ func (s *BotService) handleDashboardAction(callback *tgbotapi.CallbackQuery, act
 	case "system":
 		s.HandleSystemFromCallback(callback)
 	case ActionBack:
-		content := GetWelcomeMessage(callback.From.FirstName)
-		kb := GetStartKeyboard()
+		lang := s.GetUserLanguage(callback.From.ID)
+		content := GetWelcomeMessage(lang, callback.From.FirstName)
+		kb := GetStartKeyboard(lang)
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
 		editMsg.ParseMode = MarkdownV2
 		editMsg.ReplyMarkup = &kb
@@ -280,6 +282,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 }
 
 func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) {
+	lang := s.GetUserLanguage(callback.From.ID)
 	tasks := s.TaskManager.GetActiveTasks()
 
 	if len(tasks) == 0 {
@@ -294,7 +297,7 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 	text := GetStatusHeader()
 	for _, task := range tasks {
 		snapshot := task.GetSnapshot()
-		text += FormatTaskProfessional(snapshot) + "\n"
+		text += FormatTaskProfessional(lang, snapshot) + "\n"
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -315,8 +318,8 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 }
 
 func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery) {
-	text := s.formatSettingsMessage()
-	keyboard := s.getSettingsKeyboard()
+	text := s.formatSettingsMessage(callback.From.ID)
+	keyboard := s.getSettingsKeyboard(callback.From.ID)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = MarkdownV2

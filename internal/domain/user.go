@@ -10,6 +10,7 @@ type User struct {
 	CreatedAt         time.Time    `json:"createdAt"`
 	Username          string       `json:"username"`
 	Role              string       `json:"role"`
+	Language          string       `json:"language"`
 	ID                int64        `json:"id"`
 	MaxDailyBandwidth int64        `json:"maxDailyBandwidth"`
 	MaxDailyTasks     int          `json:"maxDailyTasks"`

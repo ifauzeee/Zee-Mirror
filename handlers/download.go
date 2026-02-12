@@ -78,7 +78,8 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgReplyRequired)
+	lang := s.GetUserLanguage(message.From.ID)
+	msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "reply_required"))
 	msg.ParseMode = MarkdownV2
 	_, _ = s.Bot.Send(msg)
 }
@@ -138,7 +139,8 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	}
 
 	if url == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgInvalidURL)
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "invalid_url"))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
@@ -195,7 +197,8 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	}
 
 	if url == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgInvalidURL)
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "invalid_url"))
 		msg.ParseMode = MarkdownV2
 		if sentMsg, err := s.Bot.Send(msg); err == nil {
 			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 30*time.Second)
@@ -238,15 +241,16 @@ func (s *BotService) isYTDLPPlaylist(url string) bool {
 }
 
 func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name string, zip bool, password string, taskType TaskType) {
+	lang := s.GetUserLanguage(message.From.ID)
 	if s.isYTDLPPlaylist(url) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.MsgYTDLPPlaylistError)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "ytdlp_playlist_error"))
 		msg.ParseMode = MarkdownV2
 		sentMsg, _ := s.Bot.Send(msg)
 		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 15*time.Second)
 		return
 	}
 
-	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, i18n.MsgYTDLPAnalysis))
+	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "ytdlp_analysis")))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -254,7 +258,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name s
 	resMap, err := s.TaskManager.YTDLPEngine.GetFormats(ctx, url)
 	if err != nil {
 		slog.Error("YTDLP analysis failed", "error", err)
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf(i18n.MsgYTDLPAnalysisFailed, utils.EscapeMarkdownV2(err.Error())))
+		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, i18n.T(lang, "ytdlp_analysis_failed", utils.EscapeMarkdownV2(err.Error())))
 		s.AutoDeleteMessage(statusMsg.Chat.ID, statusMsg.MessageID, 20*time.Second)
 		return
 	}
@@ -264,9 +268,9 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name s
 	sessionID := s.createYTDLPSession(url, name, zip, password, taskType)
 	keyboard := s.buildYTDLPKeyboard(sortedHeights, resMap, sessionID)
 
-	text := i18n.MsgYTDLPSelectQuality
+	text := i18n.T(lang, "ytdlp_select_quality")
 	if len(sortedHeights) == 0 {
-		text = i18n.MsgYTDLPNoResolution
+		text = i18n.T(lang, "ytdlp_no_resolution")
 	}
 
 	editMsg := tgbotapi.NewEditMessageText(statusMsg.Chat.ID, statusMsg.MessageID, text)
@@ -416,7 +420,8 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	}
 
 	if url == "" {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ *Error*\\n\\nBerikan magnet link\\.")
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "invalid_magnet"))
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
@@ -445,12 +450,8 @@ func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, na
 		dashboardURL = fmt.Sprintf("%s/torrent-select/%s", baseURL, sessionID)
 	}
 
-	text := "🧲 *TORRENT MIRROR*\n" +
-		"━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-		"Pilih opsi download untuk torrent ini:\n\n" +
-		"📦 *Select All* \\- Download semua file dalam torrent\n" +
-		"📋 *Select Files* \\- Pilih file tertentu via Web\n\n" +
-		"_Torrent biasanya berisi banyak file dalam folder\\. Gunakan Select Files untuk memilih file yang ingin didownload\\._"
+	lang := s.GetUserLanguage(message.From.ID)
+	text := i18n.T(lang, "torrent_menu_text")
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -635,10 +636,11 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 	if err != nil {
 		slog.Error("Failed to get file from Telegram", "error", err, "fileID", fileID)
 		errText := err.Error()
+		lang := s.GetUserLanguage(message.From.ID)
 		msgText := fmt.Sprintf("❌ *Error:* %s", utils.EscapeMarkdownV2(errText))
 
 		if strings.Contains(errText, "file is too big") {
-			msgText += "\n\n⚠️ *Limitasi Telegram:* Bot hanya dapat mengunduh file hingga 20MB melalui server resmi\\. Gunakan *Local Bot API Server* untuk mengunduh file hingga 2GB\\."
+			msgText += i18n.T(lang, "telegram_file_limit")
 		}
 
 		msg := tgbotapi.NewMessage(message.Chat.ID, msgText)
@@ -1103,7 +1105,8 @@ func (s *BotService) updateTaskStatus(task *Task) {
 
 	s.UpdateSharedDashboard(snapshot.ChatID, false)
 
-	text := buildTaskStatusText(snapshot)
+	lang := s.GetUserLanguage(snapshot.UserID)
+	text := buildTaskStatusText(lang, snapshot)
 
 	if snapshot.Status == StatusCompleted && organizer.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
 		task.Mu.RLock()

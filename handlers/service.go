@@ -228,19 +228,25 @@ func (s *BotService) GetFileWithFallback(fileID string) (tgbotapi.File, bool, er
 	if err != nil && s.Config.TelegramAPI != "" {
 		slog.Warn("Failed to get file from local TG API, retrying with official API...", "error", err, "fileID", fileID)
 
-		// Create a temporary bot instance using default API endpoint
 		offBot, offErr := tgbotapi.NewBotAPI(s.Bot.Token)
 		if offErr != nil {
-			return tgFile, false, err // Return original error if official API init fails
+			return tgFile, false, err
 		}
 
 		offFile, offErr := offBot.GetFile(tgbotapi.FileConfig{FileID: fileID})
 		if offErr != nil {
-			return tgFile, false, err // Return original error if official API also fails
+			return tgFile, false, err
 		}
 
 		slog.Info("Successfully retrieved file info from official API", "fileID", fileID, "path", offFile.FilePath)
 		return offFile, true, nil
 	}
 	return tgFile, false, err
+}
+func (s *BotService) GetUserLanguage(userID int64) string {
+	user, err := s.DB.GetByID(context.Background(), userID)
+	if err != nil || user.Language == "" {
+		return "id"
+	}
+	return user.Language
 }

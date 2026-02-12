@@ -63,14 +63,11 @@ func (db *DB) RunMigrations(migrationsDir string) error {
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		// If the migration failed because it's "dirty", and it's version 1,
-		// we can try to force version 1 because our migration is idempotent (IF NOT EXISTS)
 		if strings.Contains(err.Error(), "Dirty database version 1") {
 			slog.Warn("Database is dirty at version 1, attempting to force version 1 and retry...")
 			if errForce := m.Force(1); errForce != nil {
 				return fmt.Errorf("failed to force migration: %w", errForce)
 			}
-			// Retry migration
 			if errRetry := m.Up(); errRetry != nil && errRetry != migrate.ErrNoChange {
 				return fmt.Errorf("migration failed after force: %w", errRetry)
 			}
@@ -93,9 +90,9 @@ func (db *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	var expiresAt sql.NullTime
 
 	err := db.QueryRowContext(ctx, `
-		SELECT username, role, max_daily_tasks, max_daily_bandwidth, expires_at, created_at 
+		SELECT username, role, language, max_daily_tasks, max_daily_bandwidth, expires_at, created_at 
 		FROM users WHERE id = ?
-	`, id).Scan(&u.Username, &u.Role, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt)
+	`, id).Scan(&u.Username, &u.Role, &u.Language, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -115,15 +112,16 @@ func (db *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 
 func (db *DB) Upsert(ctx context.Context, u domain.User) error {
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO users (id, username, role, created_at, max_daily_tasks, max_daily_bandwidth, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, username, role, language, created_at, max_daily_tasks, max_daily_bandwidth, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			username = excluded.username,
 			role = CASE WHEN users.role = 'owner' THEN 'owner' ELSE excluded.role END,
+			language = excluded.language,
 			max_daily_tasks = excluded.max_daily_tasks,
 			max_daily_bandwidth = excluded.max_daily_bandwidth,
 			expires_at = excluded.expires_at
-	`, u.ID, u.Username, u.Role, u.CreatedAt, u.MaxDailyTasks, u.MaxDailyBandwidth, u.ExpiresAt)
+	`, u.ID, u.Username, u.Role, u.Language, u.CreatedAt, u.MaxDailyTasks, u.MaxDailyBandwidth, u.ExpiresAt)
 	return err
 }
 
@@ -142,8 +140,13 @@ func (db *DB) SetExpiration(ctx context.Context, id int64, expiresAt time.Time) 
 	return err
 }
 
+func (db *DB) SetLanguage(ctx context.Context, id int64, lang string) error {
+	_, err := db.ExecContext(ctx, "UPDATE users SET language = ? WHERE id = ?", lang, id)
+	return err
+}
+
 func (db *DB) GetAll(ctx context.Context) ([]domain.User, error) {
-	rows, err := db.QueryContext(ctx, "SELECT id, username, role, max_daily_tasks, max_daily_bandwidth, expires_at, created_at FROM users")
+	rows, err := db.QueryContext(ctx, "SELECT id, username, role, language, max_daily_tasks, max_daily_bandwidth, expires_at, created_at FROM users")
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +156,7 @@ func (db *DB) GetAll(ctx context.Context) ([]domain.User, error) {
 	for rows.Next() {
 		var u domain.User
 		var expiresAt sql.NullTime
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Language, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		u.ExpiresAt = expiresAt
