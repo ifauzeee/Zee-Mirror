@@ -604,8 +604,8 @@ func downloadFile(url, destPath string) error {
 	return nil
 }
 
-func (s *BotService) getFileLink(file tgbotapi.File) string {
-	if s.Config.TelegramAPI != "" {
+func (s *BotService) getFileLink(file tgbotapi.File, isOfficial bool) string {
+	if s.Config.TelegramAPI != "" && !isOfficial {
 		apiFormat := s.Config.TelegramAPI
 		apiFormat = strings.Replace(apiFormat, "bot%s/%s", "file/bot%s/%s", 1)
 
@@ -753,7 +753,7 @@ func (s *BotService) getFileFromMessage(message *tgbotapi.Message) (fileID, file
 }
 
 func (s *BotService) downloadTelegramFile(fileID, fileName string) (string, error) {
-	file, err := s.GetFileWithFallback(fileID)
+	file, isOfficial, err := s.GetFileWithFallback(fileID)
 	if err != nil {
 		return "", err
 	}
@@ -771,7 +771,7 @@ func (s *BotService) downloadTelegramFile(fileID, fileName string) (string, erro
 	}
 
 	inputPath := filepath.Join(s.Config.DownloadDir, fileName)
-	downloadURL := s.getFileLink(file)
+	downloadURL := s.getFileLink(file, isOfficial)
 	slog.Debug("Telegram file download URL", "url", downloadURL)
 
 	if err := downloadFile(downloadURL, inputPath); err != nil {
