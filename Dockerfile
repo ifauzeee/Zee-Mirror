@@ -54,6 +54,7 @@ RUN mkdir -p /app/downloads /app/config /home/botuser/.cache/yt-dlp && \
 
 WORKDIR /app
 COPY --from=builder /build/zee-mirror /app/zee-mirror
+COPY --from=builder /build/migrations /app/migrations
 COPY --from=dashboard-builder /dist /app/dist
 RUN chmod +x /app/zee-mirror
 
