@@ -10,7 +10,9 @@ import (
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/downloader"
+	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/repository"
+	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -234,7 +236,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 
 			if !isFinished && sameURL && sameQuality {
 				tm.Mu.RUnlock()
-				return nil, fmt.Errorf("duplicate active task found with ID: %s", t.ID)
+				return nil, fmt.Errorf("%w: ID %s", domain.ErrDuplicateTask, t.ID)
 			}
 		}
 		tm.Mu.RUnlock()
@@ -242,10 +244,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		if tm.DB != nil {
 			oldTask, errDB := tm.DB.GetCompletedTaskByURL(context.Background(), url)
 			if errDB == nil && oldTask != nil {
-				return nil, &DuplicateTaskError{
-					Message:   "file already exists in cloud/database from previous download",
-					RemoteURL: oldTask.RemoteURL,
-				}
+				return nil, fmt.Errorf("%w: file already exists in cloud/database", domain.ErrDuplicateTask)
 			}
 		}
 	}
@@ -505,6 +504,7 @@ func (t *Task) SetStatus(status TaskStatus) {
 		t.Mu.Unlock()
 		return
 	}
+	oldStatus := t.Status
 	t.Status = status
 	if status == StatusDownloading {
 		if t.Type == TypeYTDLP || t.Type == TypeMirror || t.Type == TypeLeech || t.Type == TypeTorrent {
@@ -513,6 +513,9 @@ func (t *Task) SetStatus(status TaskStatus) {
 	}
 	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
 		t.CompletedAt = time.Now().UTC()
+		if oldStatus != status {
+			metrics.TasksTotal.WithLabelValues(string(t.Type), string(status)).Inc()
+		}
 	}
 	t.Mu.Unlock()
 	_ = t.SaveToDB()
@@ -523,6 +526,7 @@ func (t *Task) SetError(err string) {
 	t.Error = err
 	t.Status = StatusFailed
 	t.CompletedAt = time.Now().UTC()
+	metrics.TasksTotal.WithLabelValues(string(t.Type), "failed").Inc()
 	t.Mu.Unlock()
 	_ = t.SaveToDB()
 }
@@ -550,4 +554,18 @@ func (s *BotService) HandleConfirmCallback(callback *tgbotapi.CallbackQuery, par
 		editMsg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(editMsg)
 	}
+}
+
+func GetErrorMessage(title string, err any) string {
+	var errMsg string
+	switch e := err.(type) {
+	case error:
+		errMsg = domain.GetUserMessage(e)
+
+	case string:
+		errMsg = e
+	default:
+		errMsg = fmt.Sprintf("%v", e)
+	}
+	return fmt.Sprintf("❌ *%s*\n%s\n\n%s", utils.EscapeMarkdownV2(title), LineSeparator, utils.EscapeMarkdownV2(errMsg))
 }

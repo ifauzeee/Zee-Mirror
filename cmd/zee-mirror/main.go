@@ -20,7 +20,9 @@ import (
 	"zee-mirror/internal/userbot"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -37,7 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := database.NewDB(cfg.ConfigDir)
+	db, err := database.NewDB(cfg.ConfigDir, "migrations")
 	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		os.Exit(1)

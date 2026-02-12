@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"zee-mirror/internal/domain"
+
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "modernc.org/sqlite"
 )
 
 func setupTestDB(t *testing.T) (*DB, string) {
@@ -15,7 +18,7 @@ func setupTestDB(t *testing.T) (*DB, string) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	db, err := NewDB(tempDir)
+	db, err := NewDB(tempDir, "../../migrations")
 	if err != nil {
 		_ = os.RemoveAll(tempDir)
 		t.Fatalf("failed to create test db: %v", err)

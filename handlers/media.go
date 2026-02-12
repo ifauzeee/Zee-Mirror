@@ -326,7 +326,6 @@ func (s *BotService) HandleEmbedSubtitle(message *tgbotapi.Message, args string)
 
 	inputDir := filepath.Dir(videoPath)
 
-	// #nosec G204
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(videoPath),
 		"-i", "file:"+subPath,
 		"-c", "copy", "-c:s", "mov_text",
@@ -409,11 +408,9 @@ func (s *BotService) HandleConvertFormat(message *tgbotapi.Message, args string)
 	switch targetFormat {
 	case "mp3", "aac", "flac", "wav":
 
-		// #nosec G204
 		cmd = exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(inputPath), "-vn", filepath.Base(outputPath), "-y")
 	default:
 
-		// #nosec G204
 		cmd = exec.CommandContext(ctx, "ffmpeg", "-i", filepath.Base(inputPath), "-c:v", "copy", "-c:a", "copy", filepath.Base(outputPath), "-y")
 	}
 	cmd.Dir = inputDir
@@ -688,7 +685,6 @@ func (s *BotService) generateScreenshotsList(inputPath string, count int) ([]str
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	// #nosec G204
 	durationCmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration",
 		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+inputPath)
 	durationOutput, err := durationCmd.Output()
@@ -715,7 +711,6 @@ func (s *BotService) generateScreenshotsList(inputPath string, count int) ([]str
 
 		shotCtx, shotCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
-		// #nosec G204
 		cmd := exec.CommandContext(shotCtx, "ffmpeg", "-ss", fmt.Sprintf("%.2f", timestamp),
 			"-i", "file:"+inputPath, "-vframes", "1", "-q:v", "2", "file:"+outputPath, "-y")
 

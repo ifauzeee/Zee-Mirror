@@ -12,7 +12,8 @@ import (
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/repository"
 
-	_ "modernc.org/sqlite" // sqlite driver
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
 )
 
 type DB struct {
@@ -23,7 +24,7 @@ var _ repository.TaskRepository = (*DB)(nil)
 var _ repository.UserRepository = (*DB)(nil)
 var _ repository.SettingsRepository = (*DB)(nil)
 
-func NewDB(configDir string) (*DB, error) {
+func NewDB(configDir, migrationsDir string) (*DB, error) {
 	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return nil, err
 	}
@@ -39,85 +40,37 @@ func NewDB(configDir string) (*DB, error) {
 	}
 
 	instance := &DB{db}
-	if err := instance.migrate(); err != nil {
+	if err := instance.RunMigrations(migrationsDir); err != nil {
+		slog.Error("Database migration failed", "error", err)
 		return nil, err
 	}
 
 	return instance, nil
 }
 
-func (db *DB) Ping(ctx context.Context) error {
-	return db.DB.PingContext(ctx)
-}
-
-func (db *DB) migrate() error {
-	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY,
-			username TEXT,
-			role TEXT NOT NULL DEFAULT 'user',
-			created_at DATETIME NOT NULL,
-			max_daily_tasks INTEGER DEFAULT -1,
-			max_daily_bandwidth INTEGER DEFAULT -1,
-			expires_at DATETIME
-		);`,
-		`CREATE TABLE IF NOT EXISTS tasks (
-			id TEXT PRIMARY KEY,
-			gid TEXT,
-			type TEXT NOT NULL,
-			status TEXT NOT NULL,
-			url TEXT,
-			file_name TEXT,
-			local_path TEXT,
-			remote_path TEXT,
-			remote_url TEXT,
-			total_size INTEGER DEFAULT 0,
-			downloaded_size INTEGER DEFAULT 0,
-			uploaded_size INTEGER DEFAULT 0,
-			chat_id INTEGER NOT NULL,
-			user_id INTEGER NOT NULL,
-			created_at DATETIME NOT NULL,
-			completed_at DATETIME,
-			zip BOOLEAN DEFAULT FALSE,
-			unzip BOOLEAN DEFAULT FALSE,
-			password TEXT,
-			error TEXT,
-			retries INTEGER DEFAULT 0
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);`,
-		`CREATE TABLE IF NOT EXISTS settings (
-			key TEXT PRIMARY KEY,
-			value TEXT,
-			updated_at DATETIME NOT NULL
-		);`,
+func (db *DB) RunMigrations(migrationsDir string) error {
+	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{})
+	if err != nil {
+		return err
 	}
 
-	for _, q := range queries {
-		if _, err := db.Exec(q); err != nil {
-			return fmt.Errorf("migration failed: %v", err)
-		}
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://"+migrationsDir,
+		"sqlite", driver)
+	if err != nil {
+		return err
 	}
 
-	if err := db.addColumnIfNotExists("users", "max_daily_tasks", "INTEGER DEFAULT -1"); err != nil {
-		slog.Debug("Column max_daily_tasks might already exist", "error", err)
-	}
-	if err := db.addColumnIfNotExists("users", "max_daily_bandwidth", "INTEGER DEFAULT -1"); err != nil {
-		slog.Debug("Column max_daily_bandwidth might already exist", "error", err)
-	}
-	if err := db.addColumnIfNotExists("users", "expires_at", "DATETIME"); err != nil {
-		slog.Debug("Column expires_at might already exist", "error", err)
-	}
-	if err := db.addColumnIfNotExists("tasks", "retries", "INTEGER DEFAULT 0"); err != nil {
-		slog.Debug("Column retries might already exist", "error", err)
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
 	}
 
+	slog.Info("Database migrations completed successfully")
 	return nil
 }
 
-func (db *DB) addColumnIfNotExists(table, column, definition string) error {
-	_, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition))
-	return err
+func (db *DB) Ping(ctx context.Context) error {
+	return db.DB.PingContext(ctx)
 }
 
 func (db *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
@@ -130,6 +83,9 @@ func (db *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	`, id).Scan(&u.Username, &u.Role, &u.MaxDailyTasks, &u.MaxDailyBandwidth, &expiresAt, &u.CreatedAt)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
 		return nil, err
 	}
 	u.ExpiresAt = expiresAt
@@ -322,6 +278,9 @@ func (db *DB) GetTaskByID(ctx context.Context, id string) (*TaskRecord, error) {
 		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount,
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
 		return nil, err
 	}
 	return tr, nil

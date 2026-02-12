@@ -28,3 +28,10 @@ run:
   timeout: 5m
   issues-exit-code: 1
   tests: true
+
+issues:
+  exclude-rules:
+    - path: handlers/
+      linters:
+        - gosec
+      text: "G204:"

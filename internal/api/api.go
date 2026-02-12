@@ -15,7 +15,9 @@ import (
 	"time"
 	"zee-mirror/handlers"
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/metrics"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
@@ -61,6 +63,7 @@ func (s *Server) Start() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/api/tasks", auth(s.handleTasks))
 	mux.HandleFunc("/api/settings", auth(s.handleSettings))
 	mux.HandleFunc("/api/system", auth(s.handleSystem))
@@ -117,6 +120,8 @@ func (s *Server) broadcastLoop() {
 
 	for range ticker.C {
 		tasks := s.Service.TaskManager.GetActiveTasks()
+		metrics.ActiveTasks.Set(float64(len(tasks)))
+
 		var taskSnapshots []interface{}
 		for _, t := range tasks {
 			taskSnapshots = append(taskSnapshots, t.GetSnapshot())

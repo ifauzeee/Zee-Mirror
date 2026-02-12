@@ -171,13 +171,6 @@ func GetSuccessMessage(title, text string) string {
 		utils.EscapeMarkdownV2(text))
 }
 
-func GetErrorMessage(title, text string) string {
-	return fmt.Sprintf("❌ *%s*\n%s\n\n%s",
-		utils.EscapeMarkdownV2(title),
-		LineSeparator,
-		utils.EscapeMarkdownV2(text))
-}
-
 func GetStartKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(

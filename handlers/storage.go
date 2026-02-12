@@ -229,7 +229,6 @@ func (s *BotService) handleStorageInfo(callback *tgbotapi.CallbackQuery, storage
 
 	configPath := s.TaskManager.ConfigDir + "/rclone.conf"
 
-	// #nosec G204
 	cmd := exec.CommandContext(ctx, "rclone", "about", storageName+":", "--config", configPath, "--json")
 	output, err := cmd.Output()
 
