@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 
 type Settings struct {
 	DefaultMode        string
+	YTDLPQuality       string
 	Mu                 sync.RWMutex
 	AutoDeleteMessages bool
 }
@@ -22,6 +25,7 @@ func NewSettings() *Settings {
 	return &Settings{
 		AutoDeleteMessages: true,
 		DefaultMode:        string(TypeMirror),
+		YTDLPQuality:       "1080p",
 	}
 }
 
@@ -84,6 +88,27 @@ func (s *BotService) HandleSettingsCallback(callback *tgbotapi.CallbackQuery, pa
 		_ = s.DB.Set(ctx, "default_mode", string(TypeLeech))
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔗 Default: Leech"))
 
+	case "quality_720":
+		s.Settings.Mu.Lock()
+		s.Settings.YTDLPQuality = "720p"
+		s.Settings.Mu.Unlock()
+		_ = s.DB.Set(ctx, "ytdlp_quality", "720p")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📺 Quality: 720p"))
+
+	case "quality_1080":
+		s.Settings.Mu.Lock()
+		s.Settings.YTDLPQuality = "1080p"
+		s.Settings.Mu.Unlock()
+		_ = s.DB.Set(ctx, "ytdlp_quality", "1080p")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📺 Quality: 1080p"))
+
+	case "quality_2160":
+		s.Settings.Mu.Lock()
+		s.Settings.YTDLPQuality = "2160p"
+		s.Settings.Mu.Unlock()
+		_ = s.DB.Set(ctx, "ytdlp_quality", "2160p")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📺 Quality: 4K (2160p)"))
+
 	case "lang_id":
 		_ = s.DB.SetLanguage(ctx, callback.From.ID, "id")
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🇮🇩 Bahasa: Indonesia"))
@@ -128,6 +153,11 @@ func (s *BotService) formatSettingsMessage(userID int64) string {
 		langName = "English"
 	}
 
+	cookiesStatus := "❌ Missing"
+	if _, err := os.Stat(filepath.Join(s.Config.ConfigDir, "cookies.txt")); err == nil {
+		cookiesStatus = "✅ Installed"
+	}
+
 	return fmt.Sprintf(`⚙️ *Pengaturan Bot*
  
 *Auto Delete Messages:* %s
@@ -136,12 +166,20 @@ _Hapus pesan status setelah task selesai \(60 detik\)_
 *Default Mode:* %s %s
 _Mode yang digunakan saat tidak ada flag_
 
+*YT-DLP Quality:* 📺 %s
+_Kualitas default untuk YT-DLP_
+
+*Cookies:* %s
+_Status file cookies untuk situs yang butuh login_
+
 *Language / Bahasa:* %s %s
  
 Klik tombol di bawah untuk mengubah pengaturan\.`,
 		autoDeleteStatus,
 		defaultModeEmoji,
 		utils.EscapeMarkdownV2(s.Settings.DefaultMode),
+		utils.EscapeMarkdownV2(s.Settings.YTDLPQuality),
+		cookiesStatus,
 		langFlag,
 		langName,
 	)
@@ -164,6 +202,11 @@ func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMa
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📥 Set Mirror", "settings:default_mirror"),
 			tgbotapi.NewInlineKeyboardButtonData("🔗 Set Leech", "settings:default_leech"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📺 720p", "settings:quality_720"),
+			tgbotapi.NewInlineKeyboardButtonData("📺 1080p", "settings:quality_1080"),
+			tgbotapi.NewInlineKeyboardButtonData("📺 4K", "settings:quality_2160"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🇮🇩 Indonesia", "settings:lang_id"),

@@ -28,7 +28,7 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	url, _, _, _, _, name := utils.ParseFlags(args)
+	url, _, _, _, _, name, _, _ := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
 	}
@@ -56,7 +56,7 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 		fileName = "cloning..."
 	}
 
-	task, err := s.TaskManager.CreateTask(TypeClone, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, false, false, "", "", 0)
+	task, err := s.TaskManager.CreateTask(TypeClone, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, false, false, "", "", 0, "", false)
 	if err != nil {
 		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 		return

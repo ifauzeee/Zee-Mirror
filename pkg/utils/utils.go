@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"net/url"
@@ -155,7 +156,7 @@ func ExtractMagnetFromText(text string) string {
 	return ""
 }
 
-func ParseFlags(args string) (url string, zip bool, unzip bool, password string, quality string, name string) {
+func ParseFlags(args string) (url string, zip bool, unzip bool, password string, quality string, name string, subs string, hardsub bool) {
 	parts := strings.Fields(args)
 
 	for i := 0; i < len(parts); i++ {
@@ -175,6 +176,13 @@ func ParseFlags(args string) (url string, zip bool, unzip bool, password string,
 				quality = parts[i+1]
 				i++
 			}
+		case part == "-s" || part == "-subs":
+			if i+1 < len(parts) {
+				subs = parts[i+1]
+				i++
+			}
+		case part == "-hs" || part == "-hardsub":
+			hardsub = true
 		case part == "-n" || part == "-name":
 			var extracted string
 			extracted, i = parseNameArg(parts, i)
@@ -531,4 +539,41 @@ func Min(a, b int) int {
 
 func Max(a, b int) int {
 	return max(a, b)
+}
+func CopyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = out.Close() }()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
+func DownloadFile(url, dst string) error {
+	resp, err := http.Get(url) //nolint:gosec
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = out.Close() }()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }

@@ -65,6 +65,9 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 	if val, err := db.Get(ctx, "default_mode"); err == nil {
 		s.Settings.DefaultMode = val
 	}
+	if val, err := db.Get(ctx, "ytdlp_quality"); err == nil {
+		s.Settings.YTDLPQuality = val
+	}
 
 	processFunc := func(task *Task) {
 		s.processTask(task)

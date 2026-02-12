@@ -47,7 +47,7 @@ func (s *BotService) HandleViking(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name, _, _ := utils.ParseFlags(args)
 	var fileName string
 
 	if name != "" {
@@ -72,7 +72,7 @@ func (s *BotService) HandleViking(message *tgbotapi.Message, args string) {
 			replyID = message.ReplyToMessage.MessageID
 		}
 
-		task, err := s.TaskManager.CreateTask(TypeViking, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+		task, err := s.TaskManager.CreateTask(TypeViking, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0, "", false)
 		if err != nil {
 			s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 			return

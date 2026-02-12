@@ -582,7 +582,7 @@ func (s *BotService) HandleMediaMirrorCallback(cb *tgbotapi.CallbackQuery, parts
 		replyID = cb.Message.ReplyToMessage.MessageID
 	}
 
-	task, err := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, replyID, cb.From.ID, false, false, "", "", 0)
+	task, err := s.TaskManager.CreateTask(TypeMirror, url, fileName, cb.Message.Chat.ID, 0, replyID, cb.From.ID, false, false, "", "", 0, "", false)
 	if err != nil {
 		s.handleCreateTaskError(cb.Message.Chat.ID, cb.Message.MessageID, err)
 		return

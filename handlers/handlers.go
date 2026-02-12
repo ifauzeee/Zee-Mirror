@@ -41,6 +41,7 @@ const (
 	TypeTorrent    = domain.TypeTorrent
 	TypeClone      = domain.TypeClone
 	TypeViking     = domain.TypeViking
+	TypePlaylist   = domain.TypePlaylist
 )
 
 const (
@@ -224,7 +225,7 @@ func (tm *TaskManager) refreshActiveDashboards() {
 	}
 }
 
-func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64) (*Task, error) {
+func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64, subtitleLangs string, hardsub bool) (*Task, error) {
 	if tm.StopDuplicate {
 		tm.Mu.RLock()
 		for _, t := range tm.Tasks {
@@ -272,6 +273,8 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 			CancelFunc:     cancel,
 			TotalSize:      expectedTotalSize,
 			MaxRetries:     tm.Config.MaxRetries,
+			SubtitleLangs:  subtitleLangs,
+			Hardsub:        hardsub,
 		},
 		DB: tm.DB,
 	}

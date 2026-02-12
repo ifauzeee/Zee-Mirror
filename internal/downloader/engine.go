@@ -9,6 +9,7 @@ import (
 type ProgressUpdate struct {
 	FileName    string
 	Error       string
+	Message     string
 	Downloaded  int64
 	Total       int64
 	Speed       int64

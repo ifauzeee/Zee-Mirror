@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,6 +85,59 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 	return resMap, nil
 }
 
+type PlaylistEntry struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
+	Index int    `json:"playlist_index"`
+}
+
+type PlaylistMetadata struct {
+	Title   string          `json:"title"`
+	Entries []PlaylistEntry `json:"entries"`
+}
+
+func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*PlaylistMetadata, error) {
+	args := []string{
+		"--flat-playlist",
+		"-J",
+		"--no-check-certificate",
+		"--socket-timeout", "60",
+	}
+
+	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
+	if _, err := os.Stat(cookiesPath); err == nil {
+		args = append(args, "--cookies", cookiesPath)
+	}
+
+	args = append(args, url)
+	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var metadata PlaylistMetadata
+	if err := json.Unmarshal(output, &metadata); err != nil {
+		var singleEntry PlaylistEntry
+		if errJSON := json.Unmarshal(output, &singleEntry); errJSON == nil && singleEntry.ID != "" {
+			return &PlaylistMetadata{
+				Title:   singleEntry.Title,
+				Entries: []PlaylistEntry{singleEntry},
+			}, nil
+		}
+		return nil, err
+	}
+
+	return &metadata, nil
+}
+
+func (e *YTDLPEngine) IsPlaylist(url string) bool {
+	lower := strings.ToLower(url)
+	return strings.Contains(lower, "playlist") || strings.Contains(lower, "list=") || strings.Contains(lower, "/channel/") || strings.Contains(lower, "/user/") || strings.Contains(lower, "/c/") || strings.Contains(lower, "@")
+}
+
 func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
 	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
 		return fmt.Errorf("failed to create output dir: %v", errDir)
@@ -142,7 +196,66 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 		return fmt.Errorf("yt-dlp error: %v", err)
 	}
 
+	if task.Hardsub && task.SubtitleLangs != "" {
+		onProgress(ProgressUpdate{Message: "Burning subtitles..."})
+		if err := e.burnSubtitles(ctx, outputDir); err != nil {
+			slog.Error("Failed to burn subtitles", "error", err)
+
+			onProgress(ProgressUpdate{Error: "Hardsub failed: " + err.Error()})
+		} else {
+			onProgress(ProgressUpdate{Message: "Hardsubbing completed!"})
+		}
+	}
+
 	return nil
+}
+
+func (e *YTDLPEngine) burnSubtitles(ctx context.Context, dir string) error {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	var videoFile, subFile string
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		name := f.Name()
+		ext := strings.ToLower(filepath.Ext(name))
+		switch ext {
+		case ".mp4", ".mkv", ".webm":
+			videoFile = filepath.Join(dir, name)
+		case ".srt", ".vtt", ".ass":
+			subFile = filepath.Join(dir, name)
+		}
+	}
+
+	if videoFile == "" || subFile == "" {
+		return fmt.Errorf("video or subtitle file not found for burning")
+	}
+
+	outputFile := strings.TrimSuffix(videoFile, filepath.Ext(videoFile)) + "_hardsub.mp4"
+
+	escapedSubFile := strings.ReplaceAll(subFile, "\\", "/")
+	escapedSubFile = strings.ReplaceAll(escapedSubFile, ":", "\\:")
+
+	args := []string{
+		"-i", videoFile,
+		"-vf", fmt.Sprintf("subtitles='%s'", escapedSubFile),
+		"-c:a", "copy",
+		"-y",
+		outputFile,
+	}
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ffmpeg failed: %v, output: %s", err, string(out))
+	}
+
+	_ = os.Remove(videoFile)
+	_ = os.Remove(subFile)
+	return os.Rename(outputFile, videoFile)
 }
 
 func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []string {
@@ -177,6 +290,14 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		"--remote-components", "ejs:github",
 		"--js-runtime", "node",
 		"--no-cache-dir",
+	}
+
+	if task.SubtitleLangs != "" {
+		args = append(args, "--write-subs", "--write-auto-subs")
+		args = append(args, "--sub-langs", task.SubtitleLangs)
+		if !task.Hardsub {
+			args = append(args, "--embed-subs")
+		}
 	}
 
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")

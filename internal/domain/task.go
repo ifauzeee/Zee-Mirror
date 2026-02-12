@@ -30,6 +30,7 @@ const (
 	TypeTorrent    TaskType = "torrent"
 	TypeClone      TaskType = "clone"
 	TypeViking     TaskType = "viking"
+	TypePlaylist   TaskType = "playlist"
 )
 
 type Task struct {
@@ -51,7 +52,7 @@ type Task struct {
 	OrigFileName    string
 	Type            TaskType
 	Status          TaskStatus
-	Mu              sync.RWMutex
+	SubtitleLangs   string
 	TotalSize       int64
 	DownloadedSize  int64
 	UploadedSize    int64
@@ -60,14 +61,18 @@ type Task struct {
 	ChatID          int64
 	ETA             time.Duration
 	Progress        float64
+	Mu              sync.RWMutex
 	Connections     int
 	MessageID       int
 	ResultMessageID int
 	ReplyMessageID  int
-	Zip             bool
-	Unzip           bool
 	RetryCount      int
 	MaxRetries      int
+	PlaylistCount   int
+	PlaylistIndex   int
+	Zip             bool
+	Unzip           bool
+	Hardsub         bool
 }
 
 type TaskRecord struct {
@@ -132,6 +137,7 @@ type TaskSnapshot struct {
 	OrigFileName    string        `json:"origFileName"`
 	Type            TaskType      `json:"type"`
 	Status          TaskStatus    `json:"status"`
+	SubtitleLangs   string        `json:"subtitleLangs,omitempty"`
 	TotalSize       int64         `json:"totalSize"`
 	DownloadedSize  int64         `json:"downloadedSize"`
 	UploadedSize    int64         `json:"uploadedSize"`
@@ -144,10 +150,13 @@ type TaskSnapshot struct {
 	MessageID       int           `json:"messageID"`
 	ResultMessageID int           `json:"resultMessageID"`
 	ReplyMessageID  int           `json:"replyMessageID"`
-	Zip             bool          `json:"zip"`
-	Unzip           bool          `json:"unzip"`
 	RetryCount      int           `json:"retryCount"`
 	MaxRetries      int           `json:"maxRetries"`
+	PlaylistCount   int           `json:"playlistCount,omitempty"`
+	PlaylistIndex   int           `json:"playlistIndex,omitempty"`
+	Zip             bool          `json:"zip"`
+	Unzip           bool          `json:"unzip"`
+	Hardsub         bool          `json:"hardsub,omitempty"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {
@@ -186,5 +195,9 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		ReplyMessageID:  t.ReplyMessageID,
 		RetryCount:      t.RetryCount,
 		MaxRetries:      t.MaxRetries,
+		PlaylistCount:   t.PlaylistCount,
+		PlaylistIndex:   t.PlaylistIndex,
+		SubtitleLangs:   t.SubtitleLangs,
+		Hardsub:         t.Hardsub,
 	}
 }

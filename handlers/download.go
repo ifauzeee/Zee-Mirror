@@ -31,8 +31,7 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		s.reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
 		return
 	}
-
-	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name, _, _ := utils.ParseFlags(args)
 	var fileName string
 
 	if name != "" {
@@ -60,14 +59,14 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		}
 
 		if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
-			s.handleYTDLPGeneric(message, args, TypeYTDLP)
+			s.HandleYTDLP(message, args)
 			return
 		}
 		replyID := 0
 		if message.ReplyToMessage != nil {
 			replyID = message.ReplyToMessage.MessageID
 		}
-		task, err := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+		task, err := s.TaskManager.CreateTask(TypeMirror, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0, "", false)
 		if err != nil {
 			s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 			return
@@ -130,7 +129,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name, _, _ := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractMagnetFromText(args)
 	}
@@ -147,7 +146,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	}
 
 	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
-		s.handleYTDLPGeneric(message, args, TypeYTDLPLeech)
+		s.HandleYTDLPLeech(message, args)
 		return
 	}
 
@@ -159,7 +158,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 	if message.ReplyToMessage != nil {
 		replyID = message.ReplyToMessage.MessageID
 	}
-	task, err := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0)
+	task, err := s.TaskManager.CreateTask(TypeLeech, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0, "", false)
 	if err != nil {
 		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 		return
@@ -170,10 +169,44 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 }
 
 func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
+	url, zip, _, password, quality, fileName, subs, hardsub := utils.ParseFlags(args)
+
+	if url == "" && message.ReplyToMessage != nil {
+		text := message.ReplyToMessage.Text
+		if text == "" {
+			text = message.ReplyToMessage.Caption
+		}
+		url = utils.ExtractURLFromText(text)
+	}
+
+	if url != "" {
+		if s.TaskManager.YTDLPEngine.IsPlaylist(url) {
+			s.handleYTDLPPlaylist(message, url, fileName, zip, password, quality, subs, hardsub, TypeYTDLP)
+			return
+		}
+	}
+
 	s.handleYTDLPGeneric(message, args, TypeYTDLP)
 }
 
 func (s *BotService) HandleYTDLPLeech(message *tgbotapi.Message, args string) {
+	url, zip, _, password, quality, fileName, subs, hardsub := utils.ParseFlags(args)
+
+	if url == "" && message.ReplyToMessage != nil {
+		text := message.ReplyToMessage.Text
+		if text == "" {
+			text = message.ReplyToMessage.Caption
+		}
+		url = utils.ExtractURLFromText(text)
+	}
+
+	if url != "" {
+		if s.TaskManager.YTDLPEngine.IsPlaylist(url) {
+			s.handleYTDLPPlaylist(message, url, fileName, zip, password, quality, subs, hardsub, TypeYTDLPLeech)
+			return
+		}
+	}
+
 	s.handleYTDLPGeneric(message, args, TypeYTDLPLeech)
 }
 
@@ -183,7 +216,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 		return
 	}
 
-	url, zip, _, password, quality, name := utils.ParseFlags(args)
+	url, zip, _, password, quality, name, subs, hardsub := utils.ParseFlags(args)
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
 	}
@@ -221,7 +254,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 		fileName = utils.GetFileNameFromURL(url)
 	}
 
-	task, err := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0)
+	task, err := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0, subs, hardsub)
 	if err != nil {
 		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 		return
@@ -389,7 +422,7 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 		return
 	}
 
-	task, err := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0)
+	task, err := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0, "", false)
 	if err != nil {
 		s.handleCreateTaskError(callback.Message.Chat.ID, callback.Message.MessageID, err)
 		return
@@ -404,7 +437,7 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	url, zip, unzip, password, quality, name := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name, _, _ := utils.ParseFlags(args)
 	if message.ReplyToMessage != nil && message.ReplyToMessage.Document != nil {
 		fileID := message.ReplyToMessage.Document.FileID
 		fileName := message.ReplyToMessage.Document.FileName
@@ -555,7 +588,7 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 			}
 		}
 
-		task, err := s.TaskManager.CreateTask(TypeTorrent, session.URL, fileName, session.ChatID, statusMsgID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+		task, err := s.TaskManager.CreateTask(TypeTorrent, session.URL, fileName, session.ChatID, statusMsgID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0, "", false)
 		if err != nil {
 			s.handleCreateTaskError(session.ChatID, statusMsgID, err)
 			return
@@ -619,7 +652,7 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 	msg.ParseMode = MarkdownV2
 	sentMsg, _ := s.Bot.Send(msg)
 
-	task, err := s.TaskManager.CreateTask(TypeTorrent, url, fileName, session.ChatID, sentMsg.MessageID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0)
+	task, err := s.TaskManager.CreateTask(TypeTorrent, url, fileName, session.ChatID, sentMsg.MessageID, session.ReplyID, session.UserID, session.Zip, session.Unzip, session.Password, "", 0, "", false)
 	if err != nil {
 		s.handleCreateTaskError(session.ChatID, sentMsg.MessageID, err)
 		return nil
@@ -647,6 +680,23 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 		msg.ParseMode = MarkdownV2
 		_, _ = s.Bot.Send(msg)
 		return
+	}
+	if fileName == "cookies.txt" && message.From.ID == s.Config.OwnerID {
+		slog.Info("Cookies.txt upload detected from owner")
+		destPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
+
+		if filepath.IsAbs(tgFile.FilePath) {
+			translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
+			if copyErr := utils.CopyFile(translatedPath, destPath); copyErr == nil {
+				s.reply(message, "✅ *Cookies.txt Berhasil Diperbarui*")
+				return
+			}
+		}
+
+		if dlErr := utils.DownloadFile(tgFile.Link(s.Bot.Token), destPath); dlErr == nil {
+			s.reply(message, "✅ *Cookies.txt Berhasil Diperbarui*")
+			return
+		}
 	}
 
 	var fileURL string
@@ -684,7 +734,7 @@ func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileI
 		return
 	}
 
-	task, err := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, int64(tgFile.FileSize))
+	task, err := s.TaskManager.CreateTask(taskType, fileURL, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, int64(tgFile.FileSize), "", false)
 	if err != nil {
 		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 		return
@@ -1367,6 +1417,62 @@ func (s *BotService) retryTask(task *Task, originalErr string) bool {
 	}()
 
 	return true
+}
+
+func (s *BotService) handleYTDLPPlaylist(message *tgbotapi.Message, url, name string, zip bool, password, quality, subs string, hardsub bool, taskType TaskType) {
+	lang := s.GetUserLanguage(message.From.ID)
+	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "ytdlp_analysis")))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	metadata, err := s.TaskManager.YTDLPEngine.GetPlaylistMetadata(ctx, url)
+	if err != nil {
+		slog.Error("Playlist analysis failed", "error", err)
+		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, i18n.T(lang, "ytdlp_analysis_failed", utils.EscapeMarkdownV2(err.Error())))
+		return
+	}
+
+	if len(metadata.Entries) == 0 {
+		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, "❌ *Error*\n\nPlaylist kosong atau tidak ditemukan video\\.")
+		return
+	}
+
+	totalItems := len(metadata.Entries)
+	s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("✅ *Playlist Diterima*\n\n🏷️ *Judul:* %s\n📦 *Jumlah Item:* %d\n\nSedang memproses item playlist\\.\\.\\.", utils.EscapeMarkdownV2(metadata.Title), totalItems))
+
+	go s.handlePlaylistDownload(message, metadata, name, zip, password, quality, subs, hardsub, taskType)
+}
+
+func (s *BotService) handlePlaylistDownload(message *tgbotapi.Message, metadata *downloader.PlaylistMetadata, name string, zip bool, password, quality, subs string, hardsub bool, taskType TaskType) {
+	for i, entry := range metadata.Entries {
+		if i >= 50 {
+			slog.Warn("Playlist item limit reached", "limit", 50, "total", len(metadata.Entries))
+			break
+		}
+
+		itemURL := entry.URL
+		if itemURL == "" {
+			itemURL = "https://www.youtube.com/watch?v=" + entry.ID
+		}
+
+		fileName := name
+		if fileName != "" {
+			fileName = fmt.Sprintf("%s - %03d", name, i+1)
+		}
+
+		task, err := s.TaskManager.CreateTask(taskType, itemURL, fileName, message.Chat.ID, message.MessageID, 0, message.From.ID, zip, false, password, quality, 0, subs, hardsub)
+		if err != nil {
+			slog.Error("Failed to create task for playlist item", "index", i, "error", err)
+			continue
+		}
+		task.Mu.Lock()
+		task.PlaylistCount = len(metadata.Entries)
+		task.PlaylistIndex = i + 1
+		task.Mu.Unlock()
+		s.UpdateSharedDashboard(message.Chat.ID, false)
+		time.Sleep(2 * time.Second)
+	}
 }
 
 func isGenericName(name string) bool {
