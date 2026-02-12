@@ -753,7 +753,7 @@ func (s *BotService) getFileFromMessage(message *tgbotapi.Message) (fileID, file
 }
 
 func (s *BotService) downloadTelegramFile(fileID, fileName string) (string, error) {
-	file, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+	file, err := s.GetFileWithFallback(fileID)
 	if err != nil {
 		return "", err
 	}

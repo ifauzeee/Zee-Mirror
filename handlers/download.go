@@ -631,7 +631,7 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 }
 
 func (s *BotService) handleTelegramFileDownload(message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password, quality string) {
-	tgFile, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+	tgFile, err := s.GetFileWithFallback(fileID)
 	if err != nil {
 		slog.Error("Failed to get file from Telegram", "error", err, "fileID", fileID)
 		errText := err.Error()

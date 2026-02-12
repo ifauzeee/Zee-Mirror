@@ -223,3 +223,24 @@ func (s *BotService) handleCreateTaskError(chatID int64, messageID int, err erro
 		}
 	}
 }
+func (s *BotService) GetFileWithFallback(fileID string) (tgbotapi.File, error) {
+	tgFile, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+	if err != nil && s.Config.TelegramAPI != "" {
+		slog.Warn("Failed to get file from local TG API, retrying with official API...", "error", err, "fileID", fileID)
+
+		// Create a temporary bot instance using default API endpoint
+		offBot, offErr := tgbotapi.NewBotAPI(s.Bot.Token)
+		if offErr != nil {
+			return tgFile, err // Return original error if official API init fails
+		}
+
+		offFile, offErr := offBot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+		if offErr != nil {
+			return tgFile, err // Return original error if official API also fails
+		}
+
+		slog.Info("Successfully retrieved file info from official API", "fileID", fileID, "path", offFile.FilePath)
+		return offFile, nil
+	}
+	return tgFile, err
+}
