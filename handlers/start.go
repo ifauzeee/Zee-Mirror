@@ -129,8 +129,8 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 		"• `/compress` ─ Kompres ukuran video\n" +
 		"• `/thumbnail` ─ Generate thumbnail\n" +
 		"• `/screenshots` ─ Multi screenshot\n" +
-		"• `/subtitle` ─ Soft-sub (Embed subtitle)\n" +
-		"• `/hardsub` ─ Hard-sub (Burn subtitle)\n" +
+		"• `/subtitle` ─ Soft\\-sub \\(Embed subtitle\\)\n" +
+		"• `/hardsub` ─ Hard\\-sub \\(Burn subtitle\\)\n" +
 		"• `/rescale` ─ Ubah resolusi video\n" +
 		"• `/convert` ─ Konversi format file\n" +
 		"• `/mediainfo` ─ Info detail file\n\n" +

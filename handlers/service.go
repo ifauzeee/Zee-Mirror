@@ -238,3 +238,46 @@ func (s *BotService) GetUserLanguage(userID int64) string {
 	}
 	return user.Language
 }
+
+func (s *BotService) SyncUser(user *tgbotapi.User) {
+	if user == nil {
+		return
+	}
+
+	ctx := context.Background()
+	existing, err := s.DB.GetByID(ctx, user.ID)
+
+	role := "user"
+	if utils.IsAdmin(user.ID, s.Config.OwnerID, s.Config.AuthorizedUsers) {
+		if user.ID == s.Config.OwnerID {
+			role = "owner"
+		} else {
+			role = "authorized"
+		}
+	}
+
+	lang := "id"
+	maxTasks := s.Config.DefaultMaxDailyTasks
+	maxBandwidth := s.Config.DefaultMaxDailyBandwidth
+	createdAt := time.Now()
+
+	if err == nil && existing != nil {
+		lang = existing.Language
+		if existing.Role == "owner" || existing.Role == "authorized" {
+			role = existing.Role
+		}
+		maxTasks = existing.MaxDailyTasks
+		maxBandwidth = existing.MaxDailyBandwidth
+		createdAt = existing.CreatedAt
+	}
+
+	_ = s.DB.Upsert(ctx, domain.User{
+		ID:                user.ID,
+		Username:          user.UserName,
+		Role:              role,
+		Language:          lang,
+		CreatedAt:         createdAt,
+		MaxDailyTasks:     maxTasks,
+		MaxDailyBandwidth: maxBandwidth,
+	})
+}

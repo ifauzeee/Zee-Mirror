@@ -170,8 +170,7 @@ func GetSuccessMessage(title, text string) string {
 func GetStartKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("💻 Code Repo", RepoURL),
-			tgbotapi.NewInlineKeyboardButtonData("❓ "+i18n.T(lang, "help_back"), "help:main"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_menu"), "help:main"),
 		),
 	)
 }

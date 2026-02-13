@@ -141,7 +141,11 @@ func (db *DB) SetExpiration(ctx context.Context, id int64, expiresAt time.Time) 
 }
 
 func (db *DB) SetLanguage(ctx context.Context, id int64, lang string) error {
-	_, err := db.ExecContext(ctx, "UPDATE users SET language = ? WHERE id = ?", lang, id)
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO users (id, language, created_at, role, max_daily_tasks, max_daily_bandwidth)
+		VALUES (?, ?, ?, 'user', 0, 0)
+		ON CONFLICT(id) DO UPDATE SET language = excluded.language
+	`, id, lang, time.Now())
 	return err
 }
 

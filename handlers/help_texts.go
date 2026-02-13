@@ -464,8 +464,8 @@ func getHelpAllCommands() string {
 		"• `/compress` ─ Kompres Video\n" +
 		"• `/thumbnail` ─ Buat Thumb\n" +
 		"• `/screenshots` ─ Screenshot\n" +
-		"• `/subtitle` ─ Soft-sub (Embed Sub)\n" +
-		"• `/hardsub` ─ Hard-sub (Burn Sub)\n" +
+		"• `/subtitle` ─ Soft\\-sub \\(Embed Sub\\)\n" +
+		"• `/hardsub` ─ Hard\\-sub \\(Burn Sub\\)\n" +
 		"• `/rescale` ─ Ubah Resolusi\n" +
 		"• `/convert` ─ Ganti Format\n" +
 		"• `/mediainfo` ─ Detail Media\n\n" +

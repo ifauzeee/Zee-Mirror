@@ -38,6 +38,9 @@ func (r *Router) RegisterCallback(prefix string, handler CallbackHandler) {
 }
 
 func (r *Router) HandleMessage(msg *tgbotapi.Message) {
+	if r.service != nil && msg.From != nil {
+		r.service.SyncUser(msg.From)
+	}
 	if msg.IsCommand() {
 		username := "unknown"
 		if msg.From != nil {
@@ -82,6 +85,9 @@ func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 }
 
 func (r *Router) HandleCallback(cb *tgbotapi.CallbackQuery) {
+	if r.service != nil && cb.From != nil {
+		r.service.SyncUser(cb.From)
+	}
 	parts := strings.Split(cb.Data, ":")
 	if len(parts) == 0 {
 		return

@@ -44,15 +44,7 @@ func (s *BotService) HandleSettings(message *tgbotapi.Message) {
 
 func (s *BotService) HandleLanguage(message *tgbotapi.Message) {
 	lang := s.GetUserLanguage(message.From.ID)
-	text := "🌐 *Select Language / Pilih Bahasa*"
-	switch lang {
-	case "en":
-		text = "🌐 *Select Language*"
-	case "ja":
-		text = "🌐 *言語を選択*"
-	case "zh":
-		text = "🌐 *选择语言*"
-	}
+	text := i18n.T(lang, "settings_select_language")
 	keyboard := s.getSettingsKeyboard(message.From.ID)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
@@ -188,35 +180,33 @@ func (s *BotService) formatSettingsMessage(userID int64) string {
 		langName = "简体中文"
 	}
 
-	cookiesStatus := "❌ Missing"
+	cookiesStatus := i18n.T(lang, "settings_cookies_missing")
 	if _, err := os.Stat(filepath.Join(s.Config.ConfigDir, "cookies.txt")); err == nil {
-		cookiesStatus = "✅ Installed"
+		cookiesStatus = i18n.T(lang, "settings_cookies_installed")
 	}
 
-	return fmt.Sprintf(`⚙️ *Pengaturan Bot*
- 
-*Auto Delete Messages:* %s
-_Hapus pesan status setelah task selesai \(60 detik\)_
- 
-*Default Mode:* %s %s
-_Mode yang digunakan saat tidak ada flag_
-
-*YT-DLP Quality:* 📺 %s
-_Kualitas default untuk YT-DLP_
-
-*Cookies:* %s
-_Status file cookies untuk situs yang butuh login_
-
-*Language / Bahasa:* %s %s
- 
-Klik tombol di bawah untuk mengubah pengaturan\.`,
-		autoDeleteStatus,
-		defaultModeEmoji,
-		utils.EscapeMarkdownV2(s.Settings.DefaultMode),
-		utils.EscapeMarkdownV2(s.Settings.YTDLPQuality),
-		cookiesStatus,
-		langFlag,
-		langName,
+	return fmt.Sprintf("⚙️ *%s*\n\n"+
+		"*%s:* %s\n"+
+		"_%s_\n\n"+
+		"*%s:* %s %s\n"+
+		"_%s_\n\n"+
+		"*%s:* 📺 %s\n"+
+		"_%s_\n\n"+
+		"*%s:* %s\n"+
+		"_%s_\n\n"+
+		"*%s:* %s %s\n\n"+
+		"%s",
+		i18n.T(lang, "settings_title"),
+		i18n.T(lang, "settings_auto_delete"), autoDeleteStatus,
+		i18n.T(lang, "settings_auto_delete_desc"),
+		i18n.T(lang, "settings_default_mode"), defaultModeEmoji, utils.EscapeMarkdownV2(s.Settings.DefaultMode),
+		i18n.T(lang, "settings_default_mode_desc"),
+		i18n.T(lang, "settings_ytdlp_quality"), utils.EscapeMarkdownV2(s.Settings.YTDLPQuality),
+		i18n.T(lang, "settings_ytdlp_quality_desc"),
+		i18n.T(lang, "settings_cookies"), cookiesStatus,
+		i18n.T(lang, "settings_cookies_desc"),
+		i18n.T(lang, "settings_language"), langFlag, langName,
+		i18n.T(lang, "settings_footer"),
 	)
 }
 
@@ -225,9 +215,9 @@ func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMa
 	defer s.Settings.Mu.RUnlock()
 
 	lang := s.GetUserLanguage(userID)
-	autoDeleteLabel := "🔕 Auto Delete: OFF"
+	autoDeleteLabel := "🔕 " + i18n.T(lang, "settings_auto_delete") + ": OFF"
 	if s.Settings.AutoDeleteMessages {
-		autoDeleteLabel = "🔔 Auto Delete: ON"
+		autoDeleteLabel = "🔔 " + i18n.T(lang, "settings_auto_delete") + ": ON"
 	}
 
 	return tgbotapi.NewInlineKeyboardMarkup(
@@ -235,8 +225,8 @@ func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMa
 			tgbotapi.NewInlineKeyboardButtonData(autoDeleteLabel, "settings:auto_delete"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📥 Set Mirror", "settings:default_mirror"),
-			tgbotapi.NewInlineKeyboardButtonData("🔗 Set Leech", "settings:default_leech"),
+			tgbotapi.NewInlineKeyboardButtonData("📥 "+i18n.T(lang, "settings_set_mirror"), "settings:default_mirror"),
+			tgbotapi.NewInlineKeyboardButtonData("🔗 "+i18n.T(lang, "settings_set_leech"), "settings:default_leech"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📺 720p", "settings:quality_720"),

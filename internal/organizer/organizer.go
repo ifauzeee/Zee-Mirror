@@ -367,20 +367,16 @@ func isInCategory(filename, category string) bool {
 	return false
 }
 
-// IsVideoFile checks if the file is a video file
 func IsVideoFile(filename string) bool { return isInCategory(filename, "🎥 Videos") }
 
-// IsDocumentFile checks if the file is a document file
 func IsDocumentFile(filename string) bool {
 	return isInCategory(filename, "📄 Documents") ||
 		isInCategory(filename, "📊 Spreadsheets") ||
 		isInCategory(filename, "🖼️ Presentations")
 }
 
-// IsArchiveFile checks if the file is an archive file
 func IsArchiveFile(filename string) bool { return isInCategory(filename, "📦 Archives") }
 
-// IsTorrentFile checks if the file is a torrent file
 func IsTorrentFile(filename string) bool {
 	return isInCategory(filename, "🌊 Torrents") ||
 		strings.HasSuffix(strings.ToLower(filename), ".torrent")
