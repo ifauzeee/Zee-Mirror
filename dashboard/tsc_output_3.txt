@@ -1,0 +1,46 @@
+src/components/Popups/Dialog.tsx(3,20): error TS7016: Could not find a declaration file for module '../../utils/cn'. 'C:/Users/zee/project/Zee-Mirror/dashboard/src/utils/cn.js' implicitly has an 'any' type.
+src/components/Popups/Dialog.tsx(6,3): error TS7031: Binding element 'isOpen' implicitly has an 'any' type.
+src/components/Popups/Dialog.tsx(7,3): error TS7031: Binding element 'onClose' implicitly has an 'any' type.
+src/components/Popups/Dialog.tsx(8,3): error TS7031: Binding element 'title' implicitly has an 'any' type.
+src/components/Popups/Dialog.tsx(9,3): error TS7031: Binding element 'children' implicitly has an 'any' type.
+src/components/Popups/Dialog.tsx(13,3): error TS7031: Binding element 'onConfirm' implicitly has an 'any' type.
+src/components/Popups/Dialog.tsx(54,18): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ info: Element; confirm: Element; alert: Element; error: Element; success: Element; }'.
+  No index signature with a parameter of type 'string' was found on type '{ info: Element; confirm: Element; alert: Element; error: Element; success: Element; }'.
+src/components/Popups/Toast.tsx(4,20): error TS7016: Could not find a declaration file for module '../../utils/cn'. 'C:/Users/zee/project/Zee-Mirror/dashboard/src/utils/cn.js' implicitly has an 'any' type.
+src/components/Popups/Toast.tsx(6,18): error TS7031: Binding element 'message' implicitly has an 'any' type.
+src/components/Popups/Toast.tsx(6,42): error TS7031: Binding element 'onClose' implicitly has an 'any' type.
+src/components/Popups/Toast.tsx(37,10): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ info: Element; success: Element; error: Element; alert: Element; }'.
+  No index signature with a parameter of type 'string' was found on type '{ info: Element; success: Element; error: Element; alert: Element; }'.
+src/components/Sidebar/Sidebar.tsx(14,20): error TS7031: Binding element 'activeTab' implicitly has an 'any' type.
+src/components/Sidebar/Sidebar.tsx(14,31): error TS7031: Binding element 'setActiveTab' implicitly has an 'any' type.
+src/components/Sidebar/Sidebar.tsx(14,45): error TS7031: Binding element 'tasksCount' implicitly has an 'any' type.
+src/components/Sidebar/Sidebar.tsx(14,57): error TS7031: Binding element 'onLogout' implicitly has an 'any' type.
+src/components/Stats/AnalyticsStat.tsx(1,26): error TS7031: Binding element 'label' implicitly has an 'any' type.
+src/components/Stats/AnalyticsStat.tsx(1,33): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/components/Stats/AnalyticsStat.tsx(1,40): error TS7031: Binding element 'unit' implicitly has an 'any' type.
+src/components/Stats/HealthBar.tsx(1,22): error TS7031: Binding element 'label' implicitly has an 'any' type.
+src/components/Stats/HealthBar.tsx(1,29): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/components/Stats/HealthBar.tsx(1,36): error TS7031: Binding element 'color' implicitly has an 'any' type.
+src/components/Stats/StatsCard.tsx(1,28): error TS7031: Binding element 'Icon' implicitly has an 'any' type.
+src/components/Stats/StatsCard.tsx(1,34): error TS7031: Binding element 'label' implicitly has an 'any' type.
+src/components/Stats/StatsCard.tsx(1,41): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/components/Stats/StatsCard.tsx(1,48): error TS7031: Binding element 'subLabel' implicitly has an 'any' type.
+src/components/Stats/StatsCard.tsx(1,58): error TS7031: Binding element 'color' implicitly has an 'any' type.
+src/components/Stats/StatusItem.tsx(1,23): error TS7031: Binding element 'label' implicitly has an 'any' type.
+src/components/Stats/StatusItem.tsx(1,30): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/components/Stats/StatusItem.tsx(1,37): error TS7031: Binding element 'color' implicitly has an 'any' type.
+src/components/Stats/StatusItem.tsx(1,44): error TS7031: Binding element 'dot' implicitly has an 'any' type.
+src/pages/Analytics.tsx(19,34): error TS2339: Property 'payload' does not exist on type 'TooltipProps<number, string>'.
+src/pages/Analytics.tsx(19,43): error TS2339: Property 'label' does not exist on type 'TooltipProps<number, string>'.
+src/pages/Overview.tsx(17,21): error TS7031: Binding element 'tasks' implicitly has an 'any' type.
+src/pages/Overview.tsx(17,28): error TS7031: Binding element 'stats' implicitly has an 'any' type.
+src/pages/Overview.tsx(17,35): error TS7031: Binding element 'system' implicitly has an 'any' type.
+src/pages/Overview.tsx(17,43): error TS7031: Binding element 'onCancelTask' implicitly has an 'any' type.
+src/pages/Overview.tsx(17,57): error TS7031: Binding element 'setActiveTab' implicitly has an 'any' type.
+src/pages/Overview.tsx(72,41): error TS7006: Parameter 'task' implicitly has an 'any' type.
+src/pages/Overview.tsx(130,16): error TS2741: Property 'color' is missing in type '{ label: string; value: string; dot: string; }' but required in type '{ label: any; value: any; color: any; dot: any; }'.
+src/pages/Overview.tsx(131,16): error TS2741: Property 'dot' is missing in type '{ label: string; value: string; color: string; }' but required in type '{ label: any; value: any; color: any; dot: any; }'.
+src/pages/Overview.tsx(136,16): error TS2741: Property 'dot' is missing in type '{ label: string; value: string; color: string; }' but required in type '{ label: any; value: any; color: any; dot: any; }'.
+src/pages/TorrentSelect.tsx(107,28): error TS2345: Argument of type 'Set<unknown>' is not assignable to parameter of type 'SetStateAction<Set<number>>'.
+  Type 'Set<unknown>' is not assignable to type 'Set<number>'.
+    Type 'unknown' is not assignable to type 'number'.

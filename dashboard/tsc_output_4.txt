@@ -1,0 +1,7 @@
+src/components/Stats/StatsCard.tsx(2,9): error TS2304: Cannot find name 'LucideIcon'.
+src/context/PopupProvider.tsx(95,9): error TS2322: Type '"success" | "error" | "info" | "warning" | "confirm"' is not assignable to type '"success" | "error" | "info" | "alert" | "confirm" | undefined'.
+  Type '"warning"' is not assignable to type '"success" | "error" | "info" | "alert" | "confirm" | undefined'.
+src/context/PopupProvider.tsx(109,15): error TS2322: Type '"success" | "error" | "info" | "warning"' is not assignable to type '"success" | "error" | "info" | "alert" | undefined'.
+  Type '"warning"' is not assignable to type '"success" | "error" | "info" | "alert" | undefined'.
+src/pages/Analytics.tsx(19,34): error TS2339: Property 'payload' does not exist on type 'TooltipProps<number, string>'.
+src/pages/Analytics.tsx(19,43): error TS2339: Property 'label' does not exist on type 'TooltipProps<number, string>'.
