@@ -16,12 +16,9 @@ import (
 func TestIsAuthorized(t *testing.T) {
 	mockRepo := new(mocks.MockRepository)
 	cfg := &config.Config{OwnerID: 12345}
-	svc := &service.BotService{
-		UserRepo: mockRepo,
-		Config:   cfg,
-	}
 
 	t.Run("Owner", func(t *testing.T) {
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 		assert.True(t, svc.IsAuthorized(12345))
 	})
 
@@ -32,6 +29,7 @@ func TestIsAuthorized(t *testing.T) {
 			IsActive: true,
 		}, nil).Once()
 
+		svc := service.NewAuthService(&config.Config{}, mockRepo, mockRepo)
 		assert.True(t, svc.IsAuthorized(67890))
 	})
 
@@ -42,6 +40,7 @@ func TestIsAuthorized(t *testing.T) {
 			IsActive: true,
 		}, nil).Once()
 
+		svc := service.NewAuthService(&config.Config{}, mockRepo, mockRepo)
 		assert.True(t, svc.IsAuthorized(11111))
 	})
 
@@ -52,12 +51,14 @@ func TestIsAuthorized(t *testing.T) {
 			IsActive: false,
 		}, nil).Once()
 
+		svc := service.NewAuthService(&config.Config{}, mockRepo, mockRepo)
 		assert.False(t, svc.IsAuthorized(22222))
 	})
 
 	t.Run("User Not Found", func(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, int64(33333)).Return(nil, errors.ErrUserNotFound).Once()
 
+		svc := service.NewAuthService(&config.Config{}, mockRepo, mockRepo)
 		assert.False(t, svc.IsAuthorized(33333))
 	})
 }
@@ -67,7 +68,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("Owner", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		assert.NoError(t, svc.CheckQuota(12345))
 		mockRepo.AssertExpectations(t)
@@ -75,7 +76,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("User Not Found", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		mockRepo.On("GetByID", mock.Anything, int64(999)).Return(nil, errors.ErrUserNotFound).Once()
 
@@ -87,7 +88,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("Inactive User", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		mockRepo.On("GetByID", mock.Anything, int64(888)).Return(&domain.User{
 			ID:       888,
@@ -102,7 +103,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("Unlimited Quota", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		mockRepo.On("GetByID", mock.Anything, int64(777)).Return(&domain.User{
 			ID:                777,
@@ -117,7 +118,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("Task Limit Exceeded", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		mockRepo.On("GetByID", mock.Anything, int64(666)).Return(&domain.User{
 			ID:                666,
@@ -139,7 +140,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("Bandwidth Limit Exceeded", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		mockRepo.On("GetByID", mock.Anything, int64(555)).Return(&domain.User{
 			ID:                555,
@@ -162,7 +163,7 @@ func TestCheckQuota(t *testing.T) {
 
 	t.Run("Within Limits", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
+		svc := service.NewAuthService(cfg, mockRepo, mockRepo)
 
 		mockRepo.On("GetByID", mock.Anything, int64(444)).Return(&domain.User{
 			ID:                444,

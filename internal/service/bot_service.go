@@ -18,6 +18,8 @@ import (
 
 type BotService struct {
 	Bot           *tgbotapi.BotAPI
+	Auth          *AuthService
+	Media         *MediaService
 	TaskManager   *TaskManager
 	BatchManager  *BatchManager
 	Settings      *Settings
@@ -48,8 +50,13 @@ func (s *BotService) GetPath(id string) (string, bool) {
 }
 
 func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullRepository) *BotService {
+	authService := NewAuthService(cfg, db, db)
+	mediaService := NewMediaService(cfg)
+
 	s := &BotService{
 		Bot:          bot,
+		Auth:         authService,
+		Media:        mediaService,
 		Config:       cfg,
 		DB:           db,
 		UserRepo:     db,

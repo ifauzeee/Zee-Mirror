@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/config"
 	"zee-mirror/internal/errors"
 	"zee-mirror/pkg/utils"
 )
@@ -45,35 +46,17 @@ type FFFormat struct {
 	NbStreams  int    `json:"nb_streams"`
 }
 
-func (s *BotService) DownloadTelegramFile(fileID, fileName string) (string, error) {
-	file, isOfficial, err := s.GetFileWithFallback(fileID)
-	if err != nil {
-		return "", err
-	}
-
-	if fileName == "" {
-		fileName = filepath.Base(file.FilePath)
-	}
-
-	if filepath.IsAbs(file.FilePath) {
-		translatedPath := strings.Replace(file.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
-		if _, err := os.Stat(translatedPath); err == nil {
-			slog.Info("Using local telegram file", "path", translatedPath)
-			return translatedPath, nil
-		}
-	}
-
-	inputPath := filepath.Join(s.Config.DownloadDir, fileName)
-	downloadURL := s.GetFileLink(file, isOfficial)
-	slog.Debug("Telegram file download URL", "url", downloadURL)
-
-	if err := s.DownloadFile(downloadURL, inputPath); err != nil {
-		return "", err
-	}
-	return inputPath, nil
+type MediaService struct {
+	Config *config.Config
 }
 
-func (s *BotService) HasAudioStream(inputPath string) (bool, error) {
+func NewMediaService(cfg *config.Config) *MediaService {
+	return &MediaService{
+		Config: cfg,
+	}
+}
+
+func (s *MediaService) HasAudioStream(inputPath string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -91,7 +74,7 @@ func (s *BotService) HasAudioStream(inputPath string) (bool, error) {
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
-func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]string, error) {
+func (s *MediaService) GenerateScreenshotsList(inputPath string, count int) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
@@ -138,13 +121,13 @@ func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]str
 	}
 
 	if len(screenshots) == 0 {
-		return nil, errors.ErrInternal // Or specific error if defined
+		return nil, errors.ErrInternal
 	}
 
 	return screenshots, nil
 }
 
-func (s *BotService) FormatMediaInfo(filename string, info FFProbeOutput) string {
+func (s *MediaService) FormatMediaInfo(filename string, info FFProbeOutput) string {
 	var content strings.Builder
 
 	content.WriteString(fmt.Sprintf("📄 *File:* `%s`\n", utils.EscapeMarkdownV2Code(filename)))
@@ -197,4 +180,44 @@ func (s *BotService) FormatMediaInfo(filename string, info FFProbeOutput) string
 	content.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
 
 	return ProfessionalMessage("✨ MEDIA INFORMATION ✨", content.String())
+}
+
+func (s *BotService) DownloadTelegramFile(fileID, fileName string) (string, error) {
+	file, isOfficial, err := s.GetFileWithFallback(fileID)
+	if err != nil {
+		return "", err
+	}
+
+	if fileName == "" {
+		fileName = filepath.Base(file.FilePath)
+	}
+
+	if filepath.IsAbs(file.FilePath) {
+		translatedPath := strings.Replace(file.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
+		if _, err := os.Stat(translatedPath); err == nil {
+			slog.Info("Using local telegram file", "path", translatedPath)
+			return translatedPath, nil
+		}
+	}
+
+	inputPath := filepath.Join(s.Config.DownloadDir, fileName)
+	downloadURL := s.GetFileLink(file, isOfficial)
+	slog.Debug("Telegram file download URL", "url", downloadURL)
+
+	if err := s.DownloadFile(downloadURL, inputPath); err != nil {
+		return "", err
+	}
+	return inputPath, nil
+}
+
+func (s *BotService) HasAudioStream(inputPath string) (bool, error) {
+	return s.Media.HasAudioStream(inputPath)
+}
+
+func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]string, error) {
+	return s.Media.GenerateScreenshotsList(inputPath, count)
+}
+
+func (s *BotService) FormatMediaInfo(filename string, info FFProbeOutput) string {
+	return s.Media.FormatMediaInfo(filename, info)
 }
