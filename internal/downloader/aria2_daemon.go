@@ -1,11 +1,14 @@
 package downloader
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -45,12 +48,21 @@ func (d *Aria2Daemon) Start() error {
 	}
 
 	d.Cmd = exec.Command("aria2c", args...)
-	d.Cmd.Stdout = os.Stdout
-	d.Cmd.Stderr = os.Stderr
+	stdoutPipe, err := d.Cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get aria2c stdout pipe: %v", err)
+	}
+	stderrPipe, err := d.Cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get aria2c stderr pipe: %v", err)
+	}
 
 	if err := d.Cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start aria2c: %v", err)
 	}
+
+	go streamAria2Output(stdoutPipe, false)
+	go streamAria2Output(stderrPipe, true)
 
 	time.Sleep(2 * time.Second)
 	slog.Info("aria2c daemon started successfully")
@@ -62,5 +74,21 @@ func (d *Aria2Daemon) Stop() {
 	if d.Cmd != nil && d.Cmd.Process != nil {
 		slog.Info("Stopping aria2c daemon...")
 		_ = d.Cmd.Process.Kill()
+	}
+}
+
+func streamAria2Output(r io.Reader, isErr bool) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		if isErr {
+			slog.Warn("aria2c", "output", line)
+			continue
+		}
+		slog.Info("aria2c", "output", line)
 	}
 }

@@ -466,4 +466,8 @@ func setupCallbackRoutes(r *router.Router) {
 		parts := strings.Split(cb.Data, ":")
 		media.HandleMediaMirrorCallback(s, cb, parts)
 	})
+	r.RegisterCallback("media", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		parts := strings.Split(cb.Data, ":")
+		media.HandleMediaMenuCallback(s, cb, parts)
+	})
 }

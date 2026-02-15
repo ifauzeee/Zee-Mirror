@@ -2,12 +2,22 @@ package basic
 
 import (
 	"log/slog"
+	"strings"
 	"zee-mirror/internal/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func HandleHelpCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) {
+	if action == "" {
+		parts := strings.SplitN(callback.Data, ":", 2)
+		if len(parts) == 2 {
+			action = parts[1]
+		} else if callback.Data == "help" {
+			action = "main"
+		}
+	}
+
 	if handleDownloadHelp(s, callback, action) {
 		return
 	}
