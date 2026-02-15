@@ -22,6 +22,8 @@ type Config struct {
 	AppHash                  string
 	UserSessionString        string
 	AuthPassword             string
+	Aria2RPCURL              string
+	Aria2RPCSecret           string
 	AuthorizedUsers          []int64
 	OwnerID                  int64
 	DefaultMaxDailyBandwidth int64
@@ -57,6 +59,8 @@ func LoadConfig() *Config {
 		AppHash:                  os.Getenv("APP_HASH"),
 		UserSessionString:        os.Getenv("USER_SESSION_STRING"),
 		AuthPassword:             os.Getenv("AUTH_PASSWORD"),
+		Aria2RPCURL:              getEnv("ARIA2_RPC_URL", "http://localhost:6800/jsonrpc"),
+		Aria2RPCSecret:           os.Getenv("ARIA2_RPC_SECRET"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

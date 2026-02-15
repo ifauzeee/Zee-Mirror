@@ -1,29 +1,26 @@
 package downloader
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
-	"io"
+	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
-	"sync"
+	"time"
 	"zee-mirror/internal/domain"
-	"zee-mirror/internal/parser"
 	"zee-mirror/pkg/utils"
 )
 
 type Aria2Engine struct {
+	RPC       *Aria2RPCClient
 	ConfigDir string
 }
 
-func NewAria2Engine(configDir string) *Aria2Engine {
+func NewAria2Engine(configDir string, rpcURL, rpcSecret string) *Aria2Engine {
 	return &Aria2Engine{
 		ConfigDir: configDir,
+		RPC:       NewAria2RPCClient(rpcURL, rpcSecret),
 	}
 }
 
@@ -32,170 +29,103 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 		return &domain.StorageError{Path: outputDir, Err: errDir}
 	}
 
-	args := e.buildAria2Args(task, outputDir)
-	cmd := exec.CommandContext(ctx, "aria2c", args...)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	stdout, err := cmd.StdoutPipe()
+	options := e.buildAria2Options(task, outputDir)
+	gid, err := e.RPC.AddURI(task.URL, options)
 	if err != nil {
-		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("failed to get stdout pipe: %v", err)}
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("aria2 rpc addUri failed: %v", err)}
 	}
 
-	if errStart := cmd.Start(); errStart != nil {
-		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("aria2c failed to start: %v", errStart)}
-	}
+	task.GID = gid
 
-	var lastLines []string
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		e.parseProgress(stdout, onProgress, &lastLines)
-	}()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 
-	err = cmd.Wait()
-	wg.Wait()
-
-	if err != nil && ctx.Err() == nil {
-		var errorDetails []string
-		for _, line := range lastLines {
-			if strings.Contains(line, "ERROR") ||
-				strings.Contains(line, "Exception") ||
-				strings.Contains(line, "ErrorCode") ||
-				strings.Contains(line, "status=") {
-				errorDetails = append(errorDetails, strings.TrimSpace(line))
+	for {
+		select {
+		case <-ctx.Done():
+			_ = e.RPC.Remove(gid)
+			return ctx.Err()
+		case <-ticker.C:
+			status, err := e.RPC.TellStatus(gid)
+			if err != nil {
+				slog.Error("Failed to tellStatus from aria2 rpc", "gid", gid, "error", err)
+				continue
 			}
-		}
 
-		if len(errorDetails) > 0 {
-			detailErr := fmt.Errorf("aria2c failed: %v, details: %s", err, strings.Join(errorDetails, " | "))
-			return domain.CategorizeError(detailErr)
-		}
-
-		tail := ""
-		if len(lastLines) > 0 {
-			start := 0
-			if len(lastLines) > 3 {
-				start = len(lastLines) - 3
+			if status.Status == "complete" {
+				return nil
 			}
-			tail = strings.Join(lastLines[start:], " | ")
-		}
-		combinedErr := fmt.Errorf("aria2c failed: %v, stderr: %s, tail: %s", err, stderr.String(), tail)
-		return domain.CategorizeError(combinedErr)
-	}
 
-	return nil
+			if status.Status == "error" {
+				return domain.CategorizeError(fmt.Errorf("aria2 error: %s", status.ErrorMessage))
+			}
+
+			if status.Status == "removed" {
+				return fmt.Errorf("task was removed from aria2")
+			}
+
+			update := ProgressUpdate{}
+			update.Downloaded = utils.ParseBytesString(status.CompletedLength)
+			update.Total = utils.ParseBytesString(status.TotalLength)
+			update.Speed = utils.ParseBytesString(status.DownloadSpeed)
+			if update.Total > 0 {
+				update.Progress = float64(update.Downloaded) / float64(update.Total) * 100
+				if update.Speed > 0 {
+					update.ETA = time.Duration(float64(update.Total-update.Downloaded)/float64(update.Speed)) * time.Second
+				}
+			}
+			update.Connections = utils.ParseInt(status.Connections)
+
+			onProgress(update)
+		}
+	}
 }
 
-func (e *Aria2Engine) buildAria2Args(task *domain.Task, outputDir string) []string {
-	args := []string{
-		"--dir=" + outputDir,
-		"--allow-overwrite=true",
-		"--max-connection-per-server=16",
-		"--split=32",
-		"--min-split-size=1M",
-		"--max-overall-download-limit=0",
-		"--max-resume-failure-tries=0",
-		"--retry-wait=1",
-		"--connect-timeout=30",
-		"--timeout=30",
-		"--console-log-level=notice",
-		"--summary-interval=1",
-		"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-		"--header=Accept-Encoding: gzip, deflate",
-		"--async-dns=true",
-		"--file-allocation=none",
-		"--disk-cache=128M",
-		"--enable-mmap=true",
-		"--check-certificate=false",
-		"--optimize-concurrent-downloads=true",
-		"--max-file-not-found=2",
-		"--disable-ipv6=true",
-		"--enable-http-pipelining=true",
-		"--peer-id-prefix=-AZ2060-",
-		"--peer-agent=Transmission/2.94",
-		"--content-disposition-default-utf8=true",
-		"--remote-time=true",
-		"--check-integrity=true",
+func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map[string]interface{} {
+	options := map[string]interface{}{
+		"dir":                              outputDir,
+		"allow-overwrite":                  "true",
+		"max-connection-per-server":        "16",
+		"split":                            "32",
+		"min-split-size":                   "1M",
+		"max-overall-download-limit":       "0",
+		"max-resume-failure-tries":         "0",
+		"retry-wait":                       "1",
+		"connect-timeout":                  "30",
+		"timeout":                          "30",
+		"user-agent":                       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"async-dns":                        "true",
+		"file-allocation":                  "none",
+		"disk-cache":                       "128M",
+		"enable-mmap":                      "true",
+		"check-certificate":                "false",
+		"optimize-concurrent-downloads":    "true",
+		"max-file-not-found":               "2",
+		"disable-ipv6":                     "true",
+		"enable-http-pipelining":           "true",
+		"content-disposition-default-utf8": "true",
+		"remote-time":                      "true",
+		"check-integrity":                  "true",
 	}
 
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
 	if _, err := os.Stat(cookiesPath); err == nil {
-		args = append(args, "--load-cookies="+cookiesPath)
+		options["load-cookies"] = cookiesPath
 	}
 
 	if task.FileName != "" && task.FileName != "unknown_file" && !isGenericName(task.FileName) {
-		args = append(args, "--out="+task.FileName)
+		options["out"] = task.FileName
 	}
 
-	url := task.URL
-	selectFiles := ""
-	if idx := strings.Index(url, "#select="); idx != -1 {
-		selectFiles = url[idx+8:]
-		url = url[:idx]
+	if utils.IsMagnetLink(task.URL) {
+		options["seed-time"] = "0"
 	}
 
-	args = append(args, url)
-
-	if selectFiles != "" {
-		args = append(args, "--select-file="+selectFiles)
+	if task.Type == domain.TypeTorrent {
+		options["seed-time"] = "0"
 	}
 
-	if utils.IsMagnetLink(url) {
-		args = append(args, "--seed-time=0")
-	}
-
-	if task.Type == domain.TypeTorrent && len(url) > 7 && url[:7] == "file://" {
-		localPath := url[7:]
-		for i, arg := range args {
-			if arg == url {
-				args[i] = localPath
-				break
-			}
-		}
-		args = append(args, "--seed-time=0")
-	}
-
-	return args
-}
-
-func (e *Aria2Engine) parseProgress(reader io.ReadCloser, onProgress func(ProgressUpdate), lastLines *[]string) {
-	defer func() { _ = reader.Close() }()
-
-	scanner := bufio.NewScanner(reader)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if lastLines != nil {
-			*lastLines = append(*lastLines, line)
-			if len(*lastLines) > 15 {
-				*lastLines = (*lastLines)[1:]
-			}
-		}
-
-		update := ProgressUpdate{}
-
-		if strings.Contains(line, "ERROR") || strings.Contains(line, "Exception") || strings.Contains(line, "ErrorCode") {
-			update.Error = line
-		}
-
-		p := parser.ParseAria2Line(line)
-		if p.Found {
-			update.Downloaded = p.Downloaded
-			update.Total = p.Total
-			update.Speed = p.Speed
-			update.Progress = p.Progress
-			update.ETA = p.ETA
-			update.Connections = p.Connections
-		}
-
-		if update.Found() || update.Error != "" {
-			onProgress(update)
-		}
-	}
+	return options
 }
 
 func isGenericName(name string) bool {

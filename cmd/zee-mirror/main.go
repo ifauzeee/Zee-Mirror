@@ -23,6 +23,7 @@ import (
 	"zee-mirror/internal/api"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
+	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
 	"zee-mirror/internal/service"
@@ -68,7 +69,14 @@ func main() {
 		slog.Warn("Userbot failed to start", "error", err)
 	}
 
+	aria2Daemon := downloader.NewAria2Daemon(cfg.ConfigDir)
+	if err := aria2Daemon.Start(); err != nil {
+		slog.Error("Failed to start aria2 daemon", "error", err)
+	}
+	defer aria2Daemon.Stop()
+
 	botSvc := handlers.NewBotService(bot, cfg, db)
+	botSvc.TaskManager.Aria2Engine = downloader.NewAria2Engine(cfg.ConfigDir, cfg.Aria2RPCURL, cfg.Aria2RPCSecret)
 
 	apiServer := api.NewServer(botSvc, cfg.DashboardPort)
 	apiServer.Start()

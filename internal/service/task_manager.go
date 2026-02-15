@@ -133,7 +133,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		StatusPages:          make(map[int64]int),
 		ProcessTaskFunc:      processTaskFunc,
 		RefreshDashboardFunc: refreshDashboardFunc,
-		Aria2Engine:          downloader.NewAria2Engine(configDir),
+		Aria2Engine:          downloader.NewAria2Engine(configDir, cfg.Aria2RPCURL, cfg.Aria2RPCSecret),
 		YTDLPEngine:          downloader.NewYTDLPEngine(configDir),
 		UserbotEngine:        downloader.NewUserbotEngine(cfg),
 		LastDashUpdateAt:     make(map[int64]time.Time),

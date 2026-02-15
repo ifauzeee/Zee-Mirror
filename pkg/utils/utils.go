@@ -449,6 +449,11 @@ func ParseBytesString(s string) int64 {
 	return int64(val * float64(mult))
 }
 
+func ParseInt(s string) int {
+	val, _ := strconv.Atoi(s)
+	return val
+}
+
 func CalculateDirSize(path string) (int64, error) {
 	var size int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
