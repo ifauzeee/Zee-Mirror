@@ -145,6 +145,11 @@ func (m *MockRepository) Set(ctx context.Context, key, value string) error {
 	return args.Error(0)
 }
 
+func (m *MockRepository) SetLanguage(ctx context.Context, id int64, lang string) error {
+	args := m.Called(ctx, id, lang)
+	return args.Error(0)
+}
+
 func (m *MockRepository) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
