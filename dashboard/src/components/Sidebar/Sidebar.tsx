@@ -18,7 +18,10 @@ interface SidebarProps {
   onLogout: () => void
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, tasksCount, onLogout }) => {
+import { useNavigate } from 'react-router-dom'
+
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, tasksCount, onLogout }) => {
+  const navigate = useNavigate()
   const navItems = [
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'tasks', label: 'Queued Tasks', icon: Download },
@@ -54,10 +57,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, tasksCount, 
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => navigate(item.id === 'overview' ? '/' : `/${item.id}`)}
               className={`flex items-center space-x-4 w-full px-6 py-4 rounded-[1.75rem] transition-all duration-500 font-black text-xs uppercase tracking-wider group ${activeTab === item.id
-                  ? 'bg-primary text-white shadow-[0_12px_24px_-8px_rgba(59,130,246,0.4)] scale-[1.03]'
-                  : 'text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-primary dark:hover:text-primary transition-all'
+                ? 'bg-primary text-white shadow-[0_12px_24px_-8px_rgba(59,130,246,0.4)] scale-[1.03]'
+                : 'text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-primary dark:hover:text-primary transition-all'
                 }`}
             >
               <item.icon

@@ -1,5 +1,0 @@
-src/context/PopupProvider.tsx(87,61): error TS2322: Type '(message: string, type?: "success" | "error" | "info" | "alert", duration?: number) => void' is not assignable to type '(message: string, type?: "success" | "error" | "info" | "warning" | undefined, duration?: number | undefined) => void'.
-  Types of parameters 'type' and 'type' are incompatible.
-    Type '"success" | "error" | "info" | "warning" | undefined' is not assignable to type '"success" | "error" | "info" | "alert" | undefined'.
-      Type '"warning"' is not assignable to type '"success" | "error" | "info" | "alert" | undefined'.
-src/pages/Analytics.tsx(14,3): error TS6133: 'TooltipProps' is declared but its value is never read.

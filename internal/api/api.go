@@ -86,11 +86,19 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/torrent/files", s.handleTorrentFiles)
 	mux.HandleFunc("/api/torrent/start", s.handleTorrentStart)
 
-	mux.HandleFunc("/torrent-select/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./dist/index.html")
-	})
-
-	mux.Handle("/", http.FileServer(http.Dir("./dist")))
+	fs := http.FileServer(http.Dir("./dist"))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api") {
+			path := filepath.Join("./dist", r.URL.Path)
+			_, err := os.Stat(path)
+			
+			if os.IsNotExist(err) {
+				http.ServeFile(w, r, "./dist/index.html")
+				return
+			}
+		}
+		fs.ServeHTTP(w, r)
+	}))
 
 	addr := fmt.Sprintf(":%d", s.Port)
 	slog.Info("Web Dashboard API starting", "addr", addr)

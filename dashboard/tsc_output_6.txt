@@ -1,2 +1,0 @@
-src/pages/Analytics.tsx(13,3): error TS2300: Duplicate identifier 'Cell'.
-src/pages/Analytics.tsx(14,3): error TS2300: Duplicate identifier 'Cell'.
