@@ -91,7 +91,7 @@ func (s *Server) Start() {
 		if !strings.HasPrefix(r.URL.Path, "/api") {
 			path := filepath.Join("./dist", r.URL.Path)
 			_, err := os.Stat(path)
-			
+
 			if os.IsNotExist(err) {
 				http.ServeFile(w, r, "./dist/index.html")
 				return
