@@ -31,6 +31,7 @@ type Config struct {
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
 	MaxRetries               int
+	AuthPassword             string
 }
 
 func LoadConfig() *Config {
@@ -55,6 +56,7 @@ func LoadConfig() *Config {
 		AppID:                    getEnvInt("APP_ID", 0),
 		AppHash:                  os.Getenv("APP_HASH"),
 		UserSessionString:        os.Getenv("USER_SESSION_STRING"),
+		AuthPassword:             os.Getenv("AUTH_PASSWORD"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

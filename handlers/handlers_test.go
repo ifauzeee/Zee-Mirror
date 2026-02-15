@@ -6,21 +6,23 @@ import (
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/repository/mocks"
 
+	"zee-mirror/internal/service"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestTaskManager_CreateTask_Duplicate(t *testing.T) {
 	mockRepo := new(mocks.MockRepository)
-	tm := &TaskManager{
+	tm := &service.TaskManager{
 		DB:            mockRepo,
 		Config:        &config.Config{},
-		Tasks:         make(map[string]*Task),
+		Tasks:         make(map[string]*service.Task),
 		StopDuplicate: true,
 	}
 
 	taskID := "test_task_123"
-	existingTask := &Task{
+	existingTask := &service.Task{
 		Task: domain.Task{
 			ID:     taskID,
 			URL:    "http://example.com/file.zip",
@@ -32,7 +34,7 @@ func TestTaskManager_CreateTask_Duplicate(t *testing.T) {
 	mockRepo.On("GetCompletedTaskByURL", mock.Anything, "http://example.com/file.zip").Return(nil, nil)
 	mockRepo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
-	_, err := tm.CreateTask(TypeMirror, "http://example.com/file.zip", "file.zip", 123, 456, 0, 789, false, false, "", "", 0, "", false)
+	_, err := tm.CreateTask(service.TypeMirror, "http://example.com/file.zip", "file.zip", 123, 456, 0, 789, false, false, "", "", 0, "", false)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, domain.ErrDuplicateTask)
@@ -41,10 +43,10 @@ func TestTaskManager_CreateTask_Duplicate(t *testing.T) {
 
 func TestTaskManager_CreateTask_DBDuplicate(t *testing.T) {
 	mockRepo := new(mocks.MockRepository)
-	tm := &TaskManager{
+	tm := &service.TaskManager{
 		DB:            mockRepo,
 		Config:        &config.Config{},
-		Tasks:         make(map[string]*Task),
+		Tasks:         make(map[string]*service.Task),
 		StopDuplicate: true,
 	}
 
@@ -52,7 +54,7 @@ func TestTaskManager_CreateTask_DBDuplicate(t *testing.T) {
 		ID: "existing_db_id",
 	}, nil)
 
-	_, err := tm.CreateTask(TypeMirror, "http://example.com/exists.zip", "exists.zip", 123, 456, 0, 789, false, false, "", "", 0, "", false)
+	_, err := tm.CreateTask(service.TypeMirror, "http://example.com/exists.zip", "exists.zip", 123, 456, 0, 789, false, false, "", "", 0, "", false)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, domain.ErrDuplicateTask)

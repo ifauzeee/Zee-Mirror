@@ -3,7 +3,7 @@ package router
 import (
 	"testing"
 
-	"zee-mirror/handlers"
+	"zee-mirror/internal/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -11,7 +11,7 @@ import (
 func TestRouter_HandleMessage(t *testing.T) {
 	r := NewRouter(nil)
 	called := false
-	r.RegisterCommand("testcmd", func(_ *handlers.BotService, _ *tgbotapi.Message) {
+	r.RegisterCommand("testcmd", func(_ *service.BotService, _ *tgbotapi.Message) {
 		called = true
 	})
 
@@ -31,7 +31,7 @@ func TestRouter_HandleMessage(t *testing.T) {
 func TestRouter_HandleCallback(t *testing.T) {
 	r := NewRouter(nil)
 	called := false
-	r.RegisterCallback("testcb", func(_ *handlers.BotService, _ *tgbotapi.CallbackQuery) {
+	r.RegisterCallback("testcb", func(_ *service.BotService, _ *tgbotapi.CallbackQuery) {
 		called = true
 	})
 

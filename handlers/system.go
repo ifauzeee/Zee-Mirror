@@ -15,7 +15,7 @@ func (s *BotService) HandlePing(message *tgbotapi.Message) {
 	start := time.Now()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, "🏓 *Pinging\\.\\.\\.*")
-	msg.ParseMode = MarkdownV2
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
 		return
@@ -25,13 +25,13 @@ func (s *BotService) HandlePing(message *tgbotapi.Message) {
 
 	text := fmt.Sprintf("🏓 *Pong\\!* `%v`", elapsed.Round(time.Millisecond))
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, _ = s.Bot.Send(editMsg)
 }
 
 func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 	msg := tgbotapi.NewMessage(message.Chat.ID, "🚀 *Running Speedtest\\.\\.\\.*")
-	msg.ParseMode = MarkdownV2
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
 		return
@@ -43,7 +43,7 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 		if err != nil {
 			text := fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2Code(err.Error()))
 			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
-			editMsg.ParseMode = MarkdownV2
+			editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 			_, _ = s.Bot.Send(editMsg)
 			return
 		}
@@ -56,7 +56,7 @@ func (s *BotService) HandleSpeed(message *tgbotapi.Message) {
 		}
 
 		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
-		editMsg.ParseMode = MarkdownV2
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 		_, _ = s.Bot.Send(editMsg)
 	}()
 }

@@ -4,23 +4,24 @@ import (
 	"log/slog"
 	"strings"
 
-	"zee-mirror/handlers"
+	"zee-mirror/internal/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type CommandHandler func(s *handlers.BotService, msg *tgbotapi.Message)
-type CallbackHandler func(s *handlers.BotService, cb *tgbotapi.CallbackQuery)
+type CommandHandler func(s *service.BotService, msg *tgbotapi.Message)
+type CallbackHandler func(s *service.BotService, cb *tgbotapi.CallbackQuery)
 
 type Router struct {
-	service          *handlers.BotService
+	service          *service.BotService
 	commands         map[string]CommandHandler
 	callbacks        map[string]CallbackHandler
 	defaultCommand   CommandHandler
+	magnetHandler    CommandHandler
 	callbackPrefixes map[string]CallbackHandler
 }
 
-func NewRouter(service *handlers.BotService) *Router {
+func NewRouter(service *service.BotService) *Router {
 	return &Router{
 		service:          service,
 		commands:         make(map[string]CommandHandler),
@@ -35,6 +36,10 @@ func (r *Router) RegisterCommand(name string, handler CommandHandler) {
 
 func (r *Router) RegisterCallback(prefix string, handler CallbackHandler) {
 	r.callbackPrefixes[prefix] = handler
+}
+
+func (r *Router) RegisterMagnetHandler(handler CommandHandler) {
+	r.magnetHandler = handler
 }
 
 func (r *Router) HandleMessage(msg *tgbotapi.Message) {
@@ -78,7 +83,9 @@ func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 			if r.service != nil {
 				r.service.AutoDeleteCommandAndReply(msg)
 			}
-			r.service.HandleTorrent(msg, text)
+			if r.magnetHandler != nil {
+				r.magnetHandler(r.service, msg)
+			}
 			return
 		}
 	}

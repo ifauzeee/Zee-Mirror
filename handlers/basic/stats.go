@@ -1,4 +1,4 @@
-package handlers
+package basic
 
 import (
 	"context"
@@ -8,16 +8,20 @@ import (
 	"time"
 
 	"zee-mirror/internal/domain"
-	"zee-mirror/pkg/utils"
 	"zee-mirror/internal/service"
+	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+const (
+	CmdRefresh = "refresh"
 )
 
 type UserStats = domain.UserStats
 type DailyStats = domain.DailyStats
 
-func (s *BotService) HandleStats(message *tgbotapi.Message) {
+func HandleStats(s *service.BotService, message *tgbotapi.Message) {
 	if !s.IsAuthorized(message.From.ID) {
 		return
 	}
@@ -25,7 +29,7 @@ func (s *BotService) HandleStats(message *tgbotapi.Message) {
 	ctx := context.Background()
 	stats, err := s.DB.GetBotStats(ctx)
 	if err != nil {
-		s.reply(message, "❌ *Gagal mengambil statistik*")
+		s.Reply(message, "❌ *Gagal mengambil statistik*")
 		return
 	}
 
@@ -34,9 +38,9 @@ func (s *BotService) HandleStats(message *tgbotapi.Message) {
 	userDailyStats, _ := s.DB.GetUserTodayStats(ctx, message.From.ID)
 
 	slog.Info("Generating stats", "userID", message.From.ID)
-	text := s.formatStatsMessage(stats, userStats, dailyStats, userDailyStats)
+	text := FormatStatsMessage(stats, userStats, dailyStats, userDailyStats)
 
-	keyboard := s.getStatsKeyboard()
+	keyboard := GetStatsKeyboard()
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
@@ -49,11 +53,10 @@ func (s *BotService) HandleStats(message *tgbotapi.Message) {
 		_, _ = s.Bot.Send(msg)
 	} else {
 		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
-		slog.Info("Stats message sent successfully", "userID", message.From.ID)
 	}
 }
 
-func (s *BotService) getStatsKeyboard() tgbotapi.InlineKeyboardMarkup {
+func GetStatsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("👤 My Stats", "stats:my"),
@@ -70,7 +73,7 @@ func (s *BotService) getStatsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-func (s *BotService) formatStatsMessage(stats map[string]interface{}, userStats *UserStats, dailyStats *DailyStats, userDailyStats *DailyStats) string {
+func FormatStatsMessage(stats map[string]interface{}, userStats *UserStats, dailyStats *DailyStats, userDailyStats *DailyStats) string {
 	var text strings.Builder
 
 	text.WriteString("📊 *STATISTIK DASHBOARD*\n")
@@ -114,7 +117,7 @@ func (s *BotService) formatStatsMessage(stats map[string]interface{}, userStats 
 	return text.String()
 }
 
-func (s *BotService) formatUserStatsDetailed(stats *UserStats) string {
+func formatUserStatsDetailed(stats *UserStats) string {
 	if stats == nil {
 		return "📭 *Belum ada statistik untuk Anda*"
 	}
@@ -141,7 +144,7 @@ func (s *BotService) formatUserStatsDetailed(stats *UserStats) string {
 	return text.String()
 }
 
-func (s *BotService) formatDailyStatsDetailed(stats *DailyStats, title string, userStats *DailyStats) string {
+func formatDailyStatsDetailed(stats *DailyStats, title string, userStats *DailyStats) string {
 	if stats == nil {
 		return "📭 *Belum ada statistik*"
 	}
@@ -177,7 +180,7 @@ func (s *BotService) formatDailyStatsDetailed(stats *DailyStats, title string, u
 	return text.String()
 }
 
-func (s *BotService) formatWeeklyStats(stats []DailyStats) string {
+func formatWeeklyStats(stats []DailyStats) string {
 	var text strings.Builder
 	text.WriteString("📈 *STATISTIK MINGGUAN*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
@@ -185,6 +188,7 @@ func (s *BotService) formatWeeklyStats(stats []DailyStats) string {
 	totalTasks := 0
 	totalCompleted := 0
 	totalFailed := 0
+
 	var totalBandwidth int64
 
 	text.WriteString("🗓️ *LAST 7 DAYS*\n")
@@ -215,7 +219,7 @@ func (s *BotService) formatWeeklyStats(stats []DailyStats) string {
 	return text.String()
 }
 
-func (s *BotService) formatMonthlyStats(stats []DailyStats) string {
+func formatMonthlyStats(stats []DailyStats) string {
 	var text strings.Builder
 	text.WriteString("📉 *STATISTIK BULANAN*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
@@ -270,7 +274,7 @@ func (s *BotService) formatMonthlyStats(stats []DailyStats) string {
 	return text.String()
 }
 
-func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+func HandleStatsCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 2 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
@@ -286,7 +290,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik Anda*"
 		} else {
-			text = s.formatUserStatsDetailed(userStats)
+			text = formatUserStatsDetailed(userStats)
 		}
 
 	case "today":
@@ -295,7 +299,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik hari ini*"
 		} else {
-			text = s.formatDailyStatsDetailed(dailyStats, "Hari Ini", userDailyStats)
+			text = formatDailyStatsDetailed(dailyStats, "Hari Ini", userDailyStats)
 		}
 
 	case "weekly":
@@ -303,7 +307,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik mingguan*"
 		} else {
-			text = s.formatWeeklyStats(weeklyStats)
+			text = formatWeeklyStats(weeklyStats)
 		}
 
 	case "monthly":
@@ -311,18 +315,18 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 		if err != nil {
 			text = "❌ *Gagal mengambil statistik bulanan*"
 		} else {
-			text = s.formatMonthlyStats(monthlyStats)
+			text = formatMonthlyStats(monthlyStats)
 		}
 
-	case service.CmdRefresh:
+	case CmdRefresh:
 		stats, _ := s.DB.GetBotStats(ctx)
 		userStats, _ := s.DB.GetUserStats(ctx, callback.From.ID)
 		dailyStats, _ := s.DB.GetTodayStats(ctx)
 		userDailyStats, _ := s.DB.GetUserTodayStats(ctx, callback.From.ID)
-		text = s.formatStatsMessage(stats, userStats, dailyStats, userDailyStats)
+		text = FormatStatsMessage(stats, userStats, dailyStats, userDailyStats)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Statistics refreshed!"))
 
-	case service.CmdClose:
+	case CmdClose:
 		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
 		_, _ = s.Bot.Request(deleteMsg)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
@@ -332,7 +336,7 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 	if text != "" {
 		var keyboard tgbotapi.InlineKeyboardMarkup
 		if action == "refresh" {
-			keyboard = s.getStatsKeyboard()
+			keyboard = GetStatsKeyboard()
 		} else {
 			keyboard = tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(

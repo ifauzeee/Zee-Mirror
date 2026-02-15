@@ -1,4 +1,4 @@
-package handlers
+package basic
 
 import (
 	"log/slog"
@@ -7,34 +7,29 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-const (
-	ActionBack = "back"
-	CmdClose   = "close"
-)
-
-func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action string) {
-	if s.handleDownloadHelp(callback, action) {
+func HandleHelpCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) {
+	if handleDownloadHelp(s, callback, action) {
 		return
 	}
-	if s.handleMonitorHelp(callback, action) {
+	if handleMonitorHelp(s, callback, action) {
 		return
 	}
-	if s.handleFilesHelp(callback, action) {
+	if handleFilesHelp(s, callback, action) {
 		return
 	}
-	if s.handleMediaHelp(callback, action) {
+	if handleMediaHelp(s, callback, action) {
 		return
 	}
-	if s.handleTaskHelp(callback, action) {
+	if handleTaskHelp(s, callback, action) {
 		return
 	}
-	if s.handleStorageHelp(callback, action) {
+	if handleStorageHelp(s, callback, action) {
 		return
 	}
-	if s.handleAdminHelp(callback, action) {
+	if handleAdminHelp(s, callback, action) {
 		return
 	}
-	if s.handleRecoveryHelp(callback, action) {
+	if handleRecoveryHelp(s, callback, action) {
 		return
 	}
 
@@ -91,10 +86,10 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 		return
 	}
 
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 }
 
-func (s *BotService) sendHelpMessage(callback *tgbotapi.CallbackQuery, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
+func sendHelpMessage(s *service.BotService, callback *tgbotapi.CallbackQuery, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
@@ -107,7 +102,7 @@ func (s *BotService) sendHelpMessage(callback *tgbotapi.CallbackQuery, text stri
 	}
 }
 
-func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleDownloadHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -198,11 +193,11 @@ func (s *BotService) handleDownloadHelp(callback *tgbotapi.CallbackQuery, action
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleMonitorHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleMonitorHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -274,11 +269,11 @@ func (s *BotService) handleMonitorHelp(callback *tgbotapi.CallbackQuery, action 
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleFilesHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleFilesHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -341,11 +336,11 @@ func (s *BotService) handleFilesHelp(callback *tgbotapi.CallbackQuery, action st
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleMediaHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleMediaHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -433,11 +428,11 @@ func (s *BotService) handleMediaHelp(callback *tgbotapi.CallbackQuery, action st
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleTaskHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleTaskHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -471,11 +466,11 @@ func (s *BotService) handleTaskHelp(callback *tgbotapi.CallbackQuery, action str
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleStorageHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleStorageHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -506,11 +501,11 @@ func (s *BotService) handleStorageHelp(callback *tgbotapi.CallbackQuery, action 
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleAdminHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleAdminHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -566,11 +561,11 @@ func (s *BotService) handleAdminHelp(callback *tgbotapi.CallbackQuery, action st
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }
 
-func (s *BotService) handleRecoveryHelp(callback *tgbotapi.CallbackQuery, action string) bool {
+func handleRecoveryHelp(s *service.BotService, callback *tgbotapi.CallbackQuery, action string) bool {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
@@ -601,6 +596,6 @@ func (s *BotService) handleRecoveryHelp(callback *tgbotapi.CallbackQuery, action
 	default:
 		return false
 	}
-	s.sendHelpMessage(callback, text, keyboard)
+	sendHelpMessage(s, callback, text, keyboard)
 	return true
 }

@@ -1,0 +1,279 @@
+package basic
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+	"zee-mirror/internal/service"
+	"zee-mirror/pkg/utils"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+func HandlePing(s *service.BotService, message *tgbotapi.Message) {
+	start := time.Now()
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, "🏓 *Pinging\\.\\.\\.*")
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	sentMsg, err := s.Bot.Send(msg)
+	if err != nil {
+		return
+	}
+
+	elapsed := time.Since(start)
+
+	text := fmt.Sprintf("🏓 *Pong\\!* `%v`", elapsed.Round(time.Millisecond))
+	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+}
+
+func HandleSpeed(s *service.BotService, message *tgbotapi.Message) {
+	msg := tgbotapi.NewMessage(message.Chat.ID, "🚀 *Running Speedtest\\.\\.\\.*")
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	sentMsg, err := s.Bot.Send(msg)
+	if err != nil {
+		return
+	}
+
+	go func() {
+		cmd := exec.Command("speedtest-cli", "--simple")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			text := fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2Code(err.Error()))
+			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, text)
+			editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+			_, _ = s.Bot.Send(editMsg)
+			return
+		}
+
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		var result strings.Builder
+		result.WriteString("🚀 *Speedtest Result*\n\n")
+		for _, line := range lines {
+			result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2Code(line)))
+		}
+
+		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+	}()
+}
+
+func HandleSystem(s *service.BotService, message *tgbotapi.Message) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	stats := s.GetSystemStats()
+	text := s.FormatSystemStats(stats)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "system:refresh"),
+			tgbotapi.NewInlineKeyboardButtonData("📊 Detailed", "system:detailed"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📈 Logs", "system:logs"),
+			tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	msg.ReplyMarkup = keyboard
+	_, _ = s.Bot.Send(msg)
+}
+
+func HandleHealth(s *service.BotService, message *tgbotapi.Message) {
+	if !s.IsAuthorized(message.From.ID) {
+		return
+	}
+
+	checks := s.PerformHealthChecks()
+	text := s.FormatHealthCheck(checks)
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, _ = s.Bot.Send(msg)
+}
+
+func HandleLogs(s *service.BotService, message *tgbotapi.Message, _ string) {
+	if !s.IsAdmin(message.From.ID) {
+		s.Reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Admin yang bisa melihat logs\\."))
+		return
+	}
+
+	logPath := filepath.Join(s.Config.ConfigDir, "zee-mirror.log")
+
+	if _, err := os.Stat(logPath); os.IsNotExist(err) {
+		s.Reply(message, service.GetErrorMessage("FILE NOT FOUND", "File log tidak ditemukan atau belum dibuat\\."))
+		return
+	}
+
+	timestamp := time.Now().Format("20060102_150405")
+	tempFileName := fmt.Sprintf("zee-mirror_logs_%s.log", timestamp)
+	tempPath := filepath.Join(os.TempDir(), tempFileName)
+
+	input, err := os.ReadFile(filepath.Clean(logPath))
+	if err != nil {
+		s.Reply(message, service.GetErrorMessage("READ ERROR", fmt.Sprintf("Gagal membaca log: %v", err)))
+		return
+	}
+
+	err = os.WriteFile(tempPath, input, 0600)
+	if err != nil {
+		s.Reply(message, service.GetErrorMessage("WRITE ERROR", fmt.Sprintf("Gagal membuat file temp: %v", err)))
+		return
+	}
+	defer func() { _ = os.Remove(tempPath) }()
+
+	file := tgbotapi.NewDocument(message.Chat.ID, tgbotapi.FilePath(tempPath))
+	file.Caption = fmt.Sprintf("📝 *Application Logs:* `%s`", utils.EscapeMarkdownV2(tempFileName))
+	file.ParseMode = tgbotapi.ModeMarkdownV2
+
+	_, err = s.Bot.Send(file)
+	if err != nil {
+		s.Reply(message, service.GetErrorMessage("SEND ERROR", fmt.Sprintf("Gagal mengirim file: %v", err)))
+	}
+}
+
+func HandlePingFromCallback(s *service.BotService, callback *tgbotapi.CallbackQuery) {
+	start := time.Now()
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🏓 *Pinging\\.\\.\\.*")
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+
+	elapsed := time.Since(start)
+	text := fmt.Sprintf("🏓 *Pong\\!* `%v`", elapsed.Round(time.Millisecond))
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Re-Ping", "dashboard:ping"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
+		),
+	)
+
+	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
+	finalEdit.ReplyMarkup = &keyboard
+	_, _ = s.Bot.Send(finalEdit)
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏓 Pong!"))
+}
+
+func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQuery) {
+	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🚀 *Running Speedtest\\.\\.\\.*")
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+	_, _ = s.Bot.Send(editMsg)
+
+	go func() {
+		cmd := exec.Command("speedtest-cli", "--simple")
+		output, err := cmd.CombinedOutput()
+
+		var text string
+		if err != nil {
+			text = fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2(err.Error()))
+		} else {
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			var result strings.Builder
+			result.WriteString("🚀 *Speedtest Result*\n\n")
+			for _, line := range lines {
+				result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2(line)))
+			}
+			text = result.String()
+		}
+
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔄 Retest", "dashboard:speed"),
+				tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
+			),
+		)
+
+		finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
+		finalEdit.ReplyMarkup = &keyboard
+		_, _ = s.Bot.Send(finalEdit)
+	}()
+	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚀 Testing speed..."))
+}
+
+func HandleSystemCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
+	if len(parts) < 2 {
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	}
+
+	action := parts[1]
+
+	switch action {
+	case CmdRefresh:
+		stats := s.GetSystemStats()
+		text := s.FormatSystemStats(stats)
+
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "system:refresh"),
+				tgbotapi.NewInlineKeyboardButtonData("📊 Detailed", "system:detailed"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📈 Logs", "system:logs"),
+				tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
+			),
+		)
+
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+		editMsg.ReplyMarkup = &keyboard
+		_, _ = s.Bot.Send(editMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
+
+	case "detailed":
+		checks := s.PerformHealthChecks()
+		text := s.FormatHealthCheck(checks)
+
+		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, _ = s.Bot.Send(editMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📊 Detailed view"))
+
+	case "logs":
+		msg := &tgbotapi.Message{
+			Chat: callback.Message.Chat,
+			From: callback.From,
+		}
+		HandleLogs(s, msg, "")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+
+	case "logs_file":
+		msg := &tgbotapi.Message{
+			Chat: callback.Message.Chat,
+			From: callback.From,
+		}
+		HandleLogs(s, msg, "file")
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Sending file..."))
+
+	case "cleanup":
+		if callback.From.ID != s.Config.OwnerID {
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Owner only"))
+			return
+		}
+		go s.PerformDiskCleanup()
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🧹 Cleanup started"))
+
+	case CmdClose:
+		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		_, _ = s.Bot.Request(deleteMsg)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "Closed"))
+		return
+	}
+}

@@ -1,4 +1,4 @@
-package handlers
+package basic
 
 import "zee-mirror/internal/service"
 

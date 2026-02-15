@@ -13,11 +13,19 @@ import (
 	"time"
 
 	"zee-mirror/handlers"
+	"zee-mirror/handlers/admin"
+	"zee-mirror/handlers/basic"
+	"zee-mirror/handlers/download"
+	"zee-mirror/handlers/file"
+	"zee-mirror/handlers/media"
+	"zee-mirror/handlers/search"
+	"zee-mirror/handlers/storage"
 	"zee-mirror/internal/api"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
+	"zee-mirror/internal/service"
 	"zee-mirror/internal/userbot"
 	"zee-mirror/pkg/utils"
 
@@ -60,13 +68,21 @@ func main() {
 		slog.Warn("Userbot failed to start", "error", err)
 	}
 
-	service := handlers.NewBotService(bot, cfg, db)
+	botSvc := handlers.NewBotService(bot, cfg, db)
 
-	apiServer := api.NewServer(service, cfg.DashboardPort)
+	apiServer := api.NewServer(botSvc, cfg.DashboardPort)
 	apiServer.Start()
 
-	r := router.NewRouter(service)
+	r := router.NewRouter(botSvc.BotService)
 	setupRoutes(r)
+
+	r.RegisterMagnetHandler(func(s *service.BotService, m *tgbotapi.Message) {
+		text := m.Text
+		if text == "" {
+			text = m.Caption
+		}
+		botSvc.HandleTorrent(m, text)
+	})
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -96,12 +112,12 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		slog.Info("Shutting down gracefully...")
-		service.Shutdown()
+		botSvc.Shutdown()
 		time.Sleep(1 * time.Second)
 		os.Exit(0)
 	}()
 
-	processUpdates(ctx, updates, service, r)
+	processUpdates(ctx, updates, botSvc, r)
 }
 
 func setupLogger(cfg *config.Config) {
@@ -167,7 +183,7 @@ func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {
 	return bot, nil
 }
 
-func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, service *handlers.BotService, r *router.Router) {
+func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, botSvc *handlers.BotService, r *router.Router) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -180,13 +196,13 @@ func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, servic
 			if update.Message != nil {
 				isStart := update.Message.IsCommand() && update.Message.Command() == "start"
 
-				if !service.IsAuthorized(update.Message.From.ID) && !isStart {
+				if !botSvc.IsAuthorized(update.Message.From.ID) && !isStart {
 					slog.Warn("Unauthorized access attempt", "userID", update.Message.From.ID, "username", update.Message.From.UserName, "text", update.Message.Text)
 
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, handlers.GetErrorMessage("ACCESS DENIED", "Anda belum terautentikasi untuk menggunakan bot ini.\nSilakan hubungi Owner untuk mendapatkan akses."))
-					msg.ParseMode = handlers.MarkdownV2
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, service.GetErrorMessage("ACCESS DENIED", "Anda belum terautentikasi untuk menggunakan bot ini.\nSilakan hubungi Owner untuk mendapatkan akses."))
+					msg.ParseMode = tgbotapi.ModeMarkdownV2
 					msg.ReplyToMessageID = update.Message.MessageID
-					_, _ = service.Bot.Send(msg)
+					_, _ = botSvc.Bot.Send(msg)
 					continue
 				}
 				go r.HandleMessage(update.Message)
@@ -194,11 +210,11 @@ func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, servic
 				data := update.CallbackQuery.Data
 				isHelp := strings.HasPrefix(data, "help:")
 
-				if !service.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
+				if !botSvc.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
 					slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
 
 					cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
-					_, _ = service.Bot.Request(cb)
+					_, _ = botSvc.Bot.Request(cb)
 					continue
 				}
 				go r.HandleCallback(update.CallbackQuery)
@@ -217,74 +233,114 @@ func setupRoutes(r *router.Router) {
 }
 
 func setupBasicRoutes(r *router.Router) {
-	r.RegisterCommand("start", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStart(m) })
-	r.RegisterCommand("help", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleHelp(m) })
-	r.RegisterCommand("settings", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSettings(m) })
-	r.RegisterCommand("ping", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandlePing(m) })
-	r.RegisterCommand("speed", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSpeed(m) })
-	r.RegisterCommand("stats", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStats(m) })
-	r.RegisterCommand("lang", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLanguage(m) })
-	r.RegisterCommand("language", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLanguage(m) })
+	r.RegisterCommand("start", func(s *service.BotService, m *tgbotapi.Message) { basic.StartHandler(s, m) })
+	r.RegisterCommand("help", func(s *service.BotService, m *tgbotapi.Message) { basic.HelpHandler(s, m) })
+	r.RegisterCommand("settings", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleSettings(m)
+	})
+	r.RegisterCommand("ping", func(s *service.BotService, m *tgbotapi.Message) { basic.HandlePing(s, m) })
+	r.RegisterCommand("speed", func(s *service.BotService, m *tgbotapi.Message) { basic.HandleSpeed(s, m) })
+	r.RegisterCommand("stats", func(s *service.BotService, m *tgbotapi.Message) { basic.HandleStats(s, m) })
+	r.RegisterCommand("lang", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleLanguage(m)
+	})
+	r.RegisterCommand("language", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleLanguage(m)
+	})
 }
 
 func setupDownloadRoutes(r *router.Router) {
-	r.RegisterCommand("mirror", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleMirror(m, m.CommandArguments()) })
-	r.RegisterCommand("m", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleMirror(m, m.CommandArguments()) })
-	r.RegisterCommand("leech", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLeech(m, m.CommandArguments()) })
-	r.RegisterCommand("l", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLeech(m, m.CommandArguments()) })
-	r.RegisterCommand("viking", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleViking(m, m.CommandArguments()) })
-	r.RegisterCommand("v", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleViking(m, m.CommandArguments()) })
-	r.RegisterCommand("ytdlp", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLP(m, m.CommandArguments()) })
-	r.RegisterCommand("y", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLP(m, m.CommandArguments()) })
-	r.RegisterCommand("ytdlpleech", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLPLeech(m, m.CommandArguments()) })
-	r.RegisterCommand("yl", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleYTDLPLeech(m, m.CommandArguments()) })
-	r.RegisterCommand("torrent", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleTorrent(m, m.CommandArguments()) })
-	r.RegisterCommand("t", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleTorrent(m, m.CommandArguments()) })
-	r.RegisterCommand("clone", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleClone(m, m.CommandArguments()) })
-	r.RegisterCommand("cl", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleClone(m, m.CommandArguments()) })
+	r.RegisterCommand("mirror", func(s *service.BotService, m *tgbotapi.Message) { download.HandleMirror(s, m, m.CommandArguments()) })
+	r.RegisterCommand("m", func(s *service.BotService, m *tgbotapi.Message) { download.HandleMirror(s, m, m.CommandArguments()) })
+	r.RegisterCommand("leech", func(s *service.BotService, m *tgbotapi.Message) { download.HandleLeech(s, m, m.CommandArguments()) })
+	r.RegisterCommand("l", func(s *service.BotService, m *tgbotapi.Message) { download.HandleLeech(s, m, m.CommandArguments()) })
+	r.RegisterCommand("viking", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleViking(m, m.CommandArguments())
+	})
+	r.RegisterCommand("v", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleViking(m, m.CommandArguments())
+	})
+	r.RegisterCommand("ytdlp", func(s *service.BotService, m *tgbotapi.Message) { download.HandleYTDLP(s, m, m.CommandArguments()) })
+	r.RegisterCommand("y", func(s *service.BotService, m *tgbotapi.Message) { download.HandleYTDLP(s, m, m.CommandArguments()) })
+	r.RegisterCommand("ytdlpleech", func(s *service.BotService, m *tgbotapi.Message) {
+		download.HandleYTDLPLeech(s, m, m.CommandArguments())
+	})
+	r.RegisterCommand("yl", func(s *service.BotService, m *tgbotapi.Message) {
+		download.HandleYTDLPLeech(s, m, m.CommandArguments())
+	})
+	r.RegisterCommand("torrent", func(s *service.BotService, m *tgbotapi.Message) { download.HandleTorrent(s, m, m.CommandArguments()) })
+	r.RegisterCommand("t", func(s *service.BotService, m *tgbotapi.Message) { download.HandleTorrent(s, m, m.CommandArguments()) })
+	r.RegisterCommand("clone", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleClone(m, m.CommandArguments())
+	})
+	r.RegisterCommand("cl", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleClone(m, m.CommandArguments())
+	})
 }
 
 func setupAdminRoutes(r *router.Router) {
-	r.RegisterCommand("status", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStatus(m) })
-	r.RegisterCommand("st", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStatus(m) })
-	r.RegisterCommand("cancel", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleCancel(m, m.CommandArguments()) })
-	r.RegisterCommand("c", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleCancel(m, m.CommandArguments()) })
-	r.RegisterCommand("cancelall", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleCancelAll(m) })
-	r.RegisterCommand("search", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSearch(m, m.CommandArguments()) })
-	r.RegisterCommand("batch", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleBatch(m, m.CommandArguments()) })
-	r.RegisterCommand("authorize", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleAuthorize(m, m.CommandArguments()) })
-	r.RegisterCommand("unauthorize", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleUnauthorize(m, m.CommandArguments()) })
-	r.RegisterCommand("removeuser", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleRemoveUser(m, m.CommandArguments()) })
-	r.RegisterCommand("setrole", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetRole(m, m.CommandArguments()) })
-	r.RegisterCommand("setlimit", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetLimit(m, m.CommandArguments()) })
-	r.RegisterCommand("setexpire", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetExpire(m, m.CommandArguments()) })
-	r.RegisterCommand("users", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleUsers(m) })
-	r.RegisterCommand("setalertchannel", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetAlertChannel(m, m.CommandArguments()) })
-	r.RegisterCommand(handlers.CmdSystem, func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSystem(m) })
-	r.RegisterCommand(handlers.CmdHealth, func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleHealth(m) })
-	r.RegisterCommand(handlers.CmdLogs, func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleLogs(m, m.CommandArguments()) })
-	r.RegisterCommand("recover", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleRecover(m) })
-	r.RegisterCommand("recoverystatus", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleRecoveryStatus(m) })
-	r.RegisterCommand("join", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleJoin(m, m.CommandArguments()) })
+	r.RegisterCommand("status", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleStatus(m)
+	})
+	r.RegisterCommand("st", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleStatus(m)
+	})
+	r.RegisterCommand("cancel", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleCancel(m, m.CommandArguments())
+	})
+	r.RegisterCommand("c", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleCancel(m, m.CommandArguments())
+	})
+	r.RegisterCommand("cancelall", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleCancelAll(m)
+	})
+	r.RegisterCommand("search", func(s *service.BotService, m *tgbotapi.Message) { search.HandleSearch(s, m, m.CommandArguments()) })
+	r.RegisterCommand("batch", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleBatch(m, m.CommandArguments())
+	})
+	r.RegisterCommand("authorize", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleAuthorize(m, m.CommandArguments())
+	})
+	r.RegisterCommand("unauthorize", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleUnauthorize(m, m.CommandArguments())
+	})
+	r.RegisterCommand("removeuser", func(s *service.BotService, m *tgbotapi.Message) { admin.RemoveUserHandler(s, m, m.CommandArguments()) })
+	r.RegisterCommand("setrole", func(s *service.BotService, m *tgbotapi.Message) { admin.SetRoleHandler(s, m, m.CommandArguments()) })
+	r.RegisterCommand("setlimit", func(s *service.BotService, m *tgbotapi.Message) { admin.SetLimitHandler(s, m, m.CommandArguments()) })
+	r.RegisterCommand("setexpire", func(s *service.BotService, m *tgbotapi.Message) { admin.SetExpireHandler(s, m, m.CommandArguments()) })
+	r.RegisterCommand("users", func(s *service.BotService, m *tgbotapi.Message) { admin.HandleUserList(s, m) })
+	r.RegisterCommand("setalertchannel", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleSetAlertChannel(m, m.CommandArguments())
+	})
+	r.RegisterCommand(handlers.CmdSystem, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleSystem(s, m) })
+	r.RegisterCommand(handlers.CmdHealth, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleHealth(s, m) })
+	r.RegisterCommand(handlers.CmdLogs, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleLogs(s, m, m.CommandArguments()) })
+	r.RegisterCommand("recover", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleRecover(m)
+	})
+	r.RegisterCommand("recoverystatus", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleRecoveryStatus(m)
+	})
+	r.RegisterCommand("join", func(s *service.BotService, m *tgbotapi.Message) { basic.HandleJoin(s, m, m.CommandArguments()) })
 }
 
 func setupFileManagerRoutes(r *router.Router) {
-	fmHandler := func(s *handlers.BotService, m *tgbotapi.Message) {
+	fmHandler := func(s *service.BotService, m *tgbotapi.Message) {
 		cmd := m.Command()
 		args := m.CommandArguments()
 		switch cmd {
 		case "ls", "dir":
-			s.HandleDriveList(m, args, 0)
+			file.HandleDriveList(s, m, args, 0)
 		case "mkdir":
-			s.HandleDriveMkdir(m, args)
+			file.HandleDriveMkdir(s, m, args)
 		case "rm":
-			s.HandleDriveDelete(m, args)
+			file.HandleDriveDelete(s, m, args)
 		case "mv":
-			s.HandleDriveMove(m, args)
+			file.HandleDriveMove(s, m, args)
 		case "share":
-			s.HandleDriveShare(m, args)
+			file.HandleDriveShare(s, m, args)
 		case "find":
-			s.HandleDriveSearch(m, args)
+			file.HandleDriveSearch(s, m, args)
 		}
 	}
 	r.RegisterCommand("ls", fmHandler)
@@ -295,33 +351,33 @@ func setupFileManagerRoutes(r *router.Router) {
 	r.RegisterCommand("share", fmHandler)
 	r.RegisterCommand("find", fmHandler)
 
-	r.RegisterCommand("storages", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleStorages(m) })
-	r.RegisterCommand("setstorage", func(s *handlers.BotService, m *tgbotapi.Message) { s.HandleSetStorage(m, m.CommandArguments()) })
+	r.RegisterCommand("storages", func(s *service.BotService, m *tgbotapi.Message) { storage.HandleStorages(s, m) })
+	r.RegisterCommand("setstorage", func(s *service.BotService, m *tgbotapi.Message) { storage.HandleSetStorage(s, m, m.CommandArguments()) })
 }
 
 func setupMediaRoutes(r *router.Router) {
-	mediaHandler := func(s *handlers.BotService, m *tgbotapi.Message) {
+	mediaHandler := func(s *service.BotService, m *tgbotapi.Message) {
 		cmd := m.Command()
 		args := m.CommandArguments()
 		switch cmd {
 		case "extractaudio":
-			s.HandleExtractAudio(m, args)
+			media.HandleExtractAudio(s, m, args)
 		case "compress":
-			s.HandleCompressVideo(m, args)
+			media.HandleCompressVideo(s, m, args)
 		case "thumbnail":
-			s.HandleGenerateThumbnail(m, args)
+			media.HandleGenerateThumbnail(s, m, args)
 		case "screenshots":
-			s.HandleScreenshots(m, args)
+			media.HandleScreenshots(s, m, args)
 		case "subtitle":
-			s.HandleEmbedSubtitle(m, args)
+			media.HandleEmbedSubtitle(s, m, args)
 		case "hardsub":
-			s.HandleHardsub(m, args)
+			media.HandleHardsub(s, m, args)
 		case "rescale":
-			s.HandleRescale(m, args)
+			media.HandleRescale(s, m, args)
 		case "convert":
-			s.HandleConvertFormat(m, args)
+			media.HandleConvertFormat(s, m, args)
 		case "mediainfo":
-			s.HandleMediaInfo(m, args)
+			media.HandleMediaInfo(s, m, args)
 		}
 	}
 	r.RegisterCommand("extractaudio", mediaHandler)
@@ -336,16 +392,20 @@ func setupMediaRoutes(r *router.Router) {
 }
 
 func setupCallbackRoutes(r *router.Router) {
-	r.RegisterCallback("dashboard", func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) { s.HandleDashboardCallback(cb) })
-	r.RegisterCallback("help", func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) { s.HandleDashboardCallback(cb) })
-	r.RegisterCallback("refresh_status", func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) { s.HandleRefreshStatusCallback(cb) })
+	r.RegisterCallback("dashboard", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		(&handlers.BotService{BotService: s}).HandleDashboardCallback(cb)
+	})
+	r.RegisterCallback("help", func(s *service.BotService, cb *tgbotapi.CallbackQuery) { basic.HandleHelpCallback(s, cb, "") })
+	r.RegisterCallback("refresh_status", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		(&handlers.BotService{BotService: s}).HandleRefreshStatusCallback(cb)
+	})
 
-	searchHandler := func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
+	searchHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
 		parts := strings.Split(cb.Data, ":")
 		if parts[0] == "t_search" {
-			s.HandleSearchCallback(cb, parts)
+			search.HandleSearchCallback(s, cb, parts)
 		} else {
-			s.HandleSearchNavCallback(cb, parts)
+			search.HandleSearchNavCallback(s, cb, parts)
 		}
 	}
 	r.RegisterCallback("t_search", searchHandler)
@@ -354,19 +414,19 @@ func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("t_back", searchHandler)
 	r.RegisterCallback("t_close", searchHandler)
 
-	taskActionHandler := func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
+	taskActionHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
 		parts := strings.Split(cb.Data, ":")
 		switch parts[0] {
 		case "ytdlp_q":
-			s.HandleYTDLPQualityCallback(cb, parts)
+			(&handlers.BotService{BotService: s}).HandleYTDLPQualityCallback(cb, parts)
 		case "settings":
-			s.HandleSettingsCallback(cb, parts)
+			(&handlers.BotService{BotService: s}).HandleSettingsCallback(cb, parts)
 		case "batch":
-			s.HandleBatchCallback(cb, parts)
+			(&handlers.BotService{BotService: s}).HandleBatchCallback(cb, parts)
 		case "confirm":
-			s.HandleConfirmCallback(cb, parts)
+			(&handlers.BotService{BotService: s}).HandleConfirmCallback(cb, parts)
 		case "torrent_sel":
-			s.HandleTorrentSelectionCallback(cb, parts)
+			download.HandleTorrentSelectionCallback(s, cb, parts)
 		}
 	}
 	r.RegisterCallback("ytdlp_q", taskActionHandler)
@@ -375,17 +435,17 @@ func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("confirm", taskActionHandler)
 	r.RegisterCallback("torrent_sel", taskActionHandler)
 
-	systemHandler := func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
+	systemHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
 		parts := strings.Split(cb.Data, ":")
 		switch parts[0] {
 		case "stats":
-			s.HandleStatsCallback(cb, parts)
+			basic.HandleStatsCallback(s, cb, parts)
 		case handlers.CmdSystem:
-			s.HandleSystemCallback(cb, parts)
+			basic.HandleSystemCallback(s, cb, parts)
 		case "storage":
-			s.HandleStorageCallback(cb, parts)
+			storage.HandleStorageCallback(s, cb, parts)
 		case "drive", "dr":
-			s.HandleDriveCallback(cb, parts)
+			file.HandleDriveCallback(s, cb, parts)
 		}
 	}
 	r.RegisterCallback("stats", systemHandler)
@@ -394,8 +454,8 @@ func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("drive", systemHandler)
 	r.RegisterCallback("dr", systemHandler)
 
-	r.RegisterCallback("media_m", func(s *handlers.BotService, cb *tgbotapi.CallbackQuery) {
+	r.RegisterCallback("media_m", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
 		parts := strings.Split(cb.Data, ":")
-		s.HandleMediaMirrorCallback(cb, parts)
+		media.HandleMediaMirrorCallback(s, cb, parts)
 	})
 }

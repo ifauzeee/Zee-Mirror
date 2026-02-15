@@ -1,4 +1,4 @@
-package handlers
+package download
 
 import (
 	"context"
@@ -17,51 +17,65 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *BotService) HandleYTDLP(message *tgbotapi.Message, args string) {
-	url, zip, _, password, quality, fileName, subs, hardsub := utils.ParseFlags(args)
-
-	if url == "" && message.ReplyToMessage != nil {
-		text := message.ReplyToMessage.Text
-		if text == "" {
-			text = message.ReplyToMessage.Caption
-		}
-		url = utils.ExtractURLFromText(text)
-	}
-
-	if url != "" {
-		if s.TaskManager.YTDLPEngine.IsPlaylist(url) {
-			s.handleYTDLPPlaylist(message, url, fileName, zip, password, quality, subs, hardsub, service.TypeYTDLP)
-			return
-		}
-	}
-
-	s.handleYTDLPGeneric(message, args, service.TypeYTDLP)
-}
-
-func (s *BotService) HandleYTDLPLeech(message *tgbotapi.Message, args string) {
-	url, zip, _, password, quality, fileName, subs, hardsub := utils.ParseFlags(args)
-
-	if url == "" && message.ReplyToMessage != nil {
-		text := message.ReplyToMessage.Text
-		if text == "" {
-			text = message.ReplyToMessage.Caption
-		}
-		url = utils.ExtractURLFromText(text)
-	}
-
-	if url != "" {
-		if s.TaskManager.YTDLPEngine.IsPlaylist(url) {
-			s.handleYTDLPPlaylist(message, url, fileName, zip, password, quality, subs, hardsub, service.TypeYTDLPLeech)
-			return
-		}
-	}
-
-	s.handleYTDLPGeneric(message, args, service.TypeYTDLPLeech)
-}
-
-func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, taskType service.TaskType) {
+func HandleYTDLP(s *service.BotService, message *tgbotapi.Message, args string) {
 	if err := s.CheckQuota(message.From.ID); err != nil {
-		s.reply(message, service.GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		s.Reply(message, service.GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
+	url, zip, unzip, password, quality, name, subs, hardsub := utils.ParseFlags(args)
+	_ = unzip
+
+	if url == "" {
+		url = utils.ExtractURLFromText(args)
+	}
+
+	if url == "" {
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "invalid_url"))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, _ = s.Bot.Send(msg)
+		return
+	}
+
+	if isYTDLPPlaylist(url) {
+		go handleYTDLPPlaylist(s, message, url, name, zip, password, quality, subs, hardsub, service.TypeMirror)
+		return
+	}
+
+	handleYTDLPGeneric(s, message, args, service.TypeMirror)
+}
+
+func HandleYTDLPLeech(s *service.BotService, message *tgbotapi.Message, args string) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.Reply(message, service.GetErrorMessage("QUOTA EXCEEDED", err.Error()))
+		return
+	}
+
+	url, _, _, _, _, _, _, _ := utils.ParseFlags(args)
+	if url == "" {
+		url = utils.ExtractURLFromText(args)
+	}
+
+	if url == "" {
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "invalid_url"))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, _ = s.Bot.Send(msg)
+		return
+	}
+
+	if isYTDLPPlaylist(url) {
+		handleYTDLPGeneric(s, message, args, service.TypeLeech)
+		return
+	}
+
+	handleYTDLPGeneric(s, message, args, service.TypeLeech)
+}
+
+func handleYTDLPGeneric(s *service.BotService, message *tgbotapi.Message, args string, taskType service.TaskType) {
+	if err := s.CheckQuota(message.From.ID); err != nil {
+		s.Reply(message, GetErrorMessage("QUOTA EXCEEDED", err.Error()))
 		return
 	}
 
@@ -89,7 +103,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	}
 
 	if quality == "" && (strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")) {
-		s.showYTDLPQualityMenu(message, url, name, zip, password, taskType)
+		showYTDLPQualityMenu(s, message, url, name, zip, password, taskType)
 		return
 	}
 
@@ -105,7 +119,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 
 	task, err := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0, subs, hardsub)
 	if err != nil {
-		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
+		s.HandleCreateTaskError(message.Chat.ID, message.MessageID, err)
 		return
 	}
 	s.UpdateSharedDashboard(message.Chat.ID, true)
@@ -113,7 +127,7 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	slog.Info("YTDLP task created", "taskID", task.ID, "type", taskType, "url", url, "fileName", fileName)
 }
 
-func (s *BotService) isYTDLPPlaylist(url string) bool {
+func isYTDLPPlaylist(url string) bool {
 	return (strings.Contains(url, "/@") ||
 		strings.Contains(url, "/channel/") ||
 		strings.Contains(url, "/c/") ||
@@ -122,9 +136,9 @@ func (s *BotService) isYTDLPPlaylist(url string) bool {
 		strings.Contains(url, "&list=")) && !strings.Contains(url, "watch?v=")
 }
 
-func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name string, zip bool, password string, taskType service.TaskType) {
+func showYTDLPQualityMenu(s *service.BotService, message *tgbotapi.Message, url, name string, zip bool, password string, taskType service.TaskType) {
 	lang := s.GetUserLanguage(message.From.ID)
-	if s.isYTDLPPlaylist(url) {
+	if isYTDLPPlaylist(url) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "ytdlp_playlist_error"))
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
 		sentMsg, _ := s.Bot.Send(msg)
@@ -140,15 +154,15 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name s
 	resMap, err := s.TaskManager.YTDLPEngine.GetFormats(ctx, url)
 	if err != nil {
 		slog.Error("YTDLP analysis failed", "error", err)
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, i18n.T(lang, "ytdlp_analysis_failed", utils.EscapeMarkdownV2(err.Error())))
+		s.EditMessage(statusMsg.Chat.ID, statusMsg.MessageID, i18n.T(lang, "ytdlp_analysis_failed", utils.EscapeMarkdownV2(err.Error())))
 		s.AutoDeleteMessage(statusMsg.Chat.ID, statusMsg.MessageID, 20*time.Second)
 		return
 	}
 
-	sortedHeights := s.getSortedHeights(resMap)
+	sortedHeights := getSortedHeights(resMap)
 
-	sessionID := s.createYTDLPSession(url, name, zip, password, taskType)
-	keyboard := s.buildYTDLPKeyboard(sortedHeights, resMap, sessionID)
+	sessionID := createYTDLPSession(s, url, name, zip, password, taskType)
+	keyboard := buildYTDLPKeyboard(sortedHeights, resMap, sessionID)
 
 	text := i18n.T(lang, "ytdlp_select_quality")
 	if len(sortedHeights) == 0 {
@@ -161,7 +175,7 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name s
 	_, _ = s.Bot.Send(editMsg)
 }
 
-func (s *BotService) getSortedHeights(resMap map[int]float64) []int {
+func getSortedHeights(resMap map[int]float64) []int {
 	var heights []int
 	for h := range resMap {
 		heights = append(heights, h)
@@ -170,7 +184,7 @@ func (s *BotService) getSortedHeights(resMap map[int]float64) []int {
 	return heights
 }
 
-func (s *BotService) createYTDLPSession(url, name string, zip bool, password string, taskType service.TaskType) string {
+func createYTDLPSession(s *service.BotService, url, name string, zip bool, password string, taskType service.TaskType) string {
 	sessionID := uuid.New().String()[:8]
 	s.TaskManager.Mu.Lock()
 	defer s.TaskManager.Mu.Unlock()
@@ -184,7 +198,7 @@ func (s *BotService) createYTDLPSession(url, name string, zip bool, password str
 	return sessionID
 }
 
-func (s *BotService) buildYTDLPKeyboard(sortedHeights []int, resMap map[int]float64, sessionID string) tgbotapi.InlineKeyboardMarkup {
+func buildYTDLPKeyboard(sortedHeights []int, resMap map[int]float64, sessionID string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	for i := 0; i < len(sortedHeights); i += 2 {
 		var row []tgbotapi.InlineKeyboardButton
@@ -226,7 +240,7 @@ func formatQualityLabel(height int, fps float64) string {
 	return label
 }
 
-func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+func YTDLPQualityCallbackHandler(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi kadaluarsa"))
 		return
@@ -267,20 +281,20 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 	}
 
 	if err := s.CheckQuota(callback.From.ID); err != nil {
-		_, _ = s.Bot.Send(tgbotapi.NewMessage(callback.Message.Chat.ID, service.GetErrorMessage("QUOTA EXCEEDED", err.Error())))
+		_, _ = s.Bot.Send(tgbotapi.NewMessage(callback.Message.Chat.ID, GetErrorMessage("QUOTA EXCEEDED", err.Error())))
 		return
 	}
 
 	task, err := s.TaskManager.CreateTask(session.Type, session.URL, fileName, callback.Message.Chat.ID, callback.Message.MessageID, replyID, callback.From.ID, session.Zip, false, session.Password, quality, 0, "", false)
 	if err != nil {
-		s.handleCreateTaskError(callback.Message.Chat.ID, callback.Message.MessageID, err)
+		s.HandleCreateTaskError(callback.Message.Chat.ID, callback.Message.MessageID, err)
 		return
 	}
 	s.UpdateSharedDashboard(callback.Message.Chat.ID, false)
 	slog.Info("YTDLP task created from callback", "taskID", task.ID, "type", session.Type, "quality", quality)
 }
 
-func (s *BotService) handleYTDLPPlaylist(message *tgbotapi.Message, url, name string, zip bool, password, quality, subs string, hardsub bool, taskType service.TaskType) {
+func handleYTDLPPlaylist(s *service.BotService, message *tgbotapi.Message, url, name string, zip bool, password, quality, subs string, hardsub bool, taskType service.TaskType) {
 	lang := s.GetUserLanguage(message.From.ID)
 	statusMsg, _ := s.Bot.Send(tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "ytdlp_analysis")))
 
@@ -290,22 +304,22 @@ func (s *BotService) handleYTDLPPlaylist(message *tgbotapi.Message, url, name st
 	metadata, err := s.TaskManager.YTDLPEngine.GetPlaylistMetadata(ctx, url)
 	if err != nil {
 		slog.Error("Playlist analysis failed", "error", err)
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, i18n.T(lang, "ytdlp_analysis_failed", utils.EscapeMarkdownV2(err.Error())))
+		s.EditMessage(statusMsg.Chat.ID, statusMsg.MessageID, i18n.T(lang, "ytdlp_analysis_failed", utils.EscapeMarkdownV2(err.Error())))
 		return
 	}
 
 	if len(metadata.Entries) == 0 {
-		s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, "❌ *Error*\n\nPlaylist kosong atau tidak ditemukan video\\.")
+		s.EditMessage(statusMsg.Chat.ID, statusMsg.MessageID, "❌ *Error*\n\nPlaylist kosong atau tidak ditemukan video\\.")
 		return
 	}
 
 	totalItems := len(metadata.Entries)
-	s.editStatusMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("✅ *Playlist Diterima*\n\n🏷️ *Judul:* %s\n📦 *Jumlah Item:* %d\n\nSedang memproses item playlist\\.\\.\\.", utils.EscapeMarkdownV2(metadata.Title), totalItems))
+	s.EditMessage(statusMsg.Chat.ID, statusMsg.MessageID, fmt.Sprintf("✅ *Playlist Diterima*\n\n🏷️ *Judul:* %s\n📦 *Jumlah Item:* %d\n\nSedang memproses item playlist\\.\\.\\.", utils.EscapeMarkdownV2(metadata.Title), totalItems))
 
-	go s.handlePlaylistDownload(message, metadata, name, zip, password, quality, subs, hardsub, taskType)
+	go handlePlaylistDownload(s, message, metadata, name, zip, password, quality, subs, hardsub, taskType)
 }
 
-func (s *BotService) handlePlaylistDownload(message *tgbotapi.Message, metadata *downloader.PlaylistMetadata, name string, zip bool, password, quality, subs string, hardsub bool, taskType service.TaskType) {
+func handlePlaylistDownload(s *service.BotService, message *tgbotapi.Message, metadata *downloader.PlaylistMetadata, name string, zip bool, password, quality, subs string, hardsub bool, taskType service.TaskType) {
 	for i, entry := range metadata.Entries {
 		if i >= 50 {
 			slog.Warn("Playlist item limit reached", "limit", 50, "total", len(metadata.Entries))

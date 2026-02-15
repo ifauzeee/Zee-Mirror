@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/service"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -102,17 +103,17 @@ func (s *BotService) CheckQuota(userID int64) error {
 
 func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 	if message.From.ID != s.Config.OwnerID {
-		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Owner yang bisa menggunakan perintah ini\\."))
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Owner yang bisa menggunakan perintah ini\\."))
 		return
 	}
 
 	targetID, username := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /authorize ID [username] atau reply ke user\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /authorize ID [username] atau reply ke user\\."))
 		return
 	}
 
-	if username == "" || username == UnknownSize {
+	if username == "" || username == service.UnknownSize {
 		username = "User"
 	}
 
@@ -128,17 +129,17 @@ func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 
 	err := s.DB.Upsert(ctx, user)
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan user: %v", err)))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan user: %v", err)))
 		return
 	}
 
-	quota := UnlimitedStr
+	quota := service.UnlimitedStr
 	if s.Config.DefaultMaxDailyTasks != -1 || s.Config.DefaultMaxDailyBandwidth != -1 {
-		tasks := UnlimitedStr
+		tasks := service.UnlimitedStr
 		if s.Config.DefaultMaxDailyTasks != -1 {
 			tasks = fmt.Sprintf("%d", s.Config.DefaultMaxDailyTasks)
 		}
-		bw := UnlimitedStr
+		bw := service.UnlimitedStr
 		if s.Config.DefaultMaxDailyBandwidth != -1 {
 			bw = utils.FormatBytes(s.Config.DefaultMaxDailyBandwidth)
 		}
@@ -147,18 +148,18 @@ func (s *BotService) HandleAuthorize(message *tgbotapi.Message, args string) {
 
 	content := fmt.Sprintf("👤 *User:* %s\n🏷️ *ID:* `%d`\n🔰 *Role:* `Authorized`\n♾️ *Kuota:* `%s`",
 		utils.EscapeMarkdownV2(username), targetID, utils.EscapeMarkdownV2(quota))
-	s.reply(message, GetSuccessMessage("ACCESS GRANTED", content))
+	s.reply(message, service.GetSuccessMessage("ACCESS GRANTED", content))
 }
 
 func (s *BotService) HandleUnauthorize(message *tgbotapi.Message, args string) {
 	if message.From.ID != s.Config.OwnerID {
-		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Owner yang bisa menggunakan perintah ini."))
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Owner yang bisa menggunakan perintah ini."))
 		return
 	}
 
 	targetID, _ := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /unauthorize ID atau reply ke user\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /unauthorize ID atau reply ke user\\."))
 		return
 	}
 
@@ -166,11 +167,11 @@ func (s *BotService) HandleUnauthorize(message *tgbotapi.Message, args string) {
 
 	err := s.DB.SetRole(ctx, targetID, "user")
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal merubah role user: %v", err)))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal merubah role user: %v", err)))
 		return
 	}
 
-	s.reply(message, GetSuccessMessage("ACCESS REVOKED", fmt.Sprintf("User `%d` telah dikembalikan ke status user biasa\\.", targetID)))
+	s.reply(message, service.GetSuccessMessage("ACCESS REVOKED", fmt.Sprintf("User `%d` telah dikembalikan ke status user biasa\\.", targetID)))
 }
 
 func (s *BotService) HandleUsers(message *tgbotapi.Message) {
@@ -182,7 +183,7 @@ func (s *BotService) HandleUsers(message *tgbotapi.Message) {
 	usersCount, _ := s.DB.GetCount(ctx)
 	users, err := s.DB.GetAll(ctx)
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", "Gagal mengambil daftar user\\."))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", "Gagal mengambil daftar user\\."))
 		return
 	}
 
@@ -211,50 +212,50 @@ func (s *BotService) HandleUsers(message *tgbotapi.Message) {
 			status, u.ID, utils.EscapeMarkdownV2(u.Username), strings.ToUpper(role), utils.EscapeMarkdownV2(limits)))
 	}
 
-	s.reply(message, ProfessionalMessage("DAFTAR PENGGUNA", content.String()))
+	s.reply(message, service.ProfessionalMessage("DAFTAR PENGGUNA", content.String()))
 }
 
 func (s *BotService) HandleRemoveUser(message *tgbotapi.Message, args string) {
 	if !s.IsAdmin(message.From.ID) {
-		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
 		return
 	}
 
 	targetID, _ := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /removeuser ID atau reply ke user\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /removeuser ID atau reply ke user\\."))
 		return
 	}
 
 	if s.IsOwner(targetID) {
-		s.reply(message, GetErrorMessage("ERROR", "Tidak bisa menghapus Owner\\."))
+		s.reply(message, service.GetErrorMessage("ERROR", "Tidak bisa menghapus Owner\\."))
 		return
 	}
 
 	ctx := context.Background()
 	err := s.DB.Delete(ctx, targetID)
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menghapus user: %v", err)))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menghapus user: %v", err)))
 		return
 	}
 
-	s.reply(message, GetSuccessMessage("USER REMOVED", fmt.Sprintf("Pengguna `%d` telah dihapus dari database\\.", targetID)))
+	s.reply(message, service.GetSuccessMessage("USER REMOVED", fmt.Sprintf("Pengguna `%d` telah dihapus dari database\\.", targetID)))
 }
 
 func (s *BotService) HandleSetRole(message *tgbotapi.Message, args string) {
 	if !s.IsAdmin(message.From.ID) {
-		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
 		return
 	}
 
 	targetID, _ := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /setrole ID <role> atau reply ke user dengan <role>\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /setrole ID <role> atau reply ke user dengan <role>\\."))
 		return
 	}
 
 	if s.IsOwner(targetID) {
-		s.reply(message, GetErrorMessage("ERROR", "Tidak bisa merubah role Owner\\."))
+		s.reply(message, service.GetErrorMessage("ERROR", "Tidak bisa merubah role Owner\\."))
 		return
 	}
 
@@ -269,22 +270,22 @@ func (s *BotService) HandleSetRole(message *tgbotapi.Message, args string) {
 	ctx := context.Background()
 	err := s.DB.SetRole(ctx, targetID, role)
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal merubah role: %v", err)))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal merubah role: %v", err)))
 		return
 	}
 
-	s.reply(message, GetSuccessMessage("ROLE UPDATED", fmt.Sprintf("Role pengguna `%d` telah diubah menjadi `%s`\\.", targetID, strings.ToUpper(role))))
+	s.reply(message, service.GetSuccessMessage("ROLE UPDATED", fmt.Sprintf("Role pengguna `%d` telah diubah menjadi `%s`\\.", targetID, strings.ToUpper(role))))
 }
 
 func (s *BotService) HandleSetLimit(message *tgbotapi.Message, args string) {
 	if !s.IsAdmin(message.From.ID) {
-		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
 		return
 	}
 
 	targetID, _ := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /setlimit ID <tasks> <bandwidth> atau reply dengan <tasks> <bandwidth>\\.\nGunakan \\-1 untuk unlimited\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /setlimit ID <tasks> <bandwidth> atau reply dengan <tasks> <bandwidth>\\.\nGunakan \\-1 untuk unlimited\\."))
 		return
 	}
 
@@ -299,19 +300,19 @@ func (s *BotService) HandleSetLimit(message *tgbotapi.Message, args string) {
 	}
 
 	if len(remainingArgs) < 2 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Berikan jumlah task dan bandwidth (misal: 10 50GB)\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Berikan jumlah task dan bandwidth (misal: 10 50GB)\\."))
 		return
 	}
 
 	maxTasks, err := strconv.Atoi(remainingArgs[0])
 	if err != nil {
-		s.reply(message, GetErrorMessage("INVALID VALUE", "Jumlah task harus angka\\."))
+		s.reply(message, service.GetErrorMessage("INVALID VALUE", "Jumlah task harus angka\\."))
 		return
 	}
 
 	maxBandwidth := utils.ParseBytesString(remainingArgs[1])
 	if maxBandwidth == 0 && remainingArgs[1] != "0" && remainingArgs[1] != "-1" {
-		s.reply(message, GetErrorMessage("INVALID VALUE", "Format bandwidth tidak valid (misal: 10GB, 100MB, -1)\\."))
+		s.reply(message, service.GetErrorMessage("INVALID VALUE", "Format bandwidth tidak valid (misal: 10GB, 100MB, -1)\\."))
 		return
 	}
 
@@ -322,33 +323,33 @@ func (s *BotService) HandleSetLimit(message *tgbotapi.Message, args string) {
 	ctx := context.Background()
 	err = s.DB.SetLimits(ctx, targetID, maxTasks, maxBandwidth)
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan limit: %v", err)))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan limit: %v", err)))
 		return
 	}
 
-	bwStr := UnlimitedStr
+	bwStr := service.UnlimitedStr
 	if maxBandwidth != -1 {
 		bwStr = utils.FormatBytes(maxBandwidth)
 	}
-	taskStr := UnlimitedStr
+	taskStr := service.UnlimitedStr
 	if maxTasks != -1 {
 		taskStr = strconv.Itoa(maxTasks)
 	}
 
 	content := fmt.Sprintf("👤 *User ID:* `%d`\n📋 *Daily Tasks:* `%s`\n📊 *Daily Bandwidth:* `%s`",
 		targetID, taskStr, bwStr)
-	s.reply(message, GetSuccessMessage("LIMITS UPDATED", content))
+	s.reply(message, service.GetSuccessMessage("LIMITS UPDATED", content))
 }
 
 func (s *BotService) HandleSetExpire(message *tgbotapi.Message, args string) {
 	if !s.IsAdmin(message.From.ID) {
-		s.reply(message, GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Hanya Admin/Owner yang bisa menggunakan perintah ini\\."))
 		return
 	}
 
 	targetID, _ := s.parseUserArgs(message, args)
 	if targetID == 0 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Gunakan: /setexpire ID <days> atau reply dengan <days>\\."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /setexpire ID <days> atau reply dengan <days>\\."))
 		return
 	}
 
@@ -363,25 +364,25 @@ func (s *BotService) HandleSetExpire(message *tgbotapi.Message, args string) {
 	}
 
 	if len(remainingArgs) < 1 {
-		s.reply(message, GetErrorMessage("INVALID FORMAT", "Berikan jumlah hari masa aktif\\."))
+		s.reply(message, service.GetErrorMessage("ALREADY AUTHORIZED", "Anda sudah memiliki akses."))
 		return
 	}
 
-	days, err := strconv.Atoi(remainingArgs[0])
-	if err != nil {
-		s.reply(message, GetErrorMessage("INVALID VALUE", "Jumlah hari harus angka\\."))
+	if s.Config.AuthPassword != "" && args != s.Config.AuthPassword {
+		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Password salah."))
 		return
 	}
 
+	days := 30
 	expiresAt := time.Now().AddDate(0, 0, days)
 	ctx := context.Background()
-	err = s.DB.SetExpiration(ctx, targetID, expiresAt)
+	err := s.DB.SetExpiration(ctx, targetID, expiresAt)
 	if err != nil {
-		s.reply(message, GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan masa aktif: %v", err)))
+		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan masa aktif: %v", err)))
 		return
 	}
 
-	s.reply(message, GetSuccessMessage("EXPIRATION UPDATED", fmt.Sprintf("Masa aktif pengguna `%d` diperbarui hingga *%s* \\(%d hari\\)\\.",
+	s.reply(message, service.GetSuccessMessage("EXPIRATION UPDATED", fmt.Sprintf("Masa aktif pengguna `%d` diperbarui hingga *%s* \\(%d hari\\)\\.",
 		targetID, expiresAt.Format("02 Jan 2006"), days)))
 }
 
@@ -402,7 +403,7 @@ func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int6
 			if err != nil {
 				return 0, ""
 			}
-			username := UnknownSize
+			username := service.UnknownSize
 			if len(parts) > 1 {
 				username = parts[1]
 			}
@@ -411,14 +412,6 @@ func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int6
 	}
 
 	return 0, ""
-}
-
-func (s *BotService) reply(message *tgbotapi.Message, text string) {
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = MarkdownV2
-	if _, err := s.Bot.Send(msg); err != nil {
-		slog.Error("Failed to send message", "error", err, "userID", message.From.ID)
-	}
 }
 
 func (s *BotService) startDiskCleanupWorker() {
@@ -468,5 +461,5 @@ func (s *BotService) performDiskCleanup() {
 }
 
 func (s *BotService) getDiskUsage() float64 {
-	return s.getDiskUsageOS()
+	return s.GetDiskUsage()
 }

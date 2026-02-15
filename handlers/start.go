@@ -8,13 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"zee-mirror/internal/service"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-)
-
-const (
-	ActionBack = "back"
 )
 
 func (s *BotService) HandleStart(message *tgbotapi.Message) {
@@ -24,11 +21,11 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 	}
 
 	lang := s.GetUserLanguage(message.From.ID)
-	welcomeText := GetWelcomeMessage(lang, userName)
-	keyboard := GetStartKeyboard(lang)
+	welcomeText := service.GetWelcomeMessage(lang, userName)
+	keyboard := service.GetStartKeyboard(lang)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, welcomeText)
-	msg.ParseMode = MarkdownV2
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	msg.ReplyMarkup = keyboard
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
@@ -39,11 +36,11 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 }
 func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 	lang := s.GetUserLanguage(message.From.ID)
-	helpText := GetHelpMainText(lang)
-	keyboard := GetHelpKeyboard(lang)
+	helpText := service.GetHelpMainText(lang)
+	keyboard := service.GetHelpKeyboard(lang)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
-	msg.ParseMode = MarkdownV2
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	msg.ReplyMarkup = keyboard
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
@@ -76,7 +73,7 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 	keyboard := s.getModeKeyboard(action)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
@@ -106,10 +103,10 @@ func (s *BotService) handleDashboardAction(callback *tgbotapi.CallbackQuery, act
 		s.HandleSystemFromCallback(callback)
 	case ActionBack:
 		lang := s.GetUserLanguage(callback.From.ID)
-		content := GetWelcomeMessage(lang, callback.From.FirstName)
-		kb := GetStartKeyboard(lang)
+		content := service.GetWelcomeMessage(lang, callback.From.FirstName)
+		kb := service.GetStartKeyboard(lang)
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
-		editMsg.ParseMode = MarkdownV2
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 		editMsg.ReplyMarkup = &kb
 		_, _ = s.Bot.Send(editMsg)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
@@ -136,7 +133,7 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 		"• `/mediainfo` ─ Info detail file\n\n" +
 		"💡 *Cara pakai:* Reply ke file video dengan command"
 
-	text := ProfessionalMessage("MEDIA PROCESSING", content)
+	text := service.ProfessionalMessage("MEDIA PROCESSING", content)
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -165,7 +162,7 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 	)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🎵 Media Menu"))
@@ -202,7 +199,7 @@ func (s *BotService) getModeKeyboard(action string) tgbotapi.InlineKeyboardMarku
 func (s *BotService) getDashboardModeText(action string) string {
 	switch action {
 	case "mirror":
-		return ProfessionalMessage("MIRROR MODE",
+		return service.ProfessionalMessage("MIRROR MODE",
 			"Upload file langsung ke Google Drive\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• Reply ke file dengan `/mirror`\n"+
@@ -213,7 +210,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"• `\\-p PASS` ─ Password zip")
 
 	case "leech":
-		return ProfessionalMessage("LEECH MODE",
+		return service.ProfessionalMessage("LEECH MODE",
 			"Download file dari URL ke server\\.\n\n"+
 				"✅ *SUPPORT*\n"+
 				"• HTTP/HTTPS • FTP • Magnet\n\n"+
@@ -221,7 +218,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"• `/leech` \\<URL\\>")
 
 	case "ytdlp":
-		return ProfessionalMessage("YT-DLP MODE",
+		return service.ProfessionalMessage("YT-DLP MODE",
 			"Download video dari 1000\\+ situs\\.\n\n"+
 				"✅ *SUPPORT*\n"+
 				"• YouTube • Twitter • TikTok • etc\\.\n\n"+
@@ -229,20 +226,20 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"• `/ytdlp` \\<URL\\>")
 
 	case "torrent":
-		return ProfessionalMessage("TORRENT MODE",
+		return service.ProfessionalMessage("TORRENT MODE",
 			"Download via magnet atau file torrent\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• `/torrent` \\<magnet\\_link\\>\n"+
 				"• Reply ke file `.torrent` dengan `/torrent`")
 
 	case "clone":
-		return ProfessionalMessage("CLONE MODE",
+		return service.ProfessionalMessage("CLONE MODE",
 			"Clone file/folder Google Drive\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• `/clone` \\<GDRIVE\\_URL\\>")
 
 	case "batch":
-		return ProfessionalMessage("BATCH MODE",
+		return service.ProfessionalMessage("BATCH MODE",
 			"Download multiple URLs sekaligus\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"`/batch`\n"+
@@ -250,13 +247,13 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"`URL2`")
 
 	case "search":
-		return ProfessionalMessage("SEARCH MODE",
+		return service.ProfessionalMessage("SEARCH MODE",
 			"Cari torrent dari berbagai sumber\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• `/search` \\<keyword\\>")
 
 	case "hardsub":
-		return ProfessionalMessage("HARD-SUB MODE",
+		return service.ProfessionalMessage("HARD-SUB MODE",
 			"Burn subtitle permanen ke dalam video\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• Reply ke video dengan `/hardsub subtitle.srt`\n"+
@@ -265,7 +262,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 				"Proses ini memerlukan re-encoding video, jadi akan memakan waktu lebih lama dibanding soft-sub.")
 
 	case "rescale":
-		return ProfessionalMessage("RESCALE MODE",
+		return service.ProfessionalMessage("RESCALE MODE",
 			"Ubah resolusi video (Transcoding)\\.\n\n"+
 				"📌 *CARA PAKAI*\n"+
 				"• Reply ke video dengan `/rescale 720p`\n"+
@@ -277,7 +274,7 @@ func (s *BotService) getDashboardModeText(action string) string {
 		return ""
 
 	default:
-		return GetErrorMessage("UNKNOWN", "Aksi tidak dikenal.")
+		return service.GetErrorMessage("UNKNOWN", "Aksi tidak dikenal.")
 	}
 }
 
@@ -286,18 +283,18 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 	tasks := s.TaskManager.GetActiveTasks()
 
 	if len(tasks) == 0 {
-		content := GetErrorMessage("STATUS", "Tidak ada task aktif.")
+		content := service.GetErrorMessage("STATUS", "Tidak ada task aktif.")
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
-		editMsg.ParseMode = MarkdownV2
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 		_, _ = s.Bot.Send(editMsg)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📭 Empty"))
 		return
 	}
 
-	text := GetStatusHeader()
+	text := service.GetStatusHeader()
 	for _, task := range tasks {
 		snapshot := task.GetSnapshot()
-		text += FormatTaskProfessional(lang, snapshot) + "\n"
+		text += service.FormatTaskProfessional(lang, snapshot) + "\n"
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -311,7 +308,7 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 	)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Updated"))
@@ -322,7 +319,7 @@ func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery
 	keyboard := s.getSettingsKeyboard(callback.From.ID)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "⚙️ Settings"))
@@ -331,7 +328,7 @@ func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery
 func (s *BotService) HandlePingFromCallback(callback *tgbotapi.CallbackQuery) {
 	start := time.Now()
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🏓 *Pinging\\.\\.\\.*")
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, _ = s.Bot.Send(editMsg)
 
 	elapsed := time.Since(start)
@@ -345,7 +342,7 @@ func (s *BotService) HandlePingFromCallback(callback *tgbotapi.CallbackQuery) {
 	)
 
 	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	finalEdit.ParseMode = MarkdownV2
+	finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
 	finalEdit.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(finalEdit)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏓 Pong!"))
@@ -353,7 +350,7 @@ func (s *BotService) HandlePingFromCallback(callback *tgbotapi.CallbackQuery) {
 
 func (s *BotService) HandleSpeedFromCallback(callback *tgbotapi.CallbackQuery) {
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🚀 *Running Speedtest\\.\\.\\.*")
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, _ = s.Bot.Send(editMsg)
 
 	go func() {
@@ -381,7 +378,7 @@ func (s *BotService) HandleSpeedFromCallback(callback *tgbotapi.CallbackQuery) {
 		)
 
 		finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		finalEdit.ParseMode = MarkdownV2
+		finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
 		finalEdit.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(finalEdit)
 	}()
@@ -404,7 +401,7 @@ func (s *BotService) HandleStatsFromCallback(callback *tgbotapi.CallbackQuery) {
 	keyboard := s.getStatsKeyboard()
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📊 Statistics"))
@@ -443,15 +440,15 @@ func (s *BotService) HandleStoragesFromCallback(callback *tgbotapi.CallbackQuery
 	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text.String())
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "💾 Storages"))
 }
 
 func (s *BotService) HandleSystemFromCallback(callback *tgbotapi.CallbackQuery) {
-	stats := s.getSystemStats()
-	text := s.formatSystemStats(stats)
+	stats := s.GetSystemStats()
+	text := s.FormatSystemStats(stats)
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -469,7 +466,7 @@ func (s *BotService) HandleSystemFromCallback(callback *tgbotapi.CallbackQuery) 
 	)
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = MarkdownV2
+	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🖥️ System"))
@@ -480,14 +477,14 @@ func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuer
 	path := basePath
 
 	loadingMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, "🔍 *Memuat daftar file\\.\\.\\.*")
-	loadingMsg.ParseMode = MarkdownV2
+	loadingMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, _ = s.Bot.Send(loadingMsg)
 
-	files, err := s.listDriveFiles(path)
+	files, err := s.ListDriveFiles(path)
 	if err != nil {
 		text := fmt.Sprintf("❌ *Gagal memuat daftar file*\n\nError: %s", utils.EscapeMarkdownV2(err.Error()))
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = MarkdownV2
+		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 		_, _ = s.Bot.Send(editMsg)
 		return
 	}
@@ -500,15 +497,15 @@ func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuer
 		}
 	}
 
-	text := s.formatDriveFileList("/", files)
-	keyboard := s.buildDriveNavigationKeyboard(files, relPath)
+	text := s.FormatDriveFileList("/", files)
+	keyboard := s.BuildDriveNavigationKeyboard(files, relPath)
 
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:files"),
 	))
 
 	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	finalEdit.ParseMode = MarkdownV2
+	finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
 	finalEdit.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(finalEdit)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📁 Drive List"))
