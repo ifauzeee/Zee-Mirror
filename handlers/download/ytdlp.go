@@ -39,11 +39,11 @@ func HandleYTDLP(s *service.BotService, message *tgbotapi.Message, args string) 
 	}
 
 	if isYTDLPPlaylist(url) {
-		go handleYTDLPPlaylist(s, message, url, name, zip, password, quality, subs, hardsub, service.TypeMirror)
+		go handleYTDLPPlaylist(s, message, url, name, zip, password, quality, subs, hardsub, service.TypeYTDLP)
 		return
 	}
 
-	handleYTDLPGeneric(s, message, args, service.TypeMirror)
+	handleYTDLPGeneric(s, message, args, service.TypeYTDLP)
 }
 
 func HandleYTDLPLeech(s *service.BotService, message *tgbotapi.Message, args string) {
@@ -52,7 +52,8 @@ func HandleYTDLPLeech(s *service.BotService, message *tgbotapi.Message, args str
 		return
 	}
 
-	url, _, _, _, _, _, _, _ := utils.ParseFlags(args)
+	url, zip, unzip, password, quality, name, subs, hardsub := utils.ParseFlags(args)
+	_ = unzip
 	if url == "" {
 		url = utils.ExtractURLFromText(args)
 	}
@@ -66,11 +67,11 @@ func HandleYTDLPLeech(s *service.BotService, message *tgbotapi.Message, args str
 	}
 
 	if isYTDLPPlaylist(url) {
-		handleYTDLPGeneric(s, message, args, service.TypeLeech)
+		go handleYTDLPPlaylist(s, message, url, name, zip, password, quality, subs, hardsub, service.TypeYTDLPLeech)
 		return
 	}
 
-	handleYTDLPGeneric(s, message, args, service.TypeLeech)
+	handleYTDLPGeneric(s, message, args, service.TypeYTDLPLeech)
 }
 
 func handleYTDLPGeneric(s *service.BotService, message *tgbotapi.Message, args string, taskType service.TaskType) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -16,6 +17,8 @@ type Aria2Daemon struct {
 	Cmd       *exec.Cmd
 	ConfigDir string
 }
+
+var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func NewAria2Daemon(configDir string) *Aria2Daemon {
 	return &Aria2Daemon{
@@ -84,8 +87,9 @@ func streamAria2Output(r io.Reader, isErr bool) {
 		if line == "" {
 			continue
 		}
+		line = ansiEscapePattern.ReplaceAllString(line, "")
 
-		if isErr {
+		if isErr || strings.Contains(line, "[WARN]") {
 			slog.Warn("aria2c", "output", line)
 			continue
 		}
