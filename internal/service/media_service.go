@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/errors"
 	"zee-mirror/pkg/utils"
 )
 
@@ -79,6 +80,7 @@ func (s *BotService) HasAudioStream(inputPath string) (bool, error) {
 	inputDir := filepath.Dir(inputPath)
 	inputName := filepath.Base(inputPath)
 
+	// #nosec G204
 	cmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", inputName)
 	cmd.Dir = inputDir
 	output, err := cmd.Output()
@@ -94,8 +96,9 @@ func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]str
 	defer cancel()
 
 	cleanInput := filepath.Clean(inputPath)
+	// #nosec G204
 	durationCmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration",
-		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+cleanInput) // #nosec G204
+		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+cleanInput)
 	durationOutput, err := durationCmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get duration: %w", err)
@@ -121,8 +124,9 @@ func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]str
 
 		shotCtx, shotCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
+		// #nosec G204
 		cmd := exec.CommandContext(shotCtx, "ffmpeg", "-ss", fmt.Sprintf("%.2f", timestamp),
-			"-i", "file:"+cleanInput, "-vframes", "1", "-q:v", "2", "file:"+cleanOutput, "-y") // #nosec G204
+			"-i", "file:"+cleanInput, "-vframes", "1", "-q:v", "2", "file:"+cleanOutput, "-y")
 
 		if err := cmd.Run(); err != nil {
 			slog.Warn("Failed to generate screenshot", "index", i, "error", err)
@@ -134,7 +138,7 @@ func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]str
 	}
 
 	if len(screenshots) == 0 {
-		return nil, fmt.Errorf("no screenshots generated")
+		return nil, errors.ErrInternal // Or specific error if defined
 	}
 
 	return screenshots, nil

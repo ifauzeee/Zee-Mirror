@@ -1,11 +1,11 @@
 package service_test
 
 import (
-	"errors"
 	"testing"
 
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/errors"
 	"zee-mirror/internal/repository/mocks"
 	"zee-mirror/internal/service"
 
@@ -56,7 +56,7 @@ func TestIsAuthorized(t *testing.T) {
 	})
 
 	t.Run("User Not Found", func(t *testing.T) {
-		mockRepo.On("GetByID", mock.Anything, int64(33333)).Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetByID", mock.Anything, int64(33333)).Return(nil, errors.ErrUserNotFound).Once()
 
 		assert.False(t, svc.IsAuthorized(33333))
 	})
@@ -77,11 +77,11 @@ func TestCheckQuota(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		svc := &service.BotService{UserRepo: mockRepo, DB: mockRepo, Config: cfg}
 
-		mockRepo.On("GetByID", mock.Anything, int64(999)).Return(nil, errors.New("db error")).Once()
+		mockRepo.On("GetByID", mock.Anything, int64(999)).Return(nil, errors.ErrUserNotFound).Once()
 
 		err := svc.CheckQuota(999)
 		assert.Error(t, err)
-		assert.Equal(t, "user not found", err.Error())
+		assert.ErrorIs(t, err, errors.ErrUserNotFound)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -96,7 +96,7 @@ func TestCheckQuota(t *testing.T) {
 
 		err := svc.CheckQuota(888)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "akun anda tidak aktif")
+		assert.ErrorIs(t, err, errors.ErrAccountInactive)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -132,7 +132,8 @@ func TestCheckQuota(t *testing.T) {
 
 		err := svc.CheckQuota(666)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "kuota task harian habis")
+		assert.ErrorIs(t, err, errors.ErrQuotaExceeded)
+		assert.Contains(t, err.Error(), "(5/5)")
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -154,7 +155,8 @@ func TestCheckQuota(t *testing.T) {
 
 		err := svc.CheckQuota(555)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "kuota bandwidth harian habis")
+		assert.ErrorIs(t, err, errors.ErrQuotaExceeded)
+		assert.Contains(t, err.Error(), "1000 B/1000 B")
 		mockRepo.AssertExpectations(t)
 	})
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"zee-mirror/internal/errors"
 	"zee-mirror/pkg/utils"
 )
 
@@ -61,14 +62,14 @@ func (s *BotService) CheckQuota(userID int64) error {
 	ctx := context.Background()
 	user, err := s.UserRepo.GetByID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("user not found")
+		return errors.ErrUserNotFound
 	}
 
 	if !user.IsActive {
 		if user.ExpiresAt.Valid {
-			return fmt.Errorf("akses anda telah berakhir pada %s", user.ExpiresAt.Time.Format("02 Jan 2006"))
+			return fmt.Errorf("%w: akses anda telah berakhir pada %s", errors.ErrAccountInactive, user.ExpiresAt.Time.Format("02 Jan 2006"))
 		}
-		return fmt.Errorf("akun anda tidak aktif")
+		return errors.ErrAccountInactive
 	}
 
 	if user.MaxDailyTasks == -1 && user.MaxDailyBandwidth == -1 {
@@ -77,15 +78,15 @@ func (s *BotService) CheckQuota(userID int64) error {
 
 	stats, err := s.DB.GetUserTodayStats(ctx, userID)
 	if err != nil {
-		return nil
+		return nil // Fail open or log error? Original code returns nil.
 	}
 
 	if user.MaxDailyTasks != -1 && stats.TotalTasks >= user.MaxDailyTasks {
-		return fmt.Errorf("kuota task harian habis (%d/%d)", stats.TotalTasks, user.MaxDailyTasks)
+		return fmt.Errorf("%w: (%d/%d)", errors.ErrQuotaExceeded, stats.TotalTasks, user.MaxDailyTasks)
 	}
 
 	if user.MaxDailyBandwidth != -1 && stats.TotalBandwidth >= user.MaxDailyBandwidth {
-		return fmt.Errorf("kuota bandwidth harian habis (%s/%s)", utils.FormatBytes(stats.TotalBandwidth), utils.FormatBytes(user.MaxDailyBandwidth))
+		return fmt.Errorf("%w: bandwidth (%s/%s)", errors.ErrQuotaExceeded, utils.FormatBytes(stats.TotalBandwidth), utils.FormatBytes(user.MaxDailyBandwidth))
 	}
 
 	return nil
