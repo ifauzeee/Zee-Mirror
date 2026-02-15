@@ -401,14 +401,28 @@ func setupMediaRoutes(r *router.Router) {
 
 func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("dashboard", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "dashboard") {
+			return
+		}
 		(&handlers.BotService{BotService: s}).HandleDashboardCallback(cb)
 	})
-	r.RegisterCallback("help", func(s *service.BotService, cb *tgbotapi.CallbackQuery) { basic.HandleHelpCallback(s, cb, "") })
+	r.RegisterCallback("help", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "help") {
+			return
+		}
+		basic.HandleHelpCallback(s, cb, "")
+	})
 	r.RegisterCallback("refresh_status", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "refresh_status") {
+			return
+		}
 		(&handlers.BotService{BotService: s}).HandleRefreshStatusCallback(cb)
 	})
 
 	searchHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "search") {
+			return
+		}
 		parts := strings.Split(cb.Data, ":")
 		if parts[0] == "t_search" {
 			search.HandleSearchCallback(s, cb, parts)
@@ -423,6 +437,9 @@ func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("t_close", searchHandler)
 
 	taskActionHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "task_action") {
+			return
+		}
 		parts := strings.Split(cb.Data, ":")
 		switch parts[0] {
 		case "ytdlp_q":
@@ -444,6 +461,9 @@ func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("torrent_sel", taskActionHandler)
 
 	systemHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "system") {
+			return
+		}
 		parts := strings.Split(cb.Data, ":")
 		switch parts[0] {
 		case "stats":
@@ -463,11 +483,32 @@ func setupCallbackRoutes(r *router.Router) {
 	r.RegisterCallback("dr", systemHandler)
 
 	r.RegisterCallback("media_m", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "media_m") {
+			return
+		}
 		parts := strings.Split(cb.Data, ":")
 		media.HandleMediaMirrorCallback(s, cb, parts)
 	})
 	r.RegisterCallback("media", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "media") {
+			return
+		}
 		parts := strings.Split(cb.Data, ":")
 		media.HandleMediaMenuCallback(s, cb, parts)
 	})
+}
+
+func ensureCallbackMessage(s *service.BotService, cb *tgbotapi.CallbackQuery, route string) bool {
+	if cb == nil {
+		slog.Warn("Ignoring nil callback", "route", route)
+		return false
+	}
+	if cb.Message == nil {
+		slog.Warn("Ignoring callback without message", "route", route, "data", cb.Data)
+		if cb.ID != "" {
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(cb.ID, "Unsupported callback context"))
+		}
+		return false
+	}
+	return true
 }

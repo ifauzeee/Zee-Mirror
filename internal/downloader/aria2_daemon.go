@@ -91,4 +91,7 @@ func streamAria2Output(r io.Reader, isErr bool) {
 		}
 		slog.Info("aria2c", "output", line)
 	}
+	if err := scanner.Err(); err != nil {
+		slog.Warn("aria2c output stream error", "error", err)
+	}
 }
