@@ -99,15 +99,10 @@ func (d *Dispatcher) HandleMessage(message *tgbotapi.Message) {
 			slog.Warn("HandleExec not implemented")
 		case "restart":
 			slog.Warn("HandleRestart not implemented")
-
 		case "storage", "drives":
 			storage.HandleStorages(d.Service, message)
 		case "setstorage":
 			storage.HandleSetStorage(d.Service, message, args)
-
-		}
-	} else {
-		if message.Document != nil || message.Video != nil || message.Audio != nil || message.Photo != nil {
 		}
 	}
 }

@@ -12,7 +12,7 @@ type DriveFile struct {
 	IsDir    bool   `json:"IsDir"`
 }
 
-type SearchResult struct {
+type Result struct {
 	Title   string
 	Size    string
 	Seeders string
@@ -20,10 +20,10 @@ type SearchResult struct {
 	Source  string
 }
 
-type SearchSession struct {
+type Session struct {
 	CreatedAt time.Time
 	Query     string
 	Provider  string
-	Results   []SearchResult
+	Results   []Result
 	Page      int
 }

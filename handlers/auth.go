@@ -3,9 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -412,54 +409,4 @@ func (s *BotService) parseUserArgs(message *tgbotapi.Message, args string) (int6
 	}
 
 	return 0, ""
-}
-
-func (s *BotService) startDiskCleanupWorker() {
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.TaskManager.ShutdownChan:
-			return
-		case <-ticker.C:
-			s.performDiskCleanup()
-		}
-	}
-}
-
-func (s *BotService) performDiskCleanup() {
-	cutoff := time.Now().Add(-24 * time.Hour)
-
-	entries, err := os.ReadDir(s.Config.DownloadDir)
-	if err != nil {
-		slog.Error("Error reading download dir", "error", err, "path", s.Config.DownloadDir)
-		return
-	}
-
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
-		if info.ModTime().Before(cutoff) {
-			path := filepath.Join(s.Config.DownloadDir, entry.Name())
-
-			if s.TaskManager.GetTask(entry.Name()) != nil {
-				continue
-			}
-
-			slog.Info("Removing old entry", "name", entry.Name())
-			_ = os.RemoveAll(path)
-		}
-	}
-
-	if usage := s.getDiskUsage(); usage > 90 {
-		slog.Warn("Disk usage critical", "usage", usage)
-	}
-}
-
-func (s *BotService) getDiskUsage() float64 {
-	return s.GetDiskUsage()
 }

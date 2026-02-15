@@ -19,7 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type SearchResult struct {
+type Result struct {
 	Title   string
 	Size    string
 	Seeders string
@@ -27,16 +27,16 @@ type SearchResult struct {
 	Source  string
 }
 
-type SearchSession struct {
+type Session struct {
 	CreatedAt time.Time
 	Query     string
 	Provider  string
-	Results   []SearchResult
+	Results   []Result
 	Page      int
 }
 
 var (
-	SearchSessions = make(map[string]*SearchSession)
+	SearchSessions = make(map[string]*Session)
 	SearchMu       sync.RWMutex
 )
 
@@ -55,10 +55,10 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 	sessionID := uuid.New().String()
 
 	SearchMu.Lock()
-	SearchSessions[sessionID] = &SearchSession{
+	SearchSessions[sessionID] = &Session{
 		CreatedAt: time.Now(),
 		Query:     query,
-		Results:   []SearchResult{},
+		Results:   []Result{},
 		Page:      0,
 	}
 	SearchMu.Unlock()
@@ -68,7 +68,7 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 		pbResults := searchPirateBay(query)
 		slResults := searchSolidTorrents(query)
 
-		var all []SearchResult
+		var all []Result
 		all = append(all, nyResults...)
 		all = append(all, pbResults...)
 		all = append(all, slResults...)
@@ -104,7 +104,7 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, _ = s.Bot.Send(editMsg)
 
-	var results []SearchResult
+	var results []Result
 	slog.Info("Torrent search initiated", "provider", provider, "query", query)
 	switch provider {
 	case "solid":
@@ -117,7 +117,7 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 
 	if len(results) == 0 {
 		sessionID := uuid.New().String()[:8]
-		session := &SearchSession{
+		session := &Session{
 			Query:     query,
 			Provider:  provider,
 			Results:   results,
@@ -145,7 +145,7 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 	}
 
 	sessionID := uuid.New().String()[:8]
-	session := &SearchSession{
+	session := &Session{
 		Query:     query,
 		Provider:  provider,
 		Results:   results,
@@ -367,8 +367,8 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 	}
 }
 
-func searchSolidTorrents(query string) []SearchResult {
-	var results []SearchResult
+func searchSolidTorrents(query string) []Result {
+	var results []Result
 	apiURL := fmt.Sprintf("https://solidtorrents.to/api/v1/search?q=%s&sort=seeders", url.QueryEscape(query))
 	slog.Debug("Requesting SolidTorrents", "url", apiURL)
 
@@ -419,7 +419,7 @@ func searchSolidTorrents(query string) []SearchResult {
 		}
 		seen[cleanTitle] = true
 
-		results = append(results, SearchResult{
+		results = append(results, Result{
 			Title:   cleanTitle,
 			Size:    utils.FormatBytes(item.Size),
 			Seeders: fmt.Sprintf("%d", item.Seeders),
@@ -430,8 +430,8 @@ func searchSolidTorrents(query string) []SearchResult {
 	return results
 }
 
-func scrapeNyaa(query string) []SearchResult {
-	var results []SearchResult
+func scrapeNyaa(query string) []Result {
+	var results []Result
 	searchURL := fmt.Sprintf("https://nyaa.si/?f=0&c=0_0&q=%s", url.QueryEscape(query))
 	slog.Debug("Requesting Nyaa", "url", searchURL)
 
@@ -477,7 +477,7 @@ func scrapeNyaa(query string) []SearchResult {
 		seeders := s.Find("td.text-center").Eq(3).Text()
 
 		if title != "" && magnet != "" {
-			results = append(results, SearchResult{
+			results = append(results, Result{
 				Title:   title,
 				Size:    size,
 				Seeders: seeders,
@@ -490,8 +490,8 @@ func scrapeNyaa(query string) []SearchResult {
 	return results
 }
 
-func searchPirateBay(query string) []SearchResult {
-	var results []SearchResult
+func searchPirateBay(query string) []Result {
+	var results []Result
 	apiURL := fmt.Sprintf("https://apibay.org/q.php?q=%s&cat=0", url.QueryEscape(query))
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -528,7 +528,7 @@ func searchPirateBay(query string) []SearchResult {
 
 		magnet := fmt.Sprintf("magnet:?xt=urn:btih:%s&dn=%s", item.InfoHash, url.QueryEscape(item.Name))
 
-		results = append(results, SearchResult{
+		results = append(results, Result{
 			Title:   item.Name,
 			Size:    utils.FormatBytes(sizeInt),
 			Seeders: item.Seeders,

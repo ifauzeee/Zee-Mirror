@@ -265,7 +265,6 @@ func (s *BotService) PerformDiskCleanup() {
 			}
 		}
 	}
-
 }
 
 func (s *BotService) StartResourceMonitor() {

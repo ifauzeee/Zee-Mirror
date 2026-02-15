@@ -149,9 +149,3 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 		slog.Error("Failed to send final task message", "error", err, "task_id", task.ID, "chatID", snapshot.ChatID)
 	}
 }
-
-func (s *BotService) editStatusMessage(chatID int64, msgID int, text string) {
-	editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
-	editMsg.ParseMode = MarkdownV2
-	_, _ = s.Bot.Send(editMsg)
-}

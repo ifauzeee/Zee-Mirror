@@ -93,8 +93,9 @@ func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]str
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
+	cleanInput := filepath.Clean(inputPath)
 	durationCmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration",
-		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+inputPath)
+		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+cleanInput) // #nosec G204
 	durationOutput, err := durationCmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get duration: %w", err)
@@ -110,17 +111,18 @@ func (s *BotService) GenerateScreenshotsList(inputPath string, count int) ([]str
 	}
 
 	interval := duration / float64(count+1)
-	baseName := strings.TrimSuffix(inputPath, filepath.Ext(inputPath))
+	baseName := strings.TrimSuffix(cleanInput, filepath.Ext(cleanInput))
 
 	var screenshots []string
 	for i := 1; i <= count; i++ {
 		timestamp := interval * float64(i)
 		outputPath := fmt.Sprintf("%s_ss%d.jpg", baseName, i)
+		cleanOutput := filepath.Clean(outputPath)
 
 		shotCtx, shotCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 		cmd := exec.CommandContext(shotCtx, "ffmpeg", "-ss", fmt.Sprintf("%.2f", timestamp),
-			"-i", "file:"+inputPath, "-vframes", "1", "-q:v", "2", "file:"+outputPath, "-y")
+			"-i", "file:"+cleanInput, "-vframes", "1", "-q:v", "2", "file:"+cleanOutput, "-y") // #nosec G204
 
 		if err := cmd.Run(); err != nil {
 			slog.Warn("Failed to generate screenshot", "index", i, "error", err)

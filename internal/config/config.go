@@ -21,6 +21,7 @@ type Config struct {
 	DashboardURL             string
 	AppHash                  string
 	UserSessionString        string
+	AuthPassword             string
 	AuthorizedUsers          []int64
 	OwnerID                  int64
 	DefaultMaxDailyBandwidth int64
@@ -28,10 +29,9 @@ type Config struct {
 	DashboardPort            int
 	DefaultMaxDailyTasks     int
 	AppID                    int
+	MaxRetries               int
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
-	MaxRetries               int
-	AuthPassword             string
 }
 
 func LoadConfig() *Config {

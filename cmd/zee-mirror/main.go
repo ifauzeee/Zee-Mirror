@@ -76,7 +76,7 @@ func main() {
 	r := router.NewRouter(botSvc.BotService)
 	setupRoutes(r)
 
-	r.RegisterMagnetHandler(func(s *service.BotService, m *tgbotapi.Message) {
+	r.RegisterMagnetHandler(func(_ *service.BotService, m *tgbotapi.Message) {
 		text := m.Text
 		if text == "" {
 			text = m.Caption

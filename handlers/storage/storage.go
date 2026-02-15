@@ -14,14 +14,14 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type StorageProvider struct {
+type Provider struct {
 	Name       string
 	RemoteName string
 	Type       string
 	Icon       string
 }
 
-func GetAvailableStorages(s *service.BotService) ([]StorageProvider, error) {
+func GetAvailableStorages(s *service.BotService) ([]Provider, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -34,7 +34,7 @@ func GetAvailableStorages(s *service.BotService) ([]StorageProvider, error) {
 		return nil, fmt.Errorf("failed to list remotes: %v", err)
 	}
 
-	var providers []StorageProvider
+	var providers []Provider
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 
 	for _, line := range lines {
@@ -46,7 +46,7 @@ func GetAvailableStorages(s *service.BotService) ([]StorageProvider, error) {
 			name := strings.TrimSuffix(parts[0], ":")
 			remoteType := parts[1]
 
-			provider := StorageProvider{
+			provider := Provider{
 				Name:       name,
 				RemoteName: parts[0],
 				Type:       remoteType,

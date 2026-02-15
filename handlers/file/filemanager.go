@@ -740,7 +740,7 @@ func handleDriveFileInfoDetailed(s *service.BotService, chatID int64, messageID 
 	defer cancel()
 
 	file := getDriveMetadata(ctx, targetPath, configPath)
-	cloudLink := getCloudLink(s, ctx, targetPath, configPath)
+	cloudLink := getCloudLink(ctx, s, targetPath, configPath)
 
 	text := buildFileInfoMessage(relPath, file)
 	keyboard := buildFileInfoKeyboard(s, relPath, cloudLink)
@@ -776,7 +776,7 @@ func getDriveMetadata(ctx context.Context, targetPath, configPath string) servic
 	return service.DriveFile{}
 }
 
-func getCloudLink(s *service.BotService, ctx context.Context, targetPath, configPath string) string {
+func getCloudLink(ctx context.Context, s *service.BotService, targetPath, configPath string) string {
 	if s.Config.IndexURL != "" {
 		return generateIndexLink(s, targetPath)
 	}
