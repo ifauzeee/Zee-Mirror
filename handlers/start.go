@@ -65,6 +65,11 @@ func (s *BotService) HandleDashboardCallback(callback *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	if parts[0] == "settings" {
+		s.handleSettingsCallback(callback, action)
+		return
+	}
+
 	if s.handleDashboardAction(callback, action, parts) {
 		return
 	}
@@ -312,17 +317,6 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Updated"))
-}
-
-func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery) {
-	text := s.formatSettingsMessage(callback.From.ID)
-	keyboard := s.getSettingsKeyboard(callback.From.ID)
-
-	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
-	_, _ = s.Bot.Send(editMsg)
-	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "⚙️ Settings"))
 }
 
 func (s *BotService) HandlePingFromCallback(callback *tgbotapi.CallbackQuery) {

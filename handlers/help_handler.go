@@ -47,12 +47,87 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 		text = service.GetHelpMainText(lang)
 		keyboard = service.GetHelpKeyboard(lang)
 
-	case "settings":
-		text = getHelpSettings()
-		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main")
+	// Categories
+	case "cat_download":
+		lang := s.GetUserLanguage(callback.From.ID)
+		text = service.ProfessionalMessage("📥 DOWNLOAD", "Pilih sub-kategori bantuan download:")
+		keyboard = service.GetDownloadHelpKeyboard(lang)
+
+	case "cat_monitor":
+		s.handleMonitorHelp(callback, "monitor")
+		return
+	case "cat_files":
+		s.handleFilesHelp(callback, "files")
+		return
+	case "cat_media":
+		s.handleMediaHelp(callback, "media")
+		return
+	case "cat_task":
+		s.handleTaskHelp(callback, "task")
+		return
+	case "cat_storage":
+		s.handleStorageHelp(callback, "storage")
+		return
+	case "cat_admin":
+		s.handleAdminHelp(callback, "admin")
+		return
+	case "cat_recovery":
+		s.handleRecoveryHelp(callback, "recovery")
+		return
+	case "cat_settings":
+		s.HandleSettingsFromCallback(callback)
+		return
+
+	// Sub-categories for Download
+	case "sub_dl_general":
+		text = service.ProfessionalMessage("📥 GENERAL DOWNLOAD", "Pilih perintah download umum:")
+		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:cat_download")
 		keyboard = tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⚙️ Open Settings", "dashboard:settings"),
+				tgbotapi.NewInlineKeyboardButtonData("📥 Mirror", "help:cmd_mirror"),
+				tgbotapi.NewInlineKeyboardButtonData("📤 Leech", "help:cmd_leech"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("⚔️ Viking", "help:cmd_viking"),
+				tgbotapi.NewInlineKeyboardButtonData("📋 Clone", "help:cmd_clone"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				backBtn,
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+			),
+		)
+	case "sub_dl_video":
+		text = service.ProfessionalMessage("🎬 VIDEO DOWNLOAD", "Pilih perintah download video:")
+		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:cat_download")
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🎬 YT Mirror", "help:cmd_ytdlp"),
+				tgbotapi.NewInlineKeyboardButtonData("🎬 YT Leech", "help:cmd_ytdlpleech"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				backBtn,
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+			),
+		)
+	case "sub_dl_torrent":
+		text = service.ProfessionalMessage("🧲 TORRENT DOWNLOAD", "Pilih perintah torrent:")
+		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:cat_download")
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "help:cmd_torrent"),
+				tgbotapi.NewInlineKeyboardButtonData("🔍 Search", "help:cmd_search"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				backBtn,
+				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
+			),
+		)
+	case "sub_dl_adv":
+		text = service.ProfessionalMessage("📋 ADVANCED DOWNLOAD", "Pilih perintah lanjutan:")
+		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:cat_download")
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📦 Batch", "help:cmd_batch"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				backBtn,

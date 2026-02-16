@@ -176,27 +176,61 @@ func GetHelpMainText(lang string) string {
 func GetHelpKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_download"), "help:download"),
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_monitor"), "help:monitor"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_download"), "help:cat_download"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_monitor"), "help:cat_monitor"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_files"), "help:files"),
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_media"), "help:media"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_files"), "help:cat_files"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_media"), "help:cat_media"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_task"), "help:task"),
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_storage"), "help:storage"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_task"), "help:cat_task"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_storage"), "help:cat_storage"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_admin"), "help:admin"),
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_recovery"), "help:recovery"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_admin"), "help:cat_admin"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_recovery"), "help:cat_recovery"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_settings"), "help:settings"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_settings"), "help:cat_settings"),
 			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_all"), "help:all"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_home"), "help:back"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_close"), "help:close"),
+		),
+	)
+}
+
+func GetDownloadHelpKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📥 General", "help:sub_dl_general"),
+			tgbotapi.NewInlineKeyboardButtonData("🎬 Video", "help:sub_dl_video"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🧲 Torrent", "help:sub_dl_torrent"),
+			tgbotapi.NewInlineKeyboardButtonData("📋 Advanced", "help:sub_dl_adv"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), "help:main"),
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_close"), "help:close"),
+		),
+	)
+}
+
+func GetSettingsKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💾 Storage", "settings:cat_storage"),
+			tgbotapi.NewInlineKeyboardButtonData("👤 User", "settings:cat_user"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⚙️ Global", "settings:cat_global"),
+			tgbotapi.NewInlineKeyboardButtonData("🛡️ Admin", "settings:cat_admin"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), "help:main"),
 			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_close"), "help:close"),
 		),
 	)
