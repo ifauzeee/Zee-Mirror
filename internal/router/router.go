@@ -125,4 +125,7 @@ func (r *Router) HandleCallback(cb *tgbotapi.CallbackQuery) {
 	}
 
 	slog.Warn("Unknown callback received", "data", cb.Data)
+	if r.service != nil && cb.ID != "" {
+		_, _ = r.service.Bot.Request(tgbotapi.NewCallback(cb.ID, "Aksi tidak dikenali"))
+	}
 }

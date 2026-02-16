@@ -17,6 +17,7 @@ func HandleHelpCallback(s *service.BotService, callback *tgbotapi.CallbackQuery,
 			action = "main"
 		}
 	}
+	action = normalizeHelpAction(action)
 
 	if handleDownloadHelp(s, callback, action) {
 		return
@@ -97,6 +98,31 @@ func HandleHelpCallback(s *service.BotService, callback *tgbotapi.CallbackQuery,
 	}
 
 	sendHelpMessage(s, callback, text, keyboard)
+}
+
+func normalizeHelpAction(action string) string {
+	switch action {
+	case "cat_download", "sub_dl_general", "sub_dl_video", "sub_dl_torrent", "sub_dl_adv":
+		return "download"
+	case "cat_monitor":
+		return "monitor"
+	case "cat_files":
+		return "files"
+	case "cat_media":
+		return "media"
+	case "cat_task":
+		return "task"
+	case "cat_storage":
+		return "storage"
+	case "cat_admin":
+		return "admin"
+	case "cat_recovery":
+		return "recovery"
+	case "cat_settings", "cmd_lang":
+		return "settings"
+	default:
+		return action
+	}
 }
 
 func sendHelpMessage(s *service.BotService, callback *tgbotapi.CallbackQuery, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
