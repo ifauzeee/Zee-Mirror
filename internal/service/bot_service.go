@@ -101,6 +101,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 		CreatedAt:         time.Now(),
 		MaxDailyTasks:     -1,
 		MaxDailyBandwidth: -1,
+		IsActive:          true,
 	})
 
 	for _, id := range cfg.AuthorizedUsers {
@@ -111,6 +112,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 			CreatedAt:         time.Now(),
 			MaxDailyTasks:     cfg.DefaultMaxDailyTasks,
 			MaxDailyBandwidth: cfg.DefaultMaxDailyBandwidth,
+			IsActive:          true,
 		})
 	}
 
@@ -286,5 +288,6 @@ func (s *BotService) SyncUser(user *tgbotapi.User) {
 		CreatedAt:         createdAt,
 		MaxDailyTasks:     maxTasks,
 		MaxDailyBandwidth: maxBandwidth,
+		IsActive:          true,
 	})
 }

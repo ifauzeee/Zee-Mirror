@@ -371,10 +371,17 @@ func HandleStatsCallback(s *service.BotService, callback *tgbotapi.CallbackQuery
 			)
 		}
 
-		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		editMsg.ReplyMarkup = &keyboard
-		_, _ = s.Bot.Send(editMsg)
+		if callback.Message.Photo != nil {
+			editMsg := tgbotapi.NewEditMessageCaption(callback.Message.Chat.ID, callback.Message.MessageID, text)
+			editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+			editMsg.ReplyMarkup = &keyboard
+			_, _ = s.Bot.Send(editMsg)
+		} else {
+			editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+			editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+			editMsg.ReplyMarkup = &keyboard
+			_, _ = s.Bot.Send(editMsg)
+		}
 	}
 }
 

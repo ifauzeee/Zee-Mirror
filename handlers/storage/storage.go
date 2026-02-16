@@ -128,13 +128,16 @@ func HandleStorages(s *service.BotService, message *tgbotapi.Message) {
 }
 
 func HandleStorageCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
-	if len(parts) < 3 {
+	if len(parts) < 2 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
 
 	action := parts[1]
-	storageName := parts[2]
+	storageName := ""
+	if len(parts) > 2 {
+		storageName = parts[2]
+	}
 
 	switch action {
 	case "select":

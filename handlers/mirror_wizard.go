@@ -85,7 +85,7 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 		edit.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(edit)
 
-	case "opt_zip":
+	case "toggle_zip":
 		s.toggleWizardOption(callback, "zip")
 
 	case "opt_rename":
