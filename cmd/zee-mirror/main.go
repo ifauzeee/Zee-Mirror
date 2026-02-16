@@ -258,8 +258,12 @@ func setupBasicRoutes(r *router.Router) {
 }
 
 func setupDownloadRoutes(r *router.Router) {
-	r.RegisterCommand("mirror", func(s *service.BotService, m *tgbotapi.Message) { download.HandleMirror(s, m, m.CommandArguments()) })
-	r.RegisterCommand("m", func(s *service.BotService, m *tgbotapi.Message) { download.HandleMirror(s, m, m.CommandArguments()) })
+	r.RegisterCommand("mirror", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleMirror(m, m.CommandArguments())
+	})
+	r.RegisterCommand("m", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleMirror(m, m.CommandArguments())
+	})
 	r.RegisterCommand("leech", func(s *service.BotService, m *tgbotapi.Message) { download.HandleLeech(s, m, m.CommandArguments()) })
 	r.RegisterCommand("l", func(s *service.BotService, m *tgbotapi.Message) { download.HandleLeech(s, m, m.CommandArguments()) })
 	r.RegisterCommand("viking", func(s *service.BotService, m *tgbotapi.Message) {
@@ -495,6 +499,14 @@ func setupCallbackRoutes(r *router.Router) {
 		}
 		parts := strings.Split(cb.Data, ":")
 		media.HandleMediaMenuCallback(s, cb, parts)
+	})
+
+	r.RegisterCallback("wizard", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
+		if !ensureCallbackMessage(s, cb, "wizard") {
+			return
+		}
+		parts := strings.Split(cb.Data, ":")
+		(&handlers.BotService{BotService: s}).HandleMirrorWizardCallback(cb, parts)
 	})
 }
 

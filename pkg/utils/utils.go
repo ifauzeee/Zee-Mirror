@@ -597,3 +597,10 @@ func IsAdmin(userID int64, ownerID int64, authorizedUsers []int64) bool {
 	}
 	return false
 }
+
+func BoolToEmoji(b bool) string {
+	if b {
+		return "✅"
+	}
+	return "❌"
+}

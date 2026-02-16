@@ -422,16 +422,6 @@ func getHelpRecoveryStatus() string {
 	)
 }
 
-func getHelpSettings() string {
-	return service.HelpDetailMessage(
-		"⚙️ SETTINGS",
-		"Mengatur preferensi dan konfigurasi bot\\.",
-		"• `/settings` ─ Buka menu pengaturan\n\n📋 *OPSI*\n• Auto Delete\n• Default Mode",
-		"`/settings`",
-		"",
-	)
-}
-
 func getHelpAllCommands() string {
 	content := "📋 *DAFTAR SELURUH PERINTAH BOT*\n\n" +
 		"📥 *DOWNLOAD*\n" +

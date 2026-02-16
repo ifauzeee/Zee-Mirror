@@ -24,15 +24,24 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		return
 	}
 	url, zip, unzip, password, quality, name, _, _ := utils.ParseFlags(args)
+
 	var fileName string
 
 	if name != "" {
 		fileName = name
 	}
 
+	if url == "" && message.ReplyToMessage == nil {
+		s.HandleMirrorWizard(message)
+		return
+	}
+
 	if message.ReplyToMessage != nil {
 		fileID, replyName := s.extractFileFromReply(message.ReplyToMessage)
-		go s.HandleTelegramFileDownload(message, fileID, replyName, zip, unzip, password, quality)
+		if fileID != "" {
+			go s.HandleTelegramFileDownload(message, fileID, replyName, zip, unzip, password, quality)
+			return
+		}
 	}
 
 	if url != "" {
@@ -66,10 +75,13 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	lang := s.GetUserLanguage(message.From.ID)
-	msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "reply_required"))
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	_, _ = s.Bot.Send(msg)
+	if url == "" {
+		lang := s.GetUserLanguage(message.From.ID)
+		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "reply_required"))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		_, _ = s.Bot.Send(msg)
+		return
+	}
 }
 
 func (s *BotService) extractFileFromReply(reply *tgbotapi.Message) (string, string) {

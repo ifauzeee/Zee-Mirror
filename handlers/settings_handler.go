@@ -90,8 +90,3 @@ func (s *BotService) HandleSettingsFromCallback(callback *tgbotapi.CallbackQuery
 func (s *BotService) formatSettingsMessage(_ int64) string {
 	return service.ProfessionalMessage("SETTINGS", "Pilih kategori pengaturan di bawah untuk melanjutkan:")
 }
-
-func (s *BotService) getSettingsKeyboard(id int64) tgbotapi.InlineKeyboardMarkup {
-	lang := s.GetUserLanguage(id)
-	return service.GetSettingsKeyboard(lang)
-}

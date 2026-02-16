@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"zee-mirror/handlers"
 	"zee-mirror/internal/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -76,6 +77,16 @@ func (r *Router) HandleMessage(msg *tgbotapi.Message) {
 	text := msg.Text
 	if text == "" && msg.Caption != "" {
 		text = msg.Caption
+	}
+
+	if msg.ReplyToMessage != nil && msg.ReplyToMessage.From.ID == r.service.Bot.Self.ID {
+		replyText := msg.ReplyToMessage.Text
+		if strings.Contains(replyText, "Silakan kirim URL") || strings.Contains(replyText, "Silakan kirim Nama Baru") {
+			if r.service != nil {
+				(&handlers.BotService{BotService: r.service}).HandleWizardInput(msg)
+				return
+			}
+		}
 	}
 
 	if text != "" {

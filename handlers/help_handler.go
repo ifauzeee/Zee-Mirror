@@ -47,7 +47,6 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 		text = service.GetHelpMainText(lang)
 		keyboard = service.GetHelpKeyboard(lang)
 
-	// Categories
 	case "cat_download":
 		lang := s.GetUserLanguage(callback.From.ID)
 		text = service.ProfessionalMessage("📥 DOWNLOAD", "Pilih sub-kategori bantuan download:")
@@ -78,7 +77,6 @@ func (s *BotService) handleHelpCallback(callback *tgbotapi.CallbackQuery, action
 		s.HandleSettingsFromCallback(callback)
 		return
 
-	// Sub-categories for Download
 	case "sub_dl_general":
 		text = service.ProfessionalMessage("📥 GENERAL DOWNLOAD", "Pilih perintah download umum:")
 		backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:cat_download")
