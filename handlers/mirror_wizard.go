@@ -46,7 +46,6 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 
 		_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
 
-
 	case "back_main":
 		s.HandleMirrorWizard(callback.Message)
 		text := service.ProfessionalMessage("MIRROR WIZARD",
