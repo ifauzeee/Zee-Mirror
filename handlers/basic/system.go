@@ -75,7 +75,6 @@ func HandleSpeed(s *service.BotService, message *tgbotapi.Message) {
 		chartBytes, chartErr := chart.GenerateSpeedtestChart(dlVal, ulVal)
 
 		if chartErr == nil && len(chartBytes) > 0 {
-
 			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(message.Chat.ID, sentMsg.MessageID))
 
 			msg := tgbotapi.NewPhoto(message.Chat.ID, tgbotapi.FileBytes{Name: "speedtest.png", Bytes: chartBytes})
@@ -83,7 +82,6 @@ func HandleSpeed(s *service.BotService, message *tgbotapi.Message) {
 			msg.ParseMode = tgbotapi.ModeMarkdownV2
 			_, _ = s.Bot.Send(msg)
 		} else {
-
 			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
 			editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 			_, _ = s.Bot.Send(editMsg)
@@ -243,7 +241,6 @@ func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 		}
 
 		if len(chartBytes) > 0 {
-
 			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
 
 			msg := tgbotapi.NewPhoto(callback.Message.Chat.ID, tgbotapi.FileBytes{Name: "speedtest.png", Bytes: chartBytes})

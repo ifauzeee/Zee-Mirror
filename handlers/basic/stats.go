@@ -66,7 +66,6 @@ func HandleStats(s *service.BotService, message *tgbotapi.Message) {
 			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
 		}
 	} else {
-
 		msg := tgbotapi.NewMessage(message.Chat.ID, text)
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
 		msg.ReplyMarkup = keyboard
