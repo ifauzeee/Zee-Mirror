@@ -22,7 +22,6 @@ func (s *BotService) HandleMirrorWizard(message *tgbotapi.Message) {
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔗 Input URL", "wizard:input_url"),
-			tgbotapi.NewInlineKeyboardButtonData("📁 Telegram File", "wizard:input_file"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("✖️ Cancel", "dashboard:close"),
@@ -47,23 +46,6 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 
 		_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
 
-	case "input_file":
-		text := service.ProfessionalMessage("TELEGRAM FILE",
-			"Untuk mirror file dari Telegram:\n\n"+
-				"1\\. *Reply* ke file/video/audio yang ingin di-mirror\n"+
-				"2\\. Ketik `/mirror` pada reply tersebut\n\n"+
-				"Fitur ini belum support interaktif penuh karena batasan API Telegram untuk mengambil file lama tanpa reply\\.")
-
-		kb := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "wizard:back_main"),
-			),
-		)
-
-		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		edit.ParseMode = tgbotapi.ModeMarkdownV2
-		edit.ReplyMarkup = &kb
-		_, _ = s.Bot.Send(edit)
 
 	case "back_main":
 		s.HandleMirrorWizard(callback.Message)
@@ -74,7 +56,6 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🔗 Input URL", "wizard:input_url"),
-				tgbotapi.NewInlineKeyboardButtonData("📁 Telegram File", "wizard:input_file"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("✖️ Cancel", "dashboard:close"),
