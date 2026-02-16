@@ -5,9 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"zee-mirror/internal/service"
+	"zee-mirror/pkg/chart"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -50,16 +53,41 @@ func HandleSpeed(s *service.BotService, message *tgbotapi.Message) {
 			return
 		}
 
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		outStr := string(output)
+		lines := strings.Split(strings.TrimSpace(outStr), "\n")
 		var result strings.Builder
 		result.WriteString("🚀 *Speedtest Result*\n\n")
 		for _, line := range lines {
 			result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2Code(line)))
 		}
 
-		editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
-		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		_, _ = s.Bot.Send(editMsg)
+		dlRe := regexp.MustCompile(`Download:\s+([0-9.]+)\s+Mbit/s`)
+		ulRe := regexp.MustCompile(`Upload:\s+([0-9.]+)\s+Mbit/s`)
+
+		var dlVal, ulVal float64
+		if match := dlRe.FindStringSubmatch(outStr); len(match) > 1 {
+			dlVal, _ = strconv.ParseFloat(match[1], 64)
+		}
+		if match := ulRe.FindStringSubmatch(outStr); len(match) > 1 {
+			ulVal, _ = strconv.ParseFloat(match[1], 64)
+		}
+
+		chartBytes, chartErr := chart.GenerateSpeedtestChart(dlVal, ulVal)
+
+		if chartErr == nil && len(chartBytes) > 0 {
+
+			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(message.Chat.ID, sentMsg.MessageID))
+
+			msg := tgbotapi.NewPhoto(message.Chat.ID, tgbotapi.FileBytes{Name: "speedtest.png", Bytes: chartBytes})
+			msg.Caption = result.String()
+			msg.ParseMode = tgbotapi.ModeMarkdownV2
+			_, _ = s.Bot.Send(msg)
+		} else {
+
+			editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, sentMsg.MessageID, result.String())
+			editMsg.ParseMode = tgbotapi.ModeMarkdownV2
+			_, _ = s.Bot.Send(editMsg)
+		}
 	}()
 }
 
@@ -176,11 +204,14 @@ func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 		cmd := exec.Command("speedtest-cli", "--simple")
 		output, err := cmd.CombinedOutput()
 
+		outStr := string(output)
 		var text string
+		var lines []string
+
 		if err != nil {
 			text = fmt.Sprintf("❌ *Speedtest Error*\n\n`%s`", utils.EscapeMarkdownV2(err.Error()))
 		} else {
-			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			lines = strings.Split(strings.TrimSpace(outStr), "\n")
 			var result strings.Builder
 			result.WriteString("🚀 *Speedtest Result*\n\n")
 			for _, line := range lines {
@@ -196,10 +227,36 @@ func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			),
 		)
 
-		finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
-		finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
-		finalEdit.ReplyMarkup = &keyboard
-		_, _ = s.Bot.Send(finalEdit)
+		var chartBytes []byte
+		if err == nil {
+			dlRe := regexp.MustCompile(`Download:\s+([0-9.]+)\s+Mbit/s`)
+			ulRe := regexp.MustCompile(`Upload:\s+([0-9.]+)\s+Mbit/s`)
+
+			var dlVal, ulVal float64
+			if match := dlRe.FindStringSubmatch(outStr); len(match) > 1 {
+				dlVal, _ = strconv.ParseFloat(match[1], 64)
+			}
+			if match := ulRe.FindStringSubmatch(outStr); len(match) > 1 {
+				ulVal, _ = strconv.ParseFloat(match[1], 64)
+			}
+			chartBytes, _ = chart.GenerateSpeedtestChart(dlVal, ulVal)
+		}
+
+		if len(chartBytes) > 0 {
+
+			_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
+
+			msg := tgbotapi.NewPhoto(callback.Message.Chat.ID, tgbotapi.FileBytes{Name: "speedtest.png", Bytes: chartBytes})
+			msg.Caption = text
+			msg.ParseMode = tgbotapi.ModeMarkdownV2
+			msg.ReplyMarkup = keyboard
+			_, _ = s.Bot.Send(msg)
+		} else {
+			finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+			finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
+			finalEdit.ReplyMarkup = &keyboard
+			_, _ = s.Bot.Send(finalEdit)
+		}
 	}()
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚀 Testing speed..."))
 }

@@ -9,6 +9,7 @@ import (
 
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/service"
+	"zee-mirror/pkg/chart"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -36,23 +37,48 @@ func HandleStats(s *service.BotService, message *tgbotapi.Message) {
 	userStats, _ := s.DB.GetUserStats(ctx, message.From.ID)
 	dailyStats, _ := s.DB.GetTodayStats(ctx)
 	userDailyStats, _ := s.DB.GetUserTodayStats(ctx, message.From.ID)
+	weeklyStats, _ := s.DB.GetWeeklyStats(ctx)
 
 	slog.Info("Generating stats", "userID", message.From.ID)
+
 	text := FormatStatsMessage(stats, userStats, dailyStats, userDailyStats)
 
 	keyboard := GetStatsKeyboard()
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
-	sentMsg, err := s.Bot.Send(msg)
-	if err != nil {
-		slog.Error("Error sending stats message", "error", err, "userID", message.From.ID)
-		msg.ParseMode = ""
-		msg.Text = "❌ *Gagal memformat statistik (Markdown Error)*\n\nFallback: Manual Stats\nTotal Tasks: " + fmt.Sprint(getIntValue(stats, "total_tasks"))
-		_, _ = s.Bot.Send(msg)
+	chartBytes, err := chart.GenerateWeeklyStatsChart(weeklyStats)
+	if err == nil && len(chartBytes) > 0 {
+		msg := tgbotapi.NewPhoto(message.Chat.ID, tgbotapi.FileBytes{Name: "stats.png", Bytes: chartBytes})
+		msg.Caption = text
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		msg.ReplyMarkup = keyboard
+
+		sentMsg, err := s.Bot.Send(msg)
+		if err != nil {
+			slog.Error("Error sending stats photo", "error", err, "userID", message.From.ID)
+
+			fallbackMsg := tgbotapi.NewMessage(message.Chat.ID, text)
+			fallbackMsg.ParseMode = tgbotapi.ModeMarkdownV2
+			fallbackMsg.ReplyMarkup = keyboard
+			if sentTextMsg, err := s.Bot.Send(fallbackMsg); err == nil {
+				s.AutoDeleteMessage(message.Chat.ID, sentTextMsg.MessageID, 60*time.Second)
+			}
+		} else {
+			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
+		}
 	} else {
-		s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
+
+		msg := tgbotapi.NewMessage(message.Chat.ID, text)
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		msg.ReplyMarkup = keyboard
+		sentMsg, err := s.Bot.Send(msg)
+		if err != nil {
+			slog.Error("Error sending stats message", "error", err, "userID", message.From.ID)
+			msg.ParseMode = ""
+			msg.Text = "❌ *Gagal memformat statistik (Markdown Error)*\n\nFallback: Manual Stats\nTotal Tasks: " + fmt.Sprint(getIntValue(stats, "total_tasks"))
+			_, _ = s.Bot.Send(msg)
+		} else {
+			s.AutoDeleteMessage(message.Chat.ID, sentMsg.MessageID, 60*time.Second)
+		}
 	}
 }
 
