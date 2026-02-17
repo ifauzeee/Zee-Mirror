@@ -124,34 +124,41 @@ func (s *BotService) GetFileLink(file tgbotapi.File, isOfficial bool) string {
 	return file.Link(s.Config.BotToken)
 }
 
-func (s *BotService) ExtractFileFromReply(reply *tgbotapi.Message) (string, string) {
+func (s *BotService) ExtractFileFromReply(reply *tgbotapi.Message) (string, string, int64) {
 	var fileID, fileName string
+	var fileSize int64
 
 	switch {
 	case reply.Document != nil:
 		fileID = reply.Document.FileID
 		fileName = reply.Document.FileName
+		fileSize = int64(reply.Document.FileSize)
 	case reply.Video != nil:
 		fileID = reply.Video.FileID
 		fileName = reply.Video.FileName
+		fileSize = int64(reply.Video.FileSize)
 		if fileName == "" {
 			fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
 		}
 	case reply.Audio != nil:
 		fileID = reply.Audio.FileID
 		fileName = reply.Audio.FileName
+		fileSize = int64(reply.Audio.FileSize)
 		if fileName == "" {
 			fileName = fmt.Sprintf("audio_%d.mp3", time.Now().Unix())
 		}
 	case reply.Voice != nil:
 		fileID = reply.Voice.FileID
 		fileName = fmt.Sprintf("voice_%d.ogg", time.Now().Unix())
+		fileSize = int64(reply.Voice.FileSize)
 	case reply.VideoNote != nil:
 		fileID = reply.VideoNote.FileID
 		fileName = fmt.Sprintf("video_note_%d.mp4", time.Now().Unix())
+		fileSize = int64(reply.VideoNote.FileSize)
 	case reply.Animation != nil:
 		fileID = reply.Animation.FileID
 		fileName = reply.Animation.FileName
+		fileSize = int64(reply.Animation.FileSize)
 		if fileName == "" {
 			fileName = fmt.Sprintf("animation_%d.mp4", time.Now().Unix())
 		}
@@ -159,9 +166,10 @@ func (s *BotService) ExtractFileFromReply(reply *tgbotapi.Message) (string, stri
 		photo := reply.Photo[len(reply.Photo)-1]
 		fileID = photo.FileID
 		fileName = fmt.Sprintf("photo_%d.jpg", time.Now().Unix())
+		fileSize = int64(photo.FileSize)
 	}
 
-	return fileID, fileName
+	return fileID, fileName, fileSize
 }
 
 func GetErrorMessage(title string, err any) string {

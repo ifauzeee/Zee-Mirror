@@ -16,7 +16,29 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileID, fileName string, zip, unzip bool, password, quality string) {
+func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileID, fileName string, fileSize int64, taskType TaskType, zip, unzip bool, password, quality string) {
+	if strings.HasSuffix(strings.ToLower(fileName), ".torrent") {
+		taskType = TypeTorrent
+	}
+
+	replyID := 0
+	if message.ReplyToMessage != nil {
+		replyID = message.ReplyToMessage.MessageID
+	}
+
+	if taskType != TypeTorrent {
+		taskURL := "tgfileid://" + fileID
+		task, err := s.TaskManager.CreateTask(taskType, taskURL, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, fileSize, "", false)
+		if err != nil {
+			s.HandleCreateTaskError(message.Chat.ID, message.MessageID, err)
+			return
+		}
+		s.HandleAutoDelete(task)
+		s.UpdateSharedDashboard(message.Chat.ID, true)
+		slog.Info("Telegram download task created (Async)", "taskID", task.ID, "type", taskType)
+		return
+	}
+
 	tgFile, isOfficial, err := s.GetFileWithFallback(fileID)
 	if err != nil {
 		slog.Error("Failed to get file from Telegram", "error", err, "fileID", fileID)
@@ -33,6 +55,7 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 		_, _ = s.Bot.Send(msg)
 		return
 	}
+
 	if fileName == "cookies.txt" && message.From.ID == s.Config.OwnerID {
 		slog.Info("Cookies.txt upload detected from owner")
 		destPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
@@ -70,16 +93,6 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 	}
 
 	slog.Debug("Telegram download initiated", "fileID", fileID, "filePath", tgFile.FilePath, "url", fileURL)
-
-	taskType := TypeMirror
-	if strings.HasSuffix(strings.ToLower(fileName), ".torrent") {
-		taskType = TypeTorrent
-	}
-
-	replyID := 0
-	if message.ReplyToMessage != nil {
-		replyID = message.ReplyToMessage.MessageID
-	}
 
 	if taskType == TypeTorrent {
 		s.ShowTorrentSelectionMenu(message, fileURL, fileName, zip, unzip, password, replyID)
@@ -124,10 +137,12 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 				break
 			}
 
-			if time.Since(lastUpdate) >= 3*time.Second {
+			if time.Since(lastUpdate) >= 1*time.Second {
 				task.Mu.Lock()
 				task.DownloadedSize = currentSize
-				task.Progress = float64(currentSize) / float64(expectedSize) * 100
+				if expectedSize > 0 {
+					task.Progress = float64(currentSize) / float64(expectedSize) * 100
+				}
 				task.Mu.Unlock()
 				s.updateTaskStatus(task)
 				lastUpdate = time.Now()

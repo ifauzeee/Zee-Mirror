@@ -26,6 +26,7 @@ type TaskStatus = domain.TaskStatus
 const (
 	StatusQueued      = domain.StatusQueued
 	StatusDownloading = domain.StatusDownloading
+	StatusFetching    = domain.StatusFetching
 	StatusExtracting  = domain.StatusExtracting
 	StatusZipping     = domain.StatusZipping
 	StatusUploading   = domain.StatusUploading
@@ -214,7 +215,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 }
 
 func (tm *TaskManager) startAutoRefresh() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {

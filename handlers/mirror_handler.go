@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	"zee-mirror/internal/service"
 	"zee-mirror/pkg/i18n"
@@ -37,9 +35,9 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 	}
 
 	if message.ReplyToMessage != nil {
-		fileID, replyName := s.extractFileFromReply(message.ReplyToMessage)
+		fileID, replyName, fileSize := s.extractFileFromReply(message.ReplyToMessage)
 		if fileID != "" {
-			go s.HandleTelegramFileDownload(message, fileID, replyName, zip, unzip, password, quality)
+			go s.HandleTelegramFileDownload(message, fileID, replyName, fileSize, service.TypeMirror, zip, unzip, password, quality)
 			return
 		}
 	}
@@ -84,44 +82,8 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 	}
 }
 
-func (s *BotService) extractFileFromReply(reply *tgbotapi.Message) (string, string) {
-	var fileID, fileName string
-
-	switch {
-	case reply.Document != nil:
-		fileID = reply.Document.FileID
-		fileName = reply.Document.FileName
-	case reply.Video != nil:
-		fileID = reply.Video.FileID
-		fileName = reply.Video.FileName
-		if fileName == "" {
-			fileName = fmt.Sprintf("video_%d.mp4", time.Now().Unix())
-		}
-	case reply.Audio != nil:
-		fileID = reply.Audio.FileID
-		fileName = reply.Audio.FileName
-		if fileName == "" {
-			fileName = fmt.Sprintf("audio_%d.mp3", time.Now().Unix())
-		}
-	case reply.Voice != nil:
-		fileID = reply.Voice.FileID
-		fileName = fmt.Sprintf("voice_%d.ogg", time.Now().Unix())
-	case reply.VideoNote != nil:
-		fileID = reply.VideoNote.FileID
-		fileName = fmt.Sprintf("video_note_%d.mp4", time.Now().Unix())
-	case reply.Animation != nil:
-		fileID = reply.Animation.FileID
-		fileName = reply.Animation.FileName
-		if fileName == "" {
-			fileName = fmt.Sprintf("animation_%d.mp4", time.Now().Unix())
-		}
-	case len(reply.Photo) > 0:
-		photo := reply.Photo[len(reply.Photo)-1]
-		fileID = photo.FileID
-		fileName = fmt.Sprintf("photo_%d.jpg", time.Now().Unix())
-	}
-
-	return fileID, fileName
+func (s *BotService) extractFileFromReply(reply *tgbotapi.Message) (string, string, int64) {
+	return s.BotService.ExtractFileFromReply(reply)
 }
 
 func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
@@ -138,7 +100,7 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 		url = utils.ExtractURLFromText(args)
 	}
 
-	if url == "" {
+	if url == "" && message.ReplyToMessage == nil {
 		lang := s.GetUserLanguage(message.From.ID)
 		msg := tgbotapi.NewMessage(message.Chat.ID, i18n.T(lang, "invalid_url"))
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
@@ -146,25 +108,35 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 		return
 	}
 
-	if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
-		s.HandleYTDLPLeech(message, args)
-		return
+	if message.ReplyToMessage != nil {
+		fileID, replyName, fileSize := s.extractFileFromReply(message.ReplyToMessage)
+		if fileID != "" {
+			go s.HandleTelegramFileDownload(message, fileID, replyName, fileSize, service.TypeLeech, zip, unzip, password, quality)
+			return
+		}
 	}
 
-	fileName := name
-	if fileName == "" {
-		fileName = utils.GetFileNameFromURL(url)
+	if url != "" {
+		if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+			s.HandleYTDLPLeech(message, args)
+			return
+		}
+
+		fileName := name
+		if fileName == "" {
+			fileName = utils.GetFileNameFromURL(url)
+		}
+		replyID := 0
+		if message.ReplyToMessage != nil {
+			replyID = message.ReplyToMessage.MessageID
+		}
+		task, err := s.TaskManager.CreateTask(service.TypeLeech, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0, "", false)
+		if err != nil {
+			s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
+			return
+		}
+		s.UpdateSharedDashboard(message.Chat.ID, true)
+		s.HandleAutoDelete(task)
+		slog.Info("Leech task created", "taskID", task.ID, "url", url)
 	}
-	replyID := 0
-	if message.ReplyToMessage != nil {
-		replyID = message.ReplyToMessage.MessageID
-	}
-	task, err := s.TaskManager.CreateTask(service.TypeLeech, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, unzip, password, quality, 0, "", false)
-	if err != nil {
-		s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
-		return
-	}
-	s.UpdateSharedDashboard(message.Chat.ID, true)
-	s.HandleAutoDelete(task)
-	slog.Info("Leech task created", "taskID", task.ID, "url", url)
 }

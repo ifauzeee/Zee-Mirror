@@ -110,7 +110,8 @@ func (s *BotService) formatStatsMessage(stats map[string]interface{}, userStats 
 		}
 	}
 
-	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
+	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━\n")
+	text.WriteString("💡 *Tip:* Gunakan /status untuk melihat task aktif")
 	return text.String()
 }
 

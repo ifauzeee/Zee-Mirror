@@ -32,6 +32,49 @@ func (s *BotService) processTask(task *Task) {
 		go s.TaskManager.CheckpointManager.StartPeriodicCheckpoint(task.Ctx, &task.Task, 30*time.Second)
 	}
 
+	if (task.Type == TypeMirror || task.Type == TypeLeech) && strings.HasPrefix(url, "tgfileid://") {
+		fileID := strings.TrimPrefix(url, "tgfileid://")
+		slog.Info("Resolving Telegram FileID in background", "taskID", task.ID, "fileID", fileID)
+		
+		task.SetStatus(StatusFetching)
+		s.updateTaskStatus(task)
+		
+		tgFile, isOfficial, err := s.GetFileWithFallback(fileID)
+		if err != nil {
+			task.SetError(fmt.Sprintf("Failed to resolve Telegram file: %v", err))
+			s.updateTaskStatus(task)
+			return
+		}
+
+		var fileURL string
+		if filepath.IsAbs(tgFile.FilePath) {
+			translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
+			if _, errStat := os.Stat(translatedPath); errStat == nil {
+				fileURL = "file://" + translatedPath
+			}
+		}
+
+		if fileURL == "" {
+			if s.Config.TelegramAPI != "" && !isOfficial {
+				fileEndpoint := strings.Replace(s.Config.TelegramAPI, "/bot%s/%s", "/file/bot%s/%s", 1)
+				fileURL = fmt.Sprintf(fileEndpoint, s.Bot.Token, tgFile.FilePath)
+			} else {
+				fileURL = tgFile.Link(s.Bot.Token)
+			}
+		}
+
+		task.Mu.Lock()
+		task.URL = fileURL
+		if task.TotalSize == 0 {
+			task.TotalSize = int64(tgFile.FileSize)
+		}
+		task.Mu.Unlock()
+		
+		_ = task.SaveToDB()
+		s.updateTaskStatus(task)
+		url = fileURL 
+	}
+
 	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/")) {
 		if s.Config.UserSessionString != "" {
 			slog.Info("Using Userbot engine for private link", "taskID", task.ID)

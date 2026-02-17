@@ -95,9 +95,9 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 
 	shouldUpdate := forceNew ||
 		totalTasks != lastCount ||
-		time.Since(lastUpdateAt) >= 3*time.Second ||
-		(currentProgressSum-lastProgressSum) >= 5.0 ||
-		(lastProgressSum-currentProgressSum) >= 5.0
+		time.Since(lastUpdateAt) >= 1*time.Second ||
+		(currentProgressSum-lastProgressSum) >= 1.0 ||
+		(lastProgressSum-currentProgressSum) >= 1.0
 
 	if !shouldUpdate {
 		tm.Mu.Unlock()

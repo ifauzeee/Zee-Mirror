@@ -242,6 +242,8 @@ func StatusEmoji(status string) string {
 		return "⏳"
 	case "downloading":
 		return "📥"
+	case "fetching":
+		return "🌩️"
 	case "extracting":
 		return "📂"
 	case "zipping":

@@ -55,7 +55,7 @@ func (s *BotService) HandleViking(message *tgbotapi.Message, args string) {
 	}
 
 	if message.ReplyToMessage != nil {
-		fileID, _ := s.ExtractFileFromReply(message.ReplyToMessage)
+		fileID, _, _ := s.ExtractFileFromReply(message.ReplyToMessage)
 		if fileID != "" {
 			s.reply(message, "❌ *Error*\n\nReply file untuk Viking belum disupport saat ini (hanya URL).")
 			return

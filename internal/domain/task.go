@@ -12,6 +12,7 @@ type TaskStatus string
 const (
 	StatusQueued      TaskStatus = "queued"
 	StatusDownloading TaskStatus = "downloading"
+	StatusFetching    TaskStatus = "fetching"
 	StatusExtracting  TaskStatus = "extracting"
 	StatusZipping     TaskStatus = "zipping"
 	StatusUploading   TaskStatus = "uploading"

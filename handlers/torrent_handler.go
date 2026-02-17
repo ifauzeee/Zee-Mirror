@@ -24,9 +24,10 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 	if message.ReplyToMessage != nil && message.ReplyToMessage.Document != nil {
 		fileID := message.ReplyToMessage.Document.FileID
 		fileName := message.ReplyToMessage.Document.FileName
+		fileSize := int64(message.ReplyToMessage.Document.FileSize)
 
 		if strings.HasSuffix(strings.ToLower(fileName), ".torrent") {
-			go s.HandleTelegramFileDownload(message, fileID, fileName, zip, unzip, password, quality)
+			go s.HandleTelegramFileDownload(message, fileID, fileName, fileSize, service.TypeMirror, zip, unzip, password, quality)
 			return
 		}
 	}
