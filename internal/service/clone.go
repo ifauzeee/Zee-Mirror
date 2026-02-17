@@ -91,8 +91,16 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	}
 
 	task.Mu.Lock()
-	if task.FileName == "cloning..." || task.FileName == "" {
+	if (task.FileName == "cloning..." || task.FileName == "") && driveName != "" {
 		task.FileName = driveName
+	}
+	if task.FileName == "cloning..." || task.FileName == "" {
+		fallback := utils.GetFileNameFromURL(task.URL)
+		if fallback != "" {
+			task.FileName = fallback
+		} else {
+			task.FileName = "file_" + driveID
+		}
 	}
 	name := task.FileName
 	if driveSize > 0 {
@@ -398,11 +406,67 @@ func extractDriveID(urlStr string) (string, bool) {
 }
 
 func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, int64, error) {
+	idArgs := []string{
+		"lsjson",
+		fmt.Sprintf("%s,root_folder_id=%s:", remoteName, id),
+		"--max-depth", "0",
+		"--stat", 
+		"--config", configPath,
+		"--no-mimetype",
+		"--no-modtime",
+	}
+	idCmd := exec.Command("rclone", idArgs...)
+	if out, err := idCmd.Output(); err == nil {
+		var info map[string]interface{}
+		if json.Unmarshal(out, &info) == nil {
+			fetchedID, _ := info["ID"].(string)
+			if fetchedID == "" {
+				fetchedID, _ = info["Id"].(string)
+			}
+			if fetchedID == id {
+				fileName, _ := info["Name"].(string)
+				isDirVal, _ := info["IsDir"].(bool)
+				sizeVal := int64(0)
+				if s, ok := info["Size"].(float64); ok {
+					sizeVal = int64(s)
+				}
+				if fileName != "" {
+					slog.Debug("Resolved GDrive info from lsjson --stat", "id", id, "name", fileName, "isDir", isDirVal)
+					return fileName, isDirVal, sizeVal, nil
+				}
+			} else {
+				slog.Warn("Fetched ID (lsjson) does not match requested ID", "expected", id, "got", fetchedID)
+			}
+		} else {
+			var infos []map[string]interface{}
+			if json.Unmarshal(out, &infos) == nil && len(infos) > 0 {
+				info := infos[0]
+				fetchedID, _ := info["ID"].(string)
+				if fetchedID == "" {
+					fetchedID, _ = info["Id"].(string)
+				}
+				if fetchedID == id {
+					fileName, _ := info["Name"].(string)
+					isDirVal, _ := info["IsDir"].(bool)
+					sizeVal := int64(0)
+					if s, ok := info["Size"].(float64); ok {
+						sizeVal = int64(s)
+					}
+					if fileName != "" {
+						slog.Debug("Resolved GDrive info from lsjson list", "id", id, "name", fileName, "isDir", isDirVal)
+						return fileName, isDirVal, sizeVal, nil
+					}
+				}
+			}
+		}
+	}
+
 	args := []string{
 		"backend", "info",
 		fmt.Sprintf("%s:", remoteName),
-		"-o", fmt.Sprintf("id=%s", id),
+		"-o", fmt.Sprintf("root_folder_id=%s", id),
 		"--config", configPath,
+		"-o", "drive-acknowledge-abuse=true",
 		"--json",
 	}
 
@@ -411,44 +475,25 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 	if err == nil {
 		var info map[string]interface{}
 		if unmarshalErr := json.Unmarshal(output, &info); unmarshalErr == nil {
-			fileName, _ := info["name"].(string)
-			mimeType, _ := info["mimeType"].(string)
-			sizeVal := int64(0)
-			if s, ok := info["size"].(float64); ok {
-				sizeVal = int64(s)
-			} else if sStr, ok := info["size"].(string); ok {
-				sizeVal, _ = strconv.ParseInt(sStr, 10, 64)
-			}
+			fetchedID, _ := info["id"].(string)
+			if fetchedID == id {
+				fileName, _ := info["name"].(string)
+				mimeType, _ := info["mimeType"].(string)
+				sizeVal := int64(0)
+				if s, ok := info["size"].(float64); ok {
+					sizeVal = int64(s)
+				} else if sStr, ok := info["size"].(string); ok {
+					sizeVal, _ = strconv.ParseInt(sStr, 10, 64)
+				}
 
-			isDir := strings.Contains(mimeType, "folder")
+				isDir := strings.Contains(mimeType, "folder")
 
-			if fileName != "" {
-				slog.Debug("Resolved GDrive info from backend info", "id", id, "name", fileName, "isDir", isDir, "size", sizeVal)
-				return fileName, isDir, sizeVal, nil
-			}
-		}
-	}
-
-	idArgs := []string{
-		"lsjson",
-		fmt.Sprintf("%s,id=%s:", remoteName, id),
-		"--max-depth", "0",
-		"--config", configPath,
-	}
-	idCmd := exec.Command("rclone", idArgs...)
-	if out, err := idCmd.Output(); err == nil {
-		var infos []map[string]interface{}
-		if json.Unmarshal(out, &infos) == nil && len(infos) > 0 {
-			info := infos[0]
-			fileName, _ := info["Name"].(string)
-			isDirVal, _ := info["IsDir"].(bool)
-			sizeVal := int64(0)
-			if s, ok := info["Size"].(float64); ok {
-				sizeVal = int64(s)
-			}
-			if fileName != "" {
-				slog.Debug("Resolved GDrive info from lsjson id notation", "id", id, "name", fileName, "isDir", isDirVal)
-				return fileName, isDirVal, sizeVal, nil
+				if fileName != "" {
+					slog.Debug("Resolved GDrive info from backend info", "id", id, "name", fileName, "isDir", isDir, "size", sizeVal)
+					return fileName, isDir, sizeVal, nil
+				}
+			} else {
+				slog.Warn("Fetched ID (backend info) does not match requested ID", "expected", id, "got", fetchedID)
 			}
 		}
 	}
@@ -463,6 +508,7 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 	if isFolder {
 		return "Folder_" + id, true, 0, nil
 	}
+
 	return "File_" + id, false, 0, nil
 }
 

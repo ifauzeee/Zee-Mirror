@@ -403,12 +403,14 @@ func (tm *TaskManager) GetActiveTasks() []*Task {
 func (tm *TaskManager) CancelTask(taskID string) bool {
 	tm.Mu.Lock()
 	task, exists := tm.Tasks[taskID]
-	if tm.CheckpointManager != nil && exists {
-		if err := tm.CheckpointManager.DeleteCheckpoint(task.ID); err != nil {
-			slog.Warn("Failed to delete checkpoint", "taskID", task.ID, "error", err)
+	if exists {
+		if tm.CheckpointManager != nil {
+			if err := tm.CheckpointManager.DeleteCheckpoint(task.ID); err != nil {
+				slog.Warn("Failed to delete checkpoint", "taskID", task.ID, "error", err)
+			}
 		}
+		delete(tm.Tasks, taskID)
 	}
-	delete(tm.Tasks, task.ID)
 	tm.Mu.Unlock()
 
 	if !exists {

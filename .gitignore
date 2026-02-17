@@ -75,3 +75,4 @@ config/*.db-wal
 tmp/
 temp/
 *.tmp
+config/aria2.session
