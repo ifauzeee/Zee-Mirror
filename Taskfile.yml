@@ -37,13 +37,14 @@ tasks:
 
   lint:
     cmds:
-      - golangci-lint run ./...
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - "$(go env GOPATH)/bin/golangci-lint run ./..."
 
   fmt:
     cmds:
       - go fmt ./...
       - go install golang.org/x/tools/cmd/goimports@latest
-      - goimports -w .
+      - "$(go env GOPATH)/bin/goimports -w ."
 
   vet:
     cmds:
@@ -52,7 +53,7 @@ tasks:
   security:
     cmds:
       - go install golang.org/x/vuln/cmd/govulncheck@latest
-      - govulncheck ./...
+      - "$(go env GOPATH)/bin/govulncheck ./..."
 
   tidy:
     cmds:
