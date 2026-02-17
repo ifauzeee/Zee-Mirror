@@ -410,7 +410,7 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 		"lsjson",
 		fmt.Sprintf("%s,root_folder_id=%s:", remoteName, id),
 		"--max-depth", "0",
-		"--stat", 
+		"--stat",
 		"--config", configPath,
 		"--no-mimetype",
 		"--no-modtime",

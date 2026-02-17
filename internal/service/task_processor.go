@@ -35,10 +35,10 @@ func (s *BotService) processTask(task *Task) {
 	if (task.Type == TypeMirror || task.Type == TypeLeech) && strings.HasPrefix(url, "tgfileid://") {
 		fileID := strings.TrimPrefix(url, "tgfileid://")
 		slog.Info("Resolving Telegram FileID in background", "taskID", task.ID, "fileID", fileID)
-		
+
 		task.SetStatus(StatusFetching)
 		s.updateTaskStatus(task)
-		
+
 		tgFile, isOfficial, err := s.GetFileWithFallback(fileID)
 		if err != nil {
 			task.SetError(fmt.Sprintf("Failed to resolve Telegram file: %v", err))
@@ -69,10 +69,10 @@ func (s *BotService) processTask(task *Task) {
 			task.TotalSize = int64(tgFile.FileSize)
 		}
 		task.Mu.Unlock()
-		
+
 		_ = task.SaveToDB()
 		s.updateTaskStatus(task)
-		url = fileURL 
+		url = fileURL
 	}
 
 	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/")) {
