@@ -48,6 +48,7 @@ services:
     volumes:
       - downloads:/app/downloads
       - ./config:/app/config
+      - telegram-data:/var/lib/telegram-bot-api:ro
     
     networks:
       - zee-network

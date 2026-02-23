@@ -76,17 +76,30 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 
 	var fileURL string
 	if filepath.IsAbs(tgFile.FilePath) {
-		translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
-		if _, errStat := os.Stat(translatedPath); errStat == nil {
-			slog.Info("Local TG file detected", "path", translatedPath)
-			fileURL = "file://" + translatedPath
+		// Try direct path first (if volumes are shared)
+		if _, errStat := os.Stat(tgFile.FilePath); errStat == nil {
+			slog.Info("Local TG file detected (Direct path)", "path", tgFile.FilePath)
+			fileURL = "file://" + tgFile.FilePath
+		}
+
+		if fileURL == "" {
+			// Try translated path (if mapped to download dir)
+			translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
+			if _, errStat := os.Stat(translatedPath); errStat == nil {
+				slog.Info("Local TG file detected (Translated path)", "path", translatedPath)
+				fileURL = "file://" + translatedPath
+			}
 		}
 	}
 
 	if fileURL == "" {
 		if s.Config.TelegramAPI != "" && !isOfficial {
 			fileEndpoint := strings.Replace(s.Config.TelegramAPI, "/bot%s/%s", "/file/bot%s/%s", 1)
-			fileURL = fmt.Sprintf(fileEndpoint, s.Bot.Token, tgFile.FilePath)
+			filePath := tgFile.FilePath
+			if strings.HasPrefix(filePath, "/") {
+				filePath = filePath[1:]
+			}
+			fileURL = fmt.Sprintf(fileEndpoint, s.Bot.Token, filePath)
 		} else {
 			fileURL = tgFile.Link(s.Bot.Token)
 		}
