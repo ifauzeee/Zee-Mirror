@@ -320,8 +320,13 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 	}
 
 	if task.Quality != "" {
-		format := fmt.Sprintf("bestvideo[height<=?%[1]s]+bestaudio/best[height<=?%[1]s]/best[height<=?%[1]s]", task.Quality)
-		args = append(args, "-f", format)
+		if task.Quality == "audio" {
+			args = append(args, "-f", "bestaudio/best")
+			args = append(args, "-x", "--audio-format", "mp3", "--audio-quality", "0")
+		} else {
+			format := fmt.Sprintf("bestvideo[height<=?%[1]s]+bestaudio/best[height<=?%[1]s]/best[height<=?%[1]s]", task.Quality)
+			args = append(args, "-f", format)
+		}
 	}
 
 	args = append(args, task.URL)
