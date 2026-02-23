@@ -349,6 +349,8 @@ func (t *Task) SaveToDB() error {
 		Unzip:          t.Unzip,
 		Password:       t.Password,
 		Error:          t.Error,
+		Quality:        t.Quality,
+		RetryCount:     t.RetryCount,
 	}
 
 	if !t.CompletedAt.IsZero() {
