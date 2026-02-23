@@ -55,7 +55,6 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 	isSearchAll := message.Command() == "searchall"
 
 	if !isSearchAll {
-		// Normal /search: show provider choices
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🌟 Solid (Umum)", fmt.Sprintf("t_search:solid:%s", query)),
@@ -76,7 +75,6 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 		return
 	}
 
-	// /searchall logic
 	sessionID := uuid.New().String()
 
 	SearchMu.Lock()
@@ -107,7 +105,6 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 		all = append(all, pbResults...)
 		all = append(all, slResults...)
 
-		// Sort by seeders (descending)
 		SortResultsBySeeders(all)
 
 		SearchMu.Lock()
@@ -172,7 +169,6 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 		provider = "All"
 	}
 
-	// Sort by seeders
 	SortResultsBySeeders(results)
 
 	if len(results) == 0 {
@@ -613,7 +609,6 @@ func CleanMagnetLink(magnet string) string {
 	if strings.HasPrefix(magnet, "magnet:?") {
 		return magnet
 	}
-	// Check if it's just a raw infohash (40 characters hex or 32 characters base32)
 	if len(magnet) >= 32 {
 		return fmt.Sprintf("magnet:?xt=urn:btih:%s", magnet)
 	}

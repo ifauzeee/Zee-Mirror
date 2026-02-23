@@ -412,21 +412,36 @@ func findDownloadedFile(dir string) string {
 	}
 
 	var candidates []string
+	var directories []string
+
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasSuffix(name, ".aria2") ||
 			strings.HasSuffix(name, ".part") ||
 			strings.HasSuffix(name, ".ytdl") ||
+			strings.HasSuffix(name, ".torrent") ||
 			strings.HasSuffix(name, ".temp") {
 			continue
 		}
-		candidates = append(candidates, filepath.Join(dir, name))
+		
+		fullPath := filepath.Join(dir, name)
+		candidates = append(candidates, fullPath)
+		if entry.IsDir() {
+			directories = append(directories, fullPath)
+		}
 	}
 
+	// If there's only one candidate, return it (file or folder)
 	if len(candidates) == 1 {
 		return candidates[0]
 	}
 
+	// If there's only one directory among candidates, it's likely the root of a multi-file torrent
+	if len(directories) == 1 {
+		return directories[0]
+	}
+
+	// Fallback: pick the largest file (existing behavior)
 	var result string
 	var maxSize int64
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -435,7 +450,10 @@ func findDownloadedFile(dir string) string {
 		}
 
 		name := strings.ToLower(info.Name())
-		if strings.HasSuffix(name, ".part") || strings.HasSuffix(name, ".ytdl") || strings.HasSuffix(name, ".aria2") {
+		if strings.HasSuffix(name, ".part") || 
+		   strings.HasSuffix(name, ".ytdl") || 
+		   strings.HasSuffix(name, ".aria2") ||
+		   strings.HasSuffix(name, ".torrent") {
 			return nil
 		}
 
