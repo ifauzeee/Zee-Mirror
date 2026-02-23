@@ -380,7 +380,8 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 			update.Connections = 16
 		}
 
-		if update.FileName != "" || update.Progress != 0 || update.Error != "" {
+		if update.FileName != "" || update.Progress != 0 || update.Error != "" || update.Message != "" {
+			slog.Debug("YTDLP parsed progress", "msg", update.Message, "file", update.FileName, "progress", update.Progress)
 			onProgress(update)
 		}
 	}

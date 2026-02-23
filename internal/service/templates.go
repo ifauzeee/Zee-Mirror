@@ -143,6 +143,8 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 	msgLine := ""
 	if taskSnapshot.ProcessingMessage != "" {
 		msgLine = fmt.Sprintf("💬 *Status:* _%s_\n", utils.EscapeMarkdownV2(taskSnapshot.ProcessingMessage))
+	} else if taskSnapshot.Status == domain.StatusDownloading && taskSnapshot.Progress >= 100 {
+		msgLine = "💬 *Status:* _Memproses file..._\n"
 	}
 
 	return fmt.Sprintf(

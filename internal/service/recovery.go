@@ -101,6 +101,7 @@ func (tr *TaskRecovery) createTaskFromRecord(record domain.TaskRecord) *Task {
 			Zip:        record.Zip,
 			Unzip:      record.Unzip,
 			Password:   record.Password,
+			Quality:    record.Quality,
 			RetryCount: record.RetryCount,
 			MaxRetries: tr.TaskManager.Config.MaxRetries,
 		},
