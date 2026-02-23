@@ -53,6 +53,12 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 			}
 
 			if status.Status == "complete" {
+				if len(status.FollowedBy) > 0 {
+					slog.Info("Aria2 download followed by new gid (likely metadata -> torrent)", "old_gid", gid, "new_gid", status.FollowedBy[0])
+					gid = status.FollowedBy[0]
+					task.GID = gid
+					continue
+				}
 				return nil
 			}
 
@@ -90,9 +96,9 @@ func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map
 		"min-split-size":                   "1M",
 		"max-overall-download-limit":       "0",
 		"max-resume-failure-tries":         "0",
-		"retry-wait":                       "1",
-		"connect-timeout":                  "30",
-		"timeout":                          "30",
+		"retry-wait":                       "5",
+		"connect-timeout":                  "60",
+		"timeout":                          "60",
 		"user-agent":                       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 		"async-dns":                        "true",
 		"file-allocation":                  "none",
@@ -100,7 +106,7 @@ func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map
 		"enable-mmap":                      "true",
 		"check-certificate":                "false",
 		"optimize-concurrent-downloads":    "true",
-		"max-file-not-found":               "2",
+		"max-file-not-found":               "10",
 		"disable-ipv6":                     "true",
 		"enable-http-pipelining":           "true",
 		"content-disposition-default-utf8": "true",

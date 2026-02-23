@@ -41,7 +41,9 @@ type Aria2Status struct {
 	CompletedLength string `json:"completedLength"`
 	DownloadSpeed   string `json:"downloadSpeed"`
 	Connections     string `json:"connections"`
-	ErrorMessage    string `json:"errorMessage,omitempty"`
+	ErrorMessage    string   `json:"errorMessage,omitempty"`
+	FollowedBy      []string `json:"followedBy,omitempty"`
+	Following       string   `json:"following,omitempty"`
 	Files           []struct {
 		Path string `json:"path"`
 	} `json:"files"`
