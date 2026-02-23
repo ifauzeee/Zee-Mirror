@@ -2,11 +2,13 @@ package downloader
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
@@ -30,9 +32,28 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 	}
 
 	options := e.buildAria2Options(task, outputDir)
-	gid, err := e.RPC.AddURI(task.URL, options)
+
+	var gid string
+	var err error
+
+	// Handle local torrent files
+	if strings.HasPrefix(task.URL, "file://") && strings.HasSuffix(strings.ToLower(task.URL), ".torrent") {
+		filePath := strings.TrimPrefix(task.URL, "file://")
+		slog.Info("Loading local torrent file for aria2", "path", filePath)
+
+		content, readErr := os.ReadFile(filePath)
+		if readErr != nil {
+			return &domain.StorageError{Path: filePath, Err: fmt.Errorf("failed to read local torrent file: %v", readErr)}
+		}
+
+		encoded := base64.StdEncoding.EncodeToString(content)
+		gid, err = e.RPC.AddTorrent(encoded, options)
+	} else {
+		gid, err = e.RPC.AddURI(task.URL, options)
+	}
+
 	if err != nil {
-		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("aria2 rpc addUri failed: %v", err)}
+		return &domain.NetworkError{URL: task.URL, Err: fmt.Errorf("aria2 rpc add failed: %v", err)}
 	}
 
 	task.GID = gid

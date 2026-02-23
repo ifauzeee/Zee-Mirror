@@ -111,6 +111,16 @@ func (c *Aria2RPCClient) AddURI(uri string, options map[string]interface{}) (str
 	return gid, err
 }
 
+func (c *Aria2RPCClient) AddTorrent(torrentBase64 string, options map[string]interface{}) (string, error) {
+	res, err := c.call("aria2.addTorrent", torrentBase64, []string{}, options)
+	if err != nil {
+		return "", err
+	}
+	var gid string
+	err = json.Unmarshal(res, &gid)
+	return gid, err
+}
+
 func (c *Aria2RPCClient) TellStatus(gid string) (*Aria2Status, error) {
 	res, err := c.call("aria2.tellStatus", gid)
 	if err != nil {
