@@ -84,8 +84,8 @@ func (m *MockRepository) GetMonthlyStats(ctx context.Context) ([]domain.DailySta
 	return args.Get(0).([]domain.DailyStats), args.Error(1)
 }
 
-func (m *MockRepository) GetCompletedTaskByURL(ctx context.Context, url string) (*domain.TaskRecord, error) {
-	args := m.Called(ctx, url)
+func (m *MockRepository) GetCompletedTaskByURL(ctx context.Context, url, quality string) (*domain.TaskRecord, error) {
+	args := m.Called(ctx, url, quality)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

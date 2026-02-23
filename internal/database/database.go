@@ -186,18 +186,18 @@ func (db *DB) Delete(ctx context.Context, id int64) error {
 
 type TaskRecord = domain.TaskRecord
 
-func (db *DB) GetCompletedTaskByURL(ctx context.Context, url string) (*TaskRecord, error) {
+func (db *DB) GetCompletedTaskByURL(ctx context.Context, url, quality string) (*TaskRecord, error) {
 	tr := &TaskRecord{}
 	err := db.QueryRowContext(ctx, `
 		SELECT id, gid, type, status, url, file_name, local_path, remote_path, remote_url, 
 		       total_size, downloaded_size, uploaded_size, chat_id, user_id, 
-		       created_at, completed_at, zip, unzip, password, error, retries
-		FROM tasks WHERE url = ? AND status = 'completed'
+		       created_at, completed_at, zip, unzip, password, error, retries, quality
+		FROM tasks WHERE url = ? AND quality = ? AND status = 'completed'
 		ORDER BY created_at DESC LIMIT 1
-	`, url).Scan(
+	`, url, quality).Scan(
 		&tr.ID, &tr.GID, &tr.Type, &tr.Status, &tr.URL, &tr.FileName, &tr.LocalPath, &tr.RemotePath, &tr.RemoteURL,
 		&tr.TotalSize, &tr.DownloadedSize, &tr.UploadedSize, &tr.ChatID, &tr.UserID,
-		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount,
+		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount, &tr.Quality,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -213,8 +213,8 @@ func (db *DB) Save(ctx context.Context, t TaskRecord) error {
 		INSERT INTO tasks (
 			id, gid, type, status, url, file_name, local_path, remote_path, remote_url,
 			total_size, downloaded_size, uploaded_size, chat_id, user_id, created_at,
-			completed_at, zip, unzip, password, error, retries
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			completed_at, zip, unzip, password, error, retries, quality
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			gid = excluded.gid,
 			status = excluded.status,
@@ -227,10 +227,11 @@ func (db *DB) Save(ctx context.Context, t TaskRecord) error {
 			uploaded_size = excluded.uploaded_size,
 			completed_at = excluded.completed_at,
 			error = excluded.error,
-			retries = excluded.retries
+			retries = excluded.retries,
+			quality = excluded.quality
 	`, t.ID, t.GID, t.Type, t.Status, t.URL, t.FileName, t.LocalPath, t.RemotePath, t.RemoteURL,
 		t.TotalSize, t.DownloadedSize, t.UploadedSize, t.ChatID, t.UserID, t.CreatedAt,
-		t.CompletedAt, t.Zip, t.Unzip, t.Password, t.Error, t.RetryCount)
+		t.CompletedAt, t.Zip, t.Unzip, t.Password, t.Error, t.RetryCount, t.Quality)
 	return err
 }
 
@@ -247,7 +248,7 @@ func (db *DB) GetActive(ctx context.Context) ([]TaskRecord, error) {
 		err := rows.Scan(
 			&t.ID, &t.GID, &t.Type, &t.Status, &t.URL, &t.FileName, &t.LocalPath, &t.RemotePath, &t.RemoteURL,
 			&t.TotalSize, &t.DownloadedSize, &t.UploadedSize, &t.ChatID, &t.UserID, &t.CreatedAt,
-			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount,
+			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount, &t.Quality,
 		)
 		if err != nil {
 			slog.Error("Error scanning task", "error", err)
@@ -292,12 +293,12 @@ func (db *DB) GetTaskByID(ctx context.Context, id string) (*TaskRecord, error) {
 	err := db.QueryRowContext(ctx, `
 		SELECT id, gid, type, status, url, file_name, local_path, remote_path, remote_url, 
 		       total_size, downloaded_size, uploaded_size, chat_id, user_id, 
-		       created_at, completed_at, zip, unzip, password, error, retries
+		       created_at, completed_at, zip, unzip, password, error, retries, quality
 		FROM tasks WHERE id = ?
 	`, id).Scan(
 		&tr.ID, &tr.GID, &tr.Type, &tr.Status, &tr.URL, &tr.FileName, &tr.LocalPath, &tr.RemotePath, &tr.RemoteURL,
 		&tr.TotalSize, &tr.DownloadedSize, &tr.UploadedSize, &tr.ChatID, &tr.UserID,
-		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount,
+		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount, &tr.Quality,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -457,7 +458,7 @@ func (db *DB) GetRecoverable(ctx context.Context) ([]TaskRecord, error) {
 		err := rows.Scan(
 			&t.ID, &t.GID, &t.Type, &t.Status, &t.URL, &t.FileName, &t.LocalPath, &t.RemotePath, &t.RemoteURL,
 			&t.TotalSize, &t.DownloadedSize, &t.UploadedSize, &t.ChatID, &t.UserID, &t.CreatedAt,
-			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount,
+			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount, &t.Quality,
 		)
 		if err != nil {
 			continue

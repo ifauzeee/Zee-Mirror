@@ -97,6 +97,7 @@ type TaskRecord struct {
 	UserID         int64
 	Zip            bool
 	Unzip          bool
+	Quality        string
 	RetryCount     int
 }
 

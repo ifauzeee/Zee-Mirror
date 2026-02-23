@@ -88,7 +88,7 @@ func TestCreateTask_Duplicate(t *testing.T) {
 	mockRepo := new(mocks.MockRepository)
 	mockRepo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
-	mockRepo.On("GetCompletedTaskByURL", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	mockRepo.On("GetCompletedTaskByURL", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 
 	tm := &service.TaskManager{
 		Tasks:         make(map[string]*service.Task),

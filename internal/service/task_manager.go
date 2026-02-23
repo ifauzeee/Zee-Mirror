@@ -260,8 +260,8 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		}
 		tm.Mu.RUnlock()
 
-		if tm.DB != nil {
-			oldTask, errDB := tm.DB.GetCompletedTaskByURL(context.Background(), url)
+		if tm.DB != nil && !utils.IsAdmin(userID, tm.Config.OwnerID, tm.Config.AuthorizedUsers) {
+			oldTask, errDB := tm.DB.GetCompletedTaskByURL(context.Background(), url, quality)
 			if errDB == nil && oldTask != nil {
 				return nil, fmt.Errorf("%w: file already exists in cloud/database", domain.ErrDuplicateTask)
 			}
