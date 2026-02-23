@@ -278,6 +278,8 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		if ext != "" {
 			if strings.ToLower(ext) == ".m3u8" {
 				outputTemplate = strings.TrimSuffix(task.FileName, ext) + ".mp4"
+			} else if task.Quality == "audio" && (strings.ToLower(ext) == ".webm" || strings.ToLower(ext) == ".mp4" || strings.ToLower(ext) == ".mkv") {
+				outputTemplate = strings.TrimSuffix(task.FileName, ext) + ".%(ext)s"
 			} else {
 				outputTemplate = task.FileName
 			}
@@ -290,10 +292,8 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		"-o", filepath.Join(outputDir, outputTemplate),
 		"--newline", "--no-playlist",
 		"--continue",
-		"--merge-output-format", "mp4",
 		"--no-check-certificate",
 		"--ignore-errors",
-		"--format-sort", "res,fps,codec:vp9,vcodec,br",
 		"--extractor-args", "youtube:player-client=web,mweb,tv",
 		"--socket-timeout", "120",
 		"--concurrent-fragments", "16",
@@ -303,6 +303,11 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		"--js-runtime", "node",
 		"--remote-components", "ejs:github",
 		"--no-cache-dir",
+	}
+
+	if task.Quality != "audio" {
+		args = append(args, "--merge-output-format", "mp4")
+		args = append(args, "--format-sort", "res,fps,codec:vp9,vcodec,br")
 	}
 
 	if task.SubtitleLangs != "" {
