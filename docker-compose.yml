@@ -8,7 +8,8 @@ services:
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
       - TELEGRAM_LOCAL=1
     volumes:
-      - downloads:/var/lib/telegram-bot-api
+      - telegram-data:/var/lib/telegram-bot-api
+      - downloads:/app/downloads
     networks:
       - zee-network
 
@@ -66,4 +67,6 @@ networks:
 
 volumes:
   downloads:
+  telegram-data:
   configs:
+
