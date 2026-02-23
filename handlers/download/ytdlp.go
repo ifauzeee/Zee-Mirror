@@ -217,6 +217,7 @@ func buildYTDLPKeyboard(sortedHeights []int, resMap map[int]float64, sessionID s
 	}
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🎵 Audio Only", fmt.Sprintf("ytdlp_q:audio:%s", sessionID)),
 		tgbotapi.NewInlineKeyboardButtonData("🚀 Kualitas Terbaik", fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
 	))
 	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
