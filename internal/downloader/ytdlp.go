@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/parser"
 	"zee-mirror/pkg/utils"
@@ -35,27 +36,40 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 		"-j",
 		"--no-playlist",
 		"--no-check-certificate",
-		"--extractor-args", "youtube:player-client=web,web_embedded,mweb",
+		"--extractor-args", "youtube:player-client=web,mweb,tv",
 		"--socket-timeout", "60",
 		"--add-header", "Accept-Language: en-US,en;q=0.9",
 		"--add-header", "Referer: https://www.youtube.com/",
-		"--remote-components", "ejs:github",
 		"--js-runtime", "node",
+		"--remote-components", "ejs:github",
 		"--playlist-items", "0",
 	}
 
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
 	if _, err := os.Stat(cookiesPath); err == nil {
 		args = append(args, "--cookies", cookiesPath)
-		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
 	}
 
 	args = append(args, url)
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
-
-	output, err := cmd.Output()
+	output, err := e.runYTDLP(ctx, args...)
 	if err != nil {
-		return nil, err
+		slog.Warn("YTDLP analysis first attempt failed, retrying with fallback clients...", "error", err)
+		for i, arg := range args {
+			if arg == "youtube:player-client=web,mweb,tv" {
+				args[i] = "youtube:player-client=web,tv"
+				break
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+		output, err = e.runYTDLP(ctx, args...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var data struct {
@@ -90,7 +104,10 @@ func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*Pla
 		"--flat-playlist",
 		"-J",
 		"--no-check-certificate",
+		"--extractor-args", "youtube:player-client=web,mweb,tv",
 		"--socket-timeout", "60",
+		"--js-runtime", "node",
+		"--remote-components", "ejs:github",
 	}
 
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
@@ -98,12 +115,18 @@ func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*Pla
 		args = append(args, "--cookies", cookiesPath)
 	}
 
-	args = append(args, url)
-	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
-
-	output, err := cmd.Output()
+	output, err := e.runYTDLP(ctx, args...)
 	if err != nil {
-		return nil, err
+		slog.Warn("YTDLP playlist first attempt failed, retrying...", "error", err, "url", url)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+		output, err = e.runYTDLP(ctx, args...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var metadata PlaylistMetadata
@@ -271,14 +294,14 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		"--no-check-certificate",
 		"--ignore-errors",
 		"--format-sort", "res,fps,codec:vp9,vcodec,br",
-		"--extractor-args", "youtube:player-client=web,web_embedded,mweb",
+		"--extractor-args", "youtube:player-client=web,mweb,tv",
 		"--socket-timeout", "120",
 		"--concurrent-fragments", "16",
 		"--buffer-size", "1M",
 		"--add-header", "Accept-Language: en-US,en;q=0.9",
 		"--add-header", "Referer: https://www.youtube.com/",
-		"--remote-components", "ejs:github",
 		"--js-runtime", "node",
+		"--remote-components", "ejs:github",
 		"--no-cache-dir",
 	}
 
@@ -293,7 +316,7 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 	cookiesPath := filepath.Join(e.ConfigDir, "cookies.txt")
 	if _, err := os.Stat(cookiesPath); err == nil {
 		args = append(args, "--cookies", cookiesPath)
-		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+		args = append(args, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
 	}
 
 	if task.Quality != "" {
@@ -348,4 +371,20 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 			onProgress(update)
 		}
 	}
+}
+func (e *YTDLPEngine) runYTDLP(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		stderrStr := stderr.String()
+		if stderrStr != "" {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderrStr))
+		}
+		return nil, err
+	}
+	return []byte(stdout.String()), nil
 }
