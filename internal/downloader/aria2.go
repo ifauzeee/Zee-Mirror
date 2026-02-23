@@ -36,7 +36,6 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 	var gid string
 	var err error
 
-	// Handle local torrent files
 	if strings.HasPrefix(task.URL, "file://") && strings.HasSuffix(strings.ToLower(task.URL), ".torrent") {
 		filePath := strings.TrimPrefix(task.URL, "file://")
 		slog.Info("Loading local torrent file for aria2", "path", filePath)

@@ -76,36 +76,32 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 
 	var fileURL string
 	if filepath.IsAbs(tgFile.FilePath) {
-		// Try direct path first (if volumes are shared)
 		if _, errStat := os.Stat(tgFile.FilePath); errStat == nil {
 			slog.Info("Local TG file detected (Direct path)", "path", tgFile.FilePath)
 			fileURL = "file://" + tgFile.FilePath
-		}
-
-		if fileURL == "" {
-			// Try translated path (if mapped to download dir)
+		} else {
+			slog.Warn("Local TG file path exists in metadata but not on disk", "path", tgFile.FilePath, "error", errStat)
+			
 			translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
 			if _, errStat := os.Stat(translatedPath); errStat == nil {
 				slog.Info("Local TG file detected (Translated path)", "path", translatedPath)
 				fileURL = "file://" + translatedPath
+			} else {
+				slog.Warn("Translated path also not found", "path", translatedPath, "error", errStat)
 			}
 		}
 	}
 
 	if fileURL == "" {
-		if s.Config.TelegramAPI != "" && !isOfficial {
-			fileEndpoint := strings.Replace(s.Config.TelegramAPI, "/bot%s/%s", "/file/bot%s/%s", 1)
-			filePath := tgFile.FilePath
-			if strings.HasPrefix(filePath, "/") {
-				filePath = filePath[1:]
-			}
-			fileURL = fmt.Sprintf(fileEndpoint, s.Bot.Token, filePath)
-		} else {
-			fileURL = tgFile.Link(s.Bot.Token)
+		fileURL = s.GetFileLink(tgFile, isOfficial)
+		if filepath.IsAbs(tgFile.FilePath) {
+			slog.Debug("Local TG file failed disk checks, falling back to HTTP", 
+				"path", tgFile.FilePath, 
+				"url", fileURL)
 		}
 	}
 
-	slog.Debug("Telegram download initiated", "fileID", fileID, "filePath", tgFile.FilePath, "url", fileURL)
+	slog.Info("Telegram download initiated", "fileID", fileID, "filePath", tgFile.FilePath, "url", fileURL)
 
 	if taskType == TypeTorrent {
 		s.ShowTorrentSelectionMenu(message, fileURL, fileName, zip, unzip, password, replyID)

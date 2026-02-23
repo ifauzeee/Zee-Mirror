@@ -115,10 +115,13 @@ func (s *BotService) DownloadFile(url, destPath string) error {
 func (s *BotService) GetFileLink(file tgbotapi.File, isOfficial bool) string {
 	if s.Config.TelegramAPI != "" && !isOfficial {
 		apiFormat := s.Config.TelegramAPI
-		apiFormat = strings.Replace(apiFormat, "bot%s/%s", "file/bot%s/%s", 1)
+		if strings.Contains(apiFormat, "/bot%s/%s") {
+			apiFormat = strings.Replace(apiFormat, "/bot%s/%s", "/file/bot%s/%s", 1)
+		} else {
+			apiFormat = strings.TrimSuffix(apiFormat, "/") + "/file/bot%s/%s"
+		}
 
-		filePath := strings.TrimPrefix(file.FilePath, "/")
-
+		filePath := strings.TrimLeft(file.FilePath, "/")
 		return fmt.Sprintf(apiFormat, s.Config.BotToken, filePath)
 	}
 	return file.Link(s.Config.BotToken)

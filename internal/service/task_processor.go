@@ -48,19 +48,22 @@ func (s *BotService) processTask(task *Task) {
 
 		var fileURL string
 		if filepath.IsAbs(tgFile.FilePath) {
-			translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
-			if _, errStat := os.Stat(translatedPath); errStat == nil {
-				fileURL = "file://" + translatedPath
+			if _, errStat := os.Stat(tgFile.FilePath); errStat == nil {
+				slog.Info("Local TG file detected (Direct path)", "taskID", task.ID, "path", tgFile.FilePath)
+				fileURL = "file://" + tgFile.FilePath
+			}
+
+			if fileURL == "" {
+				translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
+				if _, errStat := os.Stat(translatedPath); errStat == nil {
+					slog.Info("Local TG file detected (Translated path)", "taskID", task.ID, "path", translatedPath)
+					fileURL = "file://" + translatedPath
+				}
 			}
 		}
 
 		if fileURL == "" {
-			if s.Config.TelegramAPI != "" && !isOfficial {
-				fileEndpoint := strings.Replace(s.Config.TelegramAPI, "/bot%s/%s", "/file/bot%s/%s", 1)
-				fileURL = fmt.Sprintf(fileEndpoint, s.Bot.Token, tgFile.FilePath)
-			} else {
-				fileURL = tgFile.Link(s.Bot.Token)
-			}
+			fileURL = s.GetFileLink(tgFile, isOfficial)
 		}
 
 		task.Mu.Lock()
@@ -431,17 +434,14 @@ func findDownloadedFile(dir string) string {
 		}
 	}
 
-	// If there's only one candidate, return it (file or folder)
 	if len(candidates) == 1 {
 		return candidates[0]
 	}
 
-	// If there's only one directory among candidates, it's likely the root of a multi-file torrent
 	if len(directories) == 1 {
 		return directories[0]
 	}
 
-	// Fallback: pick the largest file (existing behavior)
 	var result string
 	var maxSize int64
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
