@@ -453,10 +453,11 @@ func searchSolidTorrents(query string) []Result {
 
 	var data struct {
 		Results []struct {
-			Title   string `json:"title"`
-			Magnet  string `json:"magnet"`
-			Size    int64  `json:"size"`
-			Seeders int    `json:"seeders"`
+			Title    string `json:"title"`
+			Magnet   string `json:"magnet"`
+			InfoHash string `json:"infohash"`
+			Size     int64  `json:"size"`
+			Seeders  int    `json:"seeders"`
 		} `json:"results"`
 	}
 
@@ -480,11 +481,16 @@ func searchSolidTorrents(query string) []Result {
 		}
 		seen[cleanTitle] = true
 
+		magnet := item.Magnet
+		if magnet == "" && item.InfoHash != "" {
+			magnet = fmt.Sprintf("magnet:?xt=urn:btih:%s&dn=%s", item.InfoHash, url.QueryEscape(item.Title))
+		}
+
 		results = append(results, Result{
 			Title:   cleanTitle,
 			Size:    utils.FormatBytes(item.Size),
 			Seeders: fmt.Sprintf("%d", item.Seeders),
-			Magnet:  item.Magnet,
+			Magnet:  magnet,
 			Source:  "Solid",
 		})
 	}
@@ -601,8 +607,15 @@ func searchPirateBay(query string) []Result {
 }
 
 func CleanMagnetLink(magnet string) string {
+	if magnet == "" {
+		return "Magnet not available"
+	}
 	if strings.HasPrefix(magnet, "magnet:?") {
 		return magnet
 	}
-	return fmt.Sprintf("magnet:?xt=urn:btih:%s", magnet)
+	// Check if it's just a raw infohash (40 characters hex or 32 characters base32)
+	if len(magnet) >= 32 {
+		return fmt.Sprintf("magnet:?xt=urn:btih:%s", magnet)
+	}
+	return magnet
 }
