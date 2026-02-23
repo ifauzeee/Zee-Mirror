@@ -307,6 +307,7 @@ func setupAdminRoutes(r *router.Router) {
 		(&handlers.BotService{BotService: s}).HandleCancelAll(m)
 	})
 	r.RegisterCommand("search", func(s *service.BotService, m *tgbotapi.Message) { search.HandleSearch(s, m, m.CommandArguments()) })
+	r.RegisterCommand("searchall", func(s *service.BotService, m *tgbotapi.Message) { search.HandleSearch(s, m, m.CommandArguments()) })
 	r.RegisterCommand("batch", func(s *service.BotService, m *tgbotapi.Message) {
 		(&handlers.BotService{BotService: s}).HandleBatch(m, m.CommandArguments())
 	})

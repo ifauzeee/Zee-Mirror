@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,24 +47,49 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 	}
 
 	if args == "" {
-		s.Reply(message, "⚠️ *Format Salah*\n\nGunakan: `/search <query>`")
+		s.Reply(message, "⚠️ *Format Salah*\n\nGunakan: `/search <query>` atau `/searchall <query>`")
 		return
 	}
 
 	query := args
+	isSearchAll := message.Command() == "searchall"
 
+	if !isSearchAll {
+		// Normal /search: show provider choices
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🌟 Solid (Umum)", fmt.Sprintf("t_search:solid:%s", query)),
+				tgbotapi.NewInlineKeyboardButtonData("🏴‍☠️ PirateBay", fmt.Sprintf("t_search:apibay:%s", query)),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🌸 Nyaa (Anime)", fmt.Sprintf("t_search:nyaa:%s", query)),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🌍 Cari Semua (Gabungan)", fmt.Sprintf("t_search:all:%s", query)),
+			),
+		)
+
+		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Pencarian:* `%s`\n\nPilih provider torrent untuk mulai mencari:", utils.EscapeMarkdownV2(query)))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+		msg.ReplyMarkup = &keyboard
+		_, _ = s.Bot.Send(msg)
+		return
+	}
+
+	// /searchall logic
 	sessionID := uuid.New().String()
 
 	SearchMu.Lock()
 	SearchSessions[sessionID] = &Session{
 		CreatedAt: time.Now(),
 		Query:     query,
+		Provider:  "All",
 		Results:   []Result{},
 		Page:      0,
 	}
 	SearchMu.Unlock()
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Mencari* `%s`\\.\\.\\.", utils.EscapeMarkdownV2(query)))
+	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Mencari* `%s` di semua sumber\\.\\.\\.", utils.EscapeMarkdownV2(query)))
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
 	sent, err := s.Bot.Send(msg)
 	if err != nil {
@@ -81,6 +107,9 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 		all = append(all, pbResults...)
 		all = append(all, slResults...)
 
+		// Sort by seeders (descending)
+		SortResultsBySeeders(all)
+
 		SearchMu.Lock()
 		if sess, ok := SearchSessions[sessionID]; ok {
 			sess.Results = all
@@ -90,6 +119,24 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 		showSearchResults(s, sent.Chat.ID, sent.MessageID, sessionID)
 	}()
 }
+
+func SortResultsBySeeders(results []Result) {
+	sort.Slice(results, func(i, j int) bool {
+		s1 := parseSeeders(results[i].Seeders)
+		s2 := parseSeeders(results[j].Seeders)
+		return s1 > s2
+	})
+}
+
+func parseSeeders(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	val, _ := strconv.Atoi(s)
+	return val
+}
+
 
 func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
@@ -115,7 +162,18 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 		results = scrapeNyaa(query)
 	case "apibay":
 		results = searchPirateBay(query)
+	case "all":
+		nyResults := scrapeNyaa(query)
+		pbResults := searchPirateBay(query)
+		slResults := searchSolidTorrents(query)
+		results = append(results, nyResults...)
+		results = append(results, pbResults...)
+		results = append(results, slResults...)
+		provider = "All"
 	}
+
+	// Sort by seeders
+	SortResultsBySeeders(results)
 
 	if len(results) == 0 {
 		sessionID := uuid.New().String()[:8]
@@ -199,11 +257,12 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 
 	for i, item := range visibleItems {
 		idx := start + i + 1
-		text += fmt.Sprintf("%d\\. *%s*\n📦 %s • 👤 %s\n\n",
+		text += fmt.Sprintf("%d\\. *%s*\n📦 %s • 👤 %s • 🌐 %s\n\n",
 			idx,
 			utils.EscapeMarkdownV2(utils.TruncateString(item.Title, 40)),
 			utils.EscapeMarkdownV2(item.Size),
 			utils.EscapeMarkdownV2(item.Seeders),
+			utils.EscapeMarkdownV2(item.Source),
 		)
 
 		numberKeyRow = append(numberKeyRow, tgbotapi.NewInlineKeyboardButtonData(
