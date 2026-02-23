@@ -73,7 +73,8 @@ type Task struct {
 	PlaylistIndex   int
 	Zip             bool
 	Unzip           bool
-	Hardsub         bool
+	Hardsub           bool
+	ProcessingMessage string
 }
 
 type TaskRecord struct {
@@ -158,7 +159,8 @@ type TaskSnapshot struct {
 	PlaylistIndex   int           `json:"playlistIndex,omitempty"`
 	Zip             bool          `json:"zip"`
 	Unzip           bool          `json:"unzip"`
-	Hardsub         bool          `json:"hardsub,omitempty"`
+	Hardsub           bool          `json:"hardsub,omitempty"`
+	ProcessingMessage string        `json:"processingMessage,omitempty"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {
@@ -199,8 +201,9 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		MaxRetries:      t.MaxRetries,
 		PlaylistCount:   t.PlaylistCount,
 		PlaylistIndex:   t.PlaylistIndex,
-		SubtitleLangs:   t.SubtitleLangs,
-		Hardsub:         t.Hardsub,
+		SubtitleLangs:     t.SubtitleLangs,
+		Hardsub:           t.Hardsub,
+		ProcessingMessage: t.ProcessingMessage,
 	}
 }
 

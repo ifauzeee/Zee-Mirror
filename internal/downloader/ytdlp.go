@@ -360,6 +360,14 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 			title := strings.TrimPrefix(line, "[download]")
 			title = strings.TrimSuffix(title, " has already been downloaded")
 			update.FileName = filepath.Base(strings.TrimSpace(title))
+		} else if strings.HasPrefix(line, "[ExtractAudio]") {
+			update.Message = "Extracting/Converting Audio..."
+		} else if strings.HasPrefix(line, "[Merger]") {
+			update.Message = "Merging Video/Audio..."
+		} else if strings.HasPrefix(line, "[VideoConvertor]") {
+			update.Message = "Converting Video Format..."
+		} else if strings.HasPrefix(line, "[Metadata]") {
+			update.Message = "Adding Metadata..."
 		}
 
 		p := parser.ParseYTDLPLine(line)

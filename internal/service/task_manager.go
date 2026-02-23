@@ -526,6 +526,9 @@ func (t *Task) UpdateFromProgressUpdate(up downloader.ProgressUpdate) {
 	if up.Error != "" {
 		t.Error = up.Error
 	}
+	if up.Message != "" {
+		t.ProcessingMessage = up.Message
+	}
 }
 
 func (t *Task) SetStatus(status TaskStatus) {

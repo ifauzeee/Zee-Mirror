@@ -140,9 +140,15 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 		totalSizeStr = "Unknown"
 	}
 
+	msgLine := ""
+	if taskSnapshot.ProcessingMessage != "" {
+		msgLine = fmt.Sprintf("💬 *Status:* _%s_\n", utils.EscapeMarkdownV2(taskSnapshot.ProcessingMessage))
+	}
+
 	return fmt.Sprintf(
 		"🏷️ *ID:* `%s` • %s *%s*\n"+
 			"%s\n"+
+			"%s"+
 			"📄 *File:* `%s`\n"+
 			"📦 *Size:* `%s / %s`\n"+
 			"⚡ *Speed:* `%s` • ⏱️ *ETA:* `%s`\n"+
@@ -151,6 +157,7 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 		emoji,
 		utils.EscapeMarkdownV2(i18n.T(lang, strings.ToLower(string(taskSnapshot.Status)))),
 		utils.EscapeMarkdownV2(bar),
+		msgLine,
 		utils.EscapeMarkdownV2Code(utils.TruncateString(taskSnapshot.FileName, 35)),
 		utils.EscapeMarkdownV2Code(utils.FormatBytes(processedSize)),
 		utils.EscapeMarkdownV2Code(totalSizeStr),
