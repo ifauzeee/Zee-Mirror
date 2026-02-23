@@ -63,6 +63,14 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 	}
 	SearchMu.Unlock()
 
+	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Mencari* `%s`\\.\\.\\.", utils.EscapeMarkdownV2(query)))
+	msg.ParseMode = tgbotapi.ModeMarkdownV2
+	sent, err := s.Bot.Send(msg)
+	if err != nil {
+		slog.Error("Failed to send initial search message", "error", err)
+		return
+	}
+
 	go func() {
 		nyResults := scrapeNyaa(query)
 		pbResults := searchPirateBay(query)
@@ -79,14 +87,8 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 		}
 		SearchMu.Unlock()
 
-		showSearchResults(s, message.Chat.ID, message.MessageID, sessionID)
+		showSearchResults(s, sent.Chat.ID, sent.MessageID, sessionID)
 	}()
-
-	msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Mencari* `%s`\\.\\.\\.", utils.EscapeMarkdownV2(query)))
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	sent, _ := s.Bot.Send(msg)
-
-	_ = sent
 }
 
 func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
