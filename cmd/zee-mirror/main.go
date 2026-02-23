@@ -111,7 +111,7 @@ func main() {
 				if _, err := os.Stat(cfg.DownloadDir); err == nil {
 					size, _ := utils.CalculateDirSize(cfg.DownloadDir)
 					metrics.StorageUsage.WithLabelValues(cfg.DownloadDir).Set(float64(size))
-					slog.Info("Storage usage metric updated", "size", size)
+					slog.Debug("Storage usage metric updated", "size", size)
 				}
 			}
 		}

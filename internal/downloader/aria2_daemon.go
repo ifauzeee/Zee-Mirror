@@ -93,6 +93,15 @@ func streamAria2Output(r io.Reader, isErr bool) {
 			slog.Warn("aria2c", "output", line)
 			continue
 		}
+
+		if strings.HasPrefix(line, "[#") ||
+			strings.HasPrefix(line, "*** Download Progress Summary") ||
+			strings.HasPrefix(line, "===") ||
+			strings.HasPrefix(line, "---") ||
+			strings.HasPrefix(line, "FILE:") {
+			continue
+		}
+
 		slog.Info("aria2c", "output", line)
 	}
 	if err := scanner.Err(); err != nil {
