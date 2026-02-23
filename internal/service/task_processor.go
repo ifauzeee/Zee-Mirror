@@ -201,7 +201,7 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 		return
 	}
 
-	task.LocalPath = findDownloadedFile(outputDir)
+	task.LocalPath = findDownloadedFile(outputDir, task.Quality)
 	if task.LocalPath == "" {
 		task.SetError("Downloaded file not found or incomplete (.part files ignored)")
 		s.updateTaskStatus(task)
@@ -304,7 +304,7 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 		return
 	}
 
-	task.LocalPath = findDownloadedFile(outputDir)
+	task.LocalPath = findDownloadedFile(outputDir, task.Quality)
 	if task.LocalPath == "" {
 		if task.Error == "" {
 			task.SetError("Downloaded file not found")
@@ -408,29 +408,55 @@ func (s *BotService) retryTask(task *Task, originalErr string) bool {
 	return true
 }
 
-func findDownloadedFile(dir string) string {
+func findDownloadedFile(dir string, quality string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
 	}
 
 	var candidates []string
-	var directories []string
+	var audioFiles []string
+	var videoFiles []string
 
 	for _, entry := range entries {
-		name := entry.Name()
-		if strings.HasSuffix(name, ".aria2") ||
-			strings.HasSuffix(name, ".part") ||
-			strings.HasSuffix(name, ".ytdl") ||
-			strings.HasSuffix(name, ".torrent") ||
-			strings.HasSuffix(name, ".temp") {
+		if entry.IsDir() {
 			continue
 		}
-		
+		name := entry.Name()
+		lowerName := strings.ToLower(name)
+
+		if strings.HasSuffix(lowerName, ".aria2") ||
+			strings.HasSuffix(lowerName, ".part") ||
+			strings.HasSuffix(lowerName, ".ytdl") ||
+			strings.HasSuffix(lowerName, ".torrent") ||
+			strings.HasSuffix(lowerName, ".temp") {
+			continue
+		}
+
 		fullPath := filepath.Join(dir, name)
 		candidates = append(candidates, fullPath)
-		if entry.IsDir() {
-			directories = append(directories, fullPath)
+
+		if strings.HasSuffix(lowerName, ".mp3") ||
+			strings.HasSuffix(lowerName, ".m4a") ||
+			strings.HasSuffix(lowerName, ".ogg") ||
+			strings.HasSuffix(lowerName, ".flac") ||
+			strings.HasSuffix(lowerName, ".opus") {
+			audioFiles = append(audioFiles, fullPath)
+		} else if strings.HasSuffix(lowerName, ".mp4") ||
+			strings.HasSuffix(lowerName, ".mkv") ||
+			strings.HasSuffix(lowerName, ".webm") ||
+			strings.HasSuffix(lowerName, ".mov") {
+			videoFiles = append(videoFiles, fullPath)
+		}
+	}
+
+	if quality == "audio" {
+		if len(audioFiles) > 0 {
+			return getLargest(audioFiles)
+		}
+	} else if quality != "" {
+		if len(videoFiles) > 0 {
+			return getLargest(videoFiles)
 		}
 	}
 
@@ -438,30 +464,19 @@ func findDownloadedFile(dir string) string {
 		return candidates[0]
 	}
 
-	if len(directories) == 1 {
-		return directories[0]
-	}
+	return getLargest(candidates)
+}
 
+func getLargest(paths []string) string {
 	var result string
 	var maxSize int64
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
+	for _, p := range paths {
+		if info, err := os.Stat(p); err == nil {
+			if info.Size() > maxSize {
+				maxSize = info.Size()
+				result = p
+			}
 		}
-
-		name := strings.ToLower(info.Name())
-		if strings.HasSuffix(name, ".part") || 
-		   strings.HasSuffix(name, ".ytdl") || 
-		   strings.HasSuffix(name, ".aria2") ||
-		   strings.HasSuffix(name, ".torrent") {
-			return nil
-		}
-
-		if info.Size() > maxSize {
-			maxSize = info.Size()
-			result = path
-		}
-		return nil
-	})
+	}
 	return result
 }
