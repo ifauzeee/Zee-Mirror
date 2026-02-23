@@ -362,10 +362,23 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 			update.FileName = filepath.Base(strings.TrimSpace(title))
 		} else if strings.HasPrefix(line, "[ExtractAudio]") {
 			update.Message = "Extracting/Converting Audio..."
+			if strings.Contains(line, "Destination:") {
+				parts := strings.SplitN(line, "Destination:", 2)
+				update.FileName = filepath.Base(strings.TrimSpace(parts[1]))
+			}
 		} else if strings.HasPrefix(line, "[Merger]") {
 			update.Message = "Merging Video/Audio..."
+			if strings.Contains(line, "Merging formats into") {
+				parts := strings.SplitN(line, "into", 2)
+				update.FileName = filepath.Base(strings.TrimSpace(parts[1]))
+				update.FileName = strings.Trim(update.FileName, "\"")
+			}
 		} else if strings.HasPrefix(line, "[VideoConvertor]") {
 			update.Message = "Converting Video Format..."
+			if strings.Contains(line, "Destination:") {
+				parts := strings.SplitN(line, "Destination:", 2)
+				update.FileName = filepath.Base(strings.TrimSpace(parts[1]))
+			}
 		} else if strings.HasPrefix(line, "[Metadata]") {
 			update.Message = "Adding Metadata..."
 		}

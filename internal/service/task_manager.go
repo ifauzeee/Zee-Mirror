@@ -528,6 +528,8 @@ func (t *Task) UpdateFromProgressUpdate(up downloader.ProgressUpdate) {
 	}
 	if up.Message != "" {
 		t.ProcessingMessage = up.Message
+		t.Speed = 0
+		t.ETA = 0
 	}
 }
 
