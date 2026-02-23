@@ -435,7 +435,7 @@ func (s *BotService) downloadBatchItem(batch *BatchTask, task *Task) error {
 		return fmt.Errorf("aria2c failed: %v, output: %s", err, string(output))
 	}
 
-	downloadedFile := findDownloadedFile(taskDir)
+	downloadedFile := findDownloadedFile(taskDir, task.Quality)
 	if downloadedFile == "" {
 		return fmt.Errorf("no file downloaded")
 	}
