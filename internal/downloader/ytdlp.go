@@ -276,11 +276,13 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 	if task.FileName != "" && task.FileName != "video" && task.FileName != "unknown_file" && task.FileName != "watch" {
 		ext := filepath.Ext(task.FileName)
 		if ext != "" {
-			if strings.ToLower(ext) == ".m3u8" {
+			lowerExt := strings.ToLower(ext)
+			switch {
+			case lowerExt == ".m3u8":
 				outputTemplate = strings.TrimSuffix(task.FileName, ext) + ".mp4"
-			} else if task.Quality == "audio" && (strings.ToLower(ext) == ".webm" || strings.ToLower(ext) == ".mp4" || strings.ToLower(ext) == ".mkv") {
+			case task.Quality == "audio" && (lowerExt == ".webm" || lowerExt == ".mp4" || lowerExt == ".mkv"):
 				outputTemplate = strings.TrimSuffix(task.FileName, ext) + ".%(ext)s"
-			} else {
+			default:
 				outputTemplate = task.FileName
 			}
 		} else {
@@ -358,33 +360,34 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 			update.Error = line
 		}
 
-		if strings.HasPrefix(line, "[download] Destination:") {
+		switch {
+		case strings.HasPrefix(line, "[download] Destination:"):
 			title := strings.TrimPrefix(line, "[download] Destination:")
 			update.FileName = filepath.Base(strings.TrimSpace(title))
-		} else if strings.HasPrefix(line, "[download]") && strings.Contains(line, "has already been downloaded") {
+		case strings.HasPrefix(line, "[download]") && strings.Contains(line, "has already been downloaded"):
 			title := strings.TrimPrefix(line, "[download]")
 			title = strings.TrimSuffix(title, " has already been downloaded")
 			update.FileName = filepath.Base(strings.TrimSpace(title))
-		} else if strings.HasPrefix(line, "[ExtractAudio]") {
+		case strings.HasPrefix(line, "[ExtractAudio]"):
 			update.Message = "Extracting/Converting Audio..."
 			if strings.Contains(line, "Destination:") {
 				parts := strings.SplitN(line, "Destination:", 2)
 				update.FileName = filepath.Base(strings.TrimSpace(parts[1]))
 			}
-		} else if strings.HasPrefix(line, "[Merger]") {
+		case strings.HasPrefix(line, "[Merger]"):
 			update.Message = "Merging Video/Audio..."
 			if strings.Contains(line, "Merging formats into") {
 				parts := strings.SplitN(line, "into", 2)
 				update.FileName = filepath.Base(strings.TrimSpace(parts[1]))
 				update.FileName = strings.Trim(update.FileName, "\"")
 			}
-		} else if strings.HasPrefix(line, "[VideoConvertor]") {
+		case strings.HasPrefix(line, "[VideoConvertor]"):
 			update.Message = "Converting Video Format..."
 			if strings.Contains(line, "Destination:") {
 				parts := strings.SplitN(line, "Destination:", 2)
 				update.FileName = filepath.Base(strings.TrimSpace(parts[1]))
 			}
-		} else if strings.HasPrefix(line, "[Metadata]") {
+		case strings.HasPrefix(line, "[Metadata]"):
 			update.Message = "Adding Metadata..."
 		}
 

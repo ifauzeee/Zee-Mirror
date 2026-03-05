@@ -35,49 +35,51 @@ const (
 )
 
 type Task struct {
-	Ctx             context.Context
-	CancelFunc      context.CancelFunc
-	CreatedAt       time.Time
-	StartedAt       time.Time
-	CompletedAt     time.Time
-	ID              string
-	GID             string
-	URL             string
-	FileName        string
-	LocalPath       string
-	RemotePath      string
-	RemoteURL       string
-	Error           string
-	Password        string
-	Quality         string
-	OrigFileName    string
-	Type            TaskType
-	Status          TaskStatus
-	SubtitleLangs   string
-	TotalSize       int64
-	DownloadedSize  int64
-	UploadedSize    int64
-	Speed           int64
-	UserID          int64
-	ChatID          int64
-	ETA             time.Duration
-	Progress        float64
-	Mu              sync.RWMutex
-	Connections     int
-	MessageID       int
-	ResultMessageID int
-	ReplyMessageID  int
-	RetryCount      int
-	MaxRetries      int
-	PlaylistCount   int
-	PlaylistIndex   int
-	Zip             bool
-	Unzip           bool
-	Hardsub           bool
+	CompletedAt       time.Time
+	CreatedAt         time.Time
+	StartedAt         time.Time
+	Ctx               context.Context
+	CancelFunc        context.CancelFunc
+	Type              TaskType
+	Status            TaskStatus
+	ID                string
+	GID               string
+	URL               string
+	FileName          string
+	LocalPath         string
+	RemotePath        string
+	RemoteURL         string
+	Error             string
+	Password          string
+	Quality           string
+	OrigFileName      string
+	SubtitleLangs     string
 	ProcessingMessage string
+	TotalSize         int64
+	Connections       int
+	ETA               time.Duration
+	DownloadedSize    int64
+	UploadedSize      int64
+	Speed             int64
+	UserID            int64
+	ChatID            int64
+	Progress          float64
+	PlaylistIndex     int
+	MessageID         int
+	ResultMessageID   int
+	ReplyMessageID    int
+	RetryCount        int
+	MaxRetries        int
+	PlaylistCount     int
+	Mu                sync.RWMutex
+	Zip               bool
+	Unzip             bool
+	Hardsub           bool
 }
 
 type TaskRecord struct {
+	CreatedAt      time.Time
+	CompletedAt    sql.NullTime
 	ID             string
 	GID            string
 	Type           string
@@ -89,17 +91,15 @@ type TaskRecord struct {
 	RemoteURL      string
 	Password       string
 	Error          string
-	CreatedAt      time.Time
-	CompletedAt    sql.NullTime
+	Quality        string
 	TotalSize      int64
 	DownloadedSize int64
 	UploadedSize   int64
 	ChatID         int64
 	UserID         int64
+	RetryCount     int
 	Zip            bool
 	Unzip          bool
-	Quality        string
-	RetryCount     int
 }
 
 type UserStats struct {
@@ -124,83 +124,83 @@ type DailyStats struct {
 }
 
 type TaskSnapshot struct {
-	CreatedAt       time.Time     `json:"createdAt"`
-	StartedAt       time.Time     `json:"startedAt"`
-	CompletedAt     time.Time     `json:"completedAt"`
-	ID              string        `json:"id"`
-	GID             string        `json:"gid"`
-	URL             string        `json:"url"`
-	FileName        string        `json:"fileName"`
-	LocalPath       string        `json:"localPath"`
-	RemotePath      string        `json:"remotePath"`
-	RemoteURL       string        `json:"remoteURL"`
-	Error           string        `json:"error"`
-	Password        string        `json:"password"`
-	Quality         string        `json:"quality"`
-	OrigFileName    string        `json:"origFileName"`
-	Type            TaskType      `json:"type"`
-	Status          TaskStatus    `json:"status"`
-	SubtitleLangs   string        `json:"subtitleLangs,omitempty"`
-	TotalSize       int64         `json:"totalSize"`
-	DownloadedSize  int64         `json:"downloadedSize"`
-	UploadedSize    int64         `json:"uploadedSize"`
-	Speed           int64         `json:"speed"`
-	ChatID          int64         `json:"chatID"`
-	UserID          int64         `json:"userID"`
-	ETA             time.Duration `json:"eta"`
-	Progress        float64       `json:"progress"`
-	Connections     int           `json:"connections"`
-	MessageID       int           `json:"messageID"`
-	ResultMessageID int           `json:"resultMessageID"`
-	ReplyMessageID  int           `json:"replyMessageID"`
-	RetryCount      int           `json:"retryCount"`
-	MaxRetries      int           `json:"maxRetries"`
-	PlaylistCount   int           `json:"playlistCount,omitempty"`
-	PlaylistIndex   int           `json:"playlistIndex,omitempty"`
-	Zip             bool          `json:"zip"`
-	Unzip           bool          `json:"unzip"`
-	Hardsub           bool          `json:"hardsub,omitempty"`
+	CreatedAt         time.Time     `json:"createdAt"`
+	StartedAt         time.Time     `json:"startedAt"`
+	CompletedAt       time.Time     `json:"completedAt"`
+	Status            TaskStatus    `json:"status"`
+	ID                string        `json:"id"`
+	GID               string        `json:"gid"`
+	URL               string        `json:"url"`
+	FileName          string        `json:"fileName"`
+	LocalPath         string        `json:"localPath"`
+	RemotePath        string        `json:"remotePath"`
+	RemoteURL         string        `json:"remoteURL"`
+	Error             string        `json:"error"`
+	Password          string        `json:"password"`
+	Quality           string        `json:"quality"`
+	OrigFileName      string        `json:"origFileName"`
+	SubtitleLangs     string        `json:"subtitleLangs,omitempty"`
 	ProcessingMessage string        `json:"processingMessage,omitempty"`
+	Type              TaskType      `json:"type"`
+	DownloadedSize    int64         `json:"downloadedSize"`
+	MessageID         int           `json:"messageID"`
+	TotalSize         int64         `json:"totalSize"`
+	UploadedSize      int64         `json:"uploadedSize"`
+	Speed             int64         `json:"speed"`
+	ChatID            int64         `json:"chatID"`
+	UserID            int64         `json:"userID"`
+	Progress          float64       `json:"progress"`
+	Connections       int           `json:"connections"`
+	ETA               time.Duration `json:"eta"`
+	ResultMessageID   int           `json:"resultMessageID"`
+	ReplyMessageID    int           `json:"replyMessageID"`
+	RetryCount        int           `json:"retryCount"`
+	MaxRetries        int           `json:"maxRetries"`
+	PlaylistCount     int           `json:"playlistCount,omitempty"`
+	PlaylistIndex     int           `json:"playlistIndex,omitempty"`
+	Zip               bool          `json:"zip"`
+	Unzip             bool          `json:"unzip"`
+	Hardsub           bool          `json:"hardsub,omitempty"`
 }
 
 func (t *Task) GetSnapshot() TaskSnapshot {
 	t.Mu.RLock()
 	defer t.Mu.RUnlock()
 	return TaskSnapshot{
-		ID:              t.ID,
-		GID:             t.GID,
-		Type:            t.Type,
-		Status:          t.Status,
-		URL:             t.URL,
-		FileName:        t.FileName,
-		LocalPath:       t.LocalPath,
-		RemotePath:      t.RemotePath,
-		RemoteURL:       t.RemoteURL,
-		TotalSize:       t.TotalSize,
-		DownloadedSize:  t.DownloadedSize,
-		UploadedSize:    t.UploadedSize,
-		Speed:           t.Speed,
-		Connections:     t.Connections,
-		ETA:             t.ETA,
-		Progress:        t.Progress,
-		Error:           t.Error,
-		ChatID:          t.ChatID,
-		MessageID:       t.MessageID,
-		UserID:          t.UserID,
-		CreatedAt:       t.CreatedAt,
-		StartedAt:       t.StartedAt,
-		CompletedAt:     t.CompletedAt,
-		Zip:             t.Zip,
-		Unzip:           t.Unzip,
-		Password:        t.Password,
-		Quality:         t.Quality,
-		OrigFileName:    t.OrigFileName,
-		ResultMessageID: t.ResultMessageID,
-		ReplyMessageID:  t.ReplyMessageID,
-		RetryCount:      t.RetryCount,
-		MaxRetries:      t.MaxRetries,
-		PlaylistCount:   t.PlaylistCount,
-		PlaylistIndex:   t.PlaylistIndex,
+		ID:                t.ID,
+		GID:               t.GID,
+		Type:              t.Type,
+		Status:            t.Status,
+		URL:               t.URL,
+		FileName:          t.FileName,
+		LocalPath:         t.LocalPath,
+		RemotePath:        t.RemotePath,
+		RemoteURL:         t.RemoteURL,
+		TotalSize:         t.TotalSize,
+		DownloadedSize:    t.DownloadedSize,
+		UploadedSize:      t.UploadedSize,
+		Speed:             t.Speed,
+		Connections:       t.Connections,
+		ETA:               t.ETA,
+		Progress:          t.Progress,
+		Error:             t.Error,
+		ChatID:            t.ChatID,
+		MessageID:         t.MessageID,
+		UserID:            t.UserID,
+		CreatedAt:         t.CreatedAt,
+		StartedAt:         t.StartedAt,
+		CompletedAt:       t.CompletedAt,
+		Zip:               t.Zip,
+		Unzip:             t.Unzip,
+		Password:          t.Password,
+		Quality:           t.Quality,
+		OrigFileName:      t.OrigFileName,
+		ResultMessageID:   t.ResultMessageID,
+		ReplyMessageID:    t.ReplyMessageID,
+		RetryCount:        t.RetryCount,
+		MaxRetries:        t.MaxRetries,
+		PlaylistCount:     t.PlaylistCount,
+		PlaylistIndex:     t.PlaylistIndex,
 		SubtitleLangs:     t.SubtitleLangs,
 		Hardsub:           t.Hardsub,
 		ProcessingMessage: t.ProcessingMessage,

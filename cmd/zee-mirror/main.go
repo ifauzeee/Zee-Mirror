@@ -79,7 +79,6 @@ func main() {
 	botSvc.TaskManager.Aria2Engine = downloader.NewAria2Engine(cfg.ConfigDir, cfg.Aria2RPCURL, cfg.Aria2RPCSecret)
 
 	apiServer := api.NewServer(botSvc, cfg.DashboardPort)
-	apiServer.Start()
 
 	r := router.NewRouter(botSvc.BotService)
 	setupRoutes(r)
@@ -92,10 +91,8 @@ func main() {
 		botSvc.HandleTorrent(m, text)
 	})
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates := bot.GetUpdatesChan(u)
+	apiServer.SetRouter(r)
+	apiServer.Start()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -117,15 +114,35 @@ func main() {
 		}
 	}()
 
-	go func() {
-		<-ctx.Done()
-		slog.Info("Shutting down gracefully...")
-		botSvc.Shutdown()
-		time.Sleep(1 * time.Second)
-		os.Exit(0)
-	}()
+	if cfg.UseWebhook && cfg.WebhookURL != "" {
+		slog.Info("🌐 Starting in WEBHOOK mode", "webhook_url", cfg.WebhookURL)
 
-	processUpdates(ctx, updates, botSvc, r)
+		if err := apiServer.SetupWebhook(); err != nil {
+			slog.Error("Failed to setup webhook, falling back to polling", "error", err)
+			startPolling(ctx, bot, botSvc, r)
+		} else {
+			slog.Info("✅ Webhook mode active. Waiting for updates from Telegram...")
+
+			go func() {
+				<-ctx.Done()
+				slog.Info("Shutting down gracefully (webhook mode)...")
+				if err := apiServer.RemoveWebhook(); err != nil {
+					slog.Warn("Failed to remove webhook on shutdown", "error", err)
+				}
+				botSvc.Shutdown()
+				time.Sleep(1 * time.Second)
+				os.Exit(0)
+			}()
+
+			select {}
+		}
+	} else {
+		slog.Info("📡 Starting in LONG POLLING mode")
+
+		_ = apiServer.RemoveWebhook()
+
+		startPolling(ctx, bot, botSvc, r)
+	}
 }
 
 func setupLogger(cfg *config.Config) {
@@ -189,6 +206,24 @@ func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {
 
 	bot.Debug = (cfg.LogLevel == "debug")
 	return bot, nil
+}
+
+func startPolling(ctx context.Context, bot *tgbotapi.BotAPI, botSvc *handlers.BotService, r *router.Router) {
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+
+	updates := bot.GetUpdatesChan(u)
+
+	go func() {
+		<-ctx.Done()
+		slog.Info("Shutting down gracefully (polling mode)...")
+		bot.StopReceivingUpdates()
+		botSvc.Shutdown()
+		time.Sleep(1 * time.Second)
+		os.Exit(0)
+	}()
+
+	processUpdates(ctx, updates, botSvc, r)
 }
 
 func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, botSvc *handlers.BotService, r *router.Router) {

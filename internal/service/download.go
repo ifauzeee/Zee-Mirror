@@ -81,7 +81,7 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 			fileURL = "file://" + tgFile.FilePath
 		} else {
 			slog.Warn("Local TG file path exists in metadata but not on disk", "path", tgFile.FilePath, "error", errStat)
-			
+
 			translatedPath := strings.Replace(tgFile.FilePath, "/var/lib/telegram-bot-api", s.Config.DownloadDir, 1)
 			if _, errStat := os.Stat(translatedPath); errStat == nil {
 				slog.Info("Local TG file detected (Translated path)", "path", translatedPath)
@@ -95,8 +95,8 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 	if fileURL == "" {
 		fileURL = s.GetFileLink(tgFile, isOfficial)
 		if filepath.IsAbs(tgFile.FilePath) {
-			slog.Debug("Local TG file failed disk checks, falling back to HTTP", 
-				"path", tgFile.FilePath, 
+			slog.Debug("Local TG file failed disk checks, falling back to HTTP",
+				"path", tgFile.FilePath,
 				"url", fileURL)
 		}
 	}

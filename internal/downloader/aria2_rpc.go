@@ -35,12 +35,12 @@ type RPCError struct {
 }
 
 type Aria2Status struct {
-	GID             string `json:"gid"`
-	Status          string `json:"status"`
-	TotalLength     string `json:"totalLength"`
-	CompletedLength string `json:"completedLength"`
-	DownloadSpeed   string `json:"downloadSpeed"`
-	Connections     string `json:"connections"`
+	GID             string   `json:"gid"`
+	Status          string   `json:"status"`
+	TotalLength     string   `json:"totalLength"`
+	CompletedLength string   `json:"completedLength"`
+	DownloadSpeed   string   `json:"downloadSpeed"`
+	Connections     string   `json:"connections"`
 	ErrorMessage    string   `json:"errorMessage,omitempty"`
 	FollowedBy      []string `json:"followedBy,omitempty"`
 	Following       string   `json:"following,omitempty"`

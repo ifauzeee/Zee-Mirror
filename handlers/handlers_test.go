@@ -31,7 +31,7 @@ func TestTaskManager_CreateTask_Duplicate(t *testing.T) {
 	}
 	tm.Tasks[taskID] = existingTask
 
-	mockRepo.On("GetCompletedTaskByURL", mock.Anything, "http://example.com/file.zip").Return(nil, nil)
+	mockRepo.On("GetCompletedTaskByURL", mock.Anything, "http://example.com/file.zip", mock.Anything).Return(nil, nil)
 	mockRepo.On("Save", mock.Anything, mock.Anything).Return(nil)
 
 	_, err := tm.CreateTask(service.TypeMirror, "http://example.com/file.zip", "file.zip", 123, 456, 0, 789, false, false, "", "", 0, "", false)
@@ -50,7 +50,7 @@ func TestTaskManager_CreateTask_DBDuplicate(t *testing.T) {
 		StopDuplicate: true,
 	}
 
-	mockRepo.On("GetCompletedTaskByURL", mock.Anything, "http://example.com/exists.zip").Return(&domain.TaskRecord{
+	mockRepo.On("GetCompletedTaskByURL", mock.Anything, "http://example.com/exists.zip", mock.Anything).Return(&domain.TaskRecord{
 		ID: "existing_db_id",
 	}, nil)
 

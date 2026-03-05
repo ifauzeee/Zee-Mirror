@@ -16,6 +16,7 @@ import (
 	"zee-mirror/handlers"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/metrics"
+	"zee-mirror/internal/router"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -27,6 +28,7 @@ import (
 type Server struct {
 	Service *handlers.BotService
 	Hub     *Hub
+	Router  *router.Router
 	Port    int
 }
 
@@ -36,6 +38,10 @@ func NewServer(service *handlers.BotService, port int) *Server {
 		Port:    port,
 		Hub:     NewHub(),
 	}
+}
+
+func (s *Server) SetRouter(r *router.Router) {
+	s.Router = r
 }
 
 func (s *Server) Start() {
@@ -85,6 +91,11 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/torrent/session", s.handleTorrentSession)
 	mux.HandleFunc("/api/torrent/files", s.handleTorrentFiles)
 	mux.HandleFunc("/api/torrent/start", s.handleTorrentStart)
+
+	if s.Service.Config.UseWebhook {
+		mux.HandleFunc("/api/telegram/webhook", s.handleWebhook)
+		slog.Info("Webhook endpoint registered at /api/telegram/webhook")
+	}
 
 	fs := http.FileServer(http.Dir("./dist"))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

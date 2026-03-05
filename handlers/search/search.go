@@ -134,7 +134,6 @@ func parseSeeders(s string) int {
 	return val
 }
 
-
 func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Query tidak valid"))

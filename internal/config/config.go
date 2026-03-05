@@ -24,6 +24,8 @@ type Config struct {
 	AuthPassword             string
 	Aria2RPCURL              string
 	Aria2RPCSecret           string
+	WebhookURL               string
+	WebhookSecret            string
 	AuthorizedUsers          []int64
 	OwnerID                  int64
 	DefaultMaxDailyBandwidth int64
@@ -34,6 +36,7 @@ type Config struct {
 	MaxRetries               int
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
+	UseWebhook               bool
 }
 
 func LoadConfig() *Config {
@@ -61,6 +64,9 @@ func LoadConfig() *Config {
 		AuthPassword:             os.Getenv("AUTH_PASSWORD"),
 		Aria2RPCURL:              getEnv("ARIA2_RPC_URL", "http://localhost:6800/jsonrpc"),
 		Aria2RPCSecret:           os.Getenv("ARIA2_RPC_SECRET"),
+		WebhookURL:               os.Getenv("WEBHOOK_URL"),
+		WebhookSecret:            getEnv("WEBHOOK_SECRET", ""),
+		UseWebhook:               getEnvBool("USE_WEBHOOK", false),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {
