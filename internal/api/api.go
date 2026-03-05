@@ -153,6 +153,8 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
+type contextKey string
+
 func globalMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -168,7 +170,9 @@ func globalMiddleware(next http.Handler) http.Handler {
 			reqID = fmt.Sprintf("req-%d", time.Now().UnixNano())
 		}
 		w.Header().Set("X-Request-ID", reqID)
-		ctx := context.WithValue(r.Context(), "RequestID", reqID)
+
+		const requestIDKey contextKey = "RequestID"
+		ctx := context.WithValue(r.Context(), requestIDKey, reqID)
 		r = r.WithContext(ctx)
 
 		if strings.HasPrefix(r.URL.Path, "/api/ws") {

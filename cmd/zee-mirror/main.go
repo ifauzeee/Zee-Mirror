@@ -166,7 +166,7 @@ func setupLogger(cfg *config.Config) {
 		Compress:   true,
 	}
 
-	var multi io.Writer = io.MultiWriter(os.Stdout, logFile)
+	multi := io.MultiWriter(os.Stdout, logFile)
 
 	var level slog.Level
 	switch strings.ToLower(cfg.LogLevel) {
