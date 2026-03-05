@@ -21,6 +21,7 @@ services:
     restart: unless-stopped
     depends_on:
       - telegram-bot-api
+    stop_grace_period: 30s
     ports:
       - "${DASHBOARD_PORT:-80}:8080"
     

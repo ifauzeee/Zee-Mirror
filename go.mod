@@ -17,6 +17,7 @@ require (
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	golang.org/x/term v0.39.0
 	golang.org/x/time v0.14.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	modernc.org/sqlite v1.44.3
 )
 

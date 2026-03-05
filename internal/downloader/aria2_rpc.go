@@ -145,3 +145,15 @@ func (c *Aria2RPCClient) Resume(gid string) error {
 	_, err := c.call("aria2.unpause", gid)
 	return err
 }
+
+func (c *Aria2RPCClient) GetVersion() (string, error) {
+	res, err := c.call("aria2.getVersion")
+	if err != nil {
+		return "", err
+	}
+	var version struct {
+		Version string `json:"version"`
+	}
+	err = json.Unmarshal(res, &version)
+	return version.Version, err
+}

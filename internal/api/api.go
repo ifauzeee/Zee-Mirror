@@ -1,6 +1,7 @@
 package api
 
 import (
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -66,8 +67,18 @@ func (s *Server) Start() {
 
 	mux.HandleFunc("/api/stats", auth(s.handleStats))
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
+		version, err := s.Service.TaskManager.Aria2Engine.RPC.GetVersion()
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"status":"error","component":"aria2","error":"` + err.Error() + `"}`))
+			return
+		}
+
+		response := fmt.Sprintf(`{"status":"ok","aria2_version":"%s"}`, version)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
+		_, _ = w.Write([]byte(response))
 	})
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/api/tasks", auth(s.handleTasks))
@@ -116,7 +127,7 @@ func (s *Server) Start() {
 
 	server := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           globalMiddleware(mux),
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -131,6 +142,52 @@ func (s *Server) Start() {
 			slog.Error("API Server failed", "error", err)
 		}
 	}()
+}
+
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+func globalMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		reqID := r.Header.Get("X-Request-ID")
+		if reqID == "" {
+			reqID = fmt.Sprintf("req-%d", time.Now().UnixNano())
+		}
+		w.Header().Set("X-Request-ID", reqID)
+		ctx := context.WithValue(r.Context(), "RequestID", reqID)
+		r = r.WithContext(ctx)
+
+		if strings.HasPrefix(r.URL.Path, "/api/ws") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			gz := gzip.NewWriter(w)
+			defer gz.Close()
+
+			gzw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+			next.ServeHTTP(gzw, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) broadcastLoop() {

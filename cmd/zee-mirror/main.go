@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/natefinch/lumberjack.v2"
+
 	"zee-mirror/handlers"
 	"zee-mirror/handlers/admin"
 	"zee-mirror/handlers/basic"
@@ -155,12 +157,16 @@ func main() {
 
 func setupLogger(cfg *config.Config) {
 	logPath := filepath.Join(cfg.ConfigDir, "zee-mirror.log")
-	logFile, err := os.OpenFile(filepath.Clean(logPath), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 
-	var multi io.Writer = os.Stdout
-	if err == nil {
-		multi = io.MultiWriter(os.Stdout, logFile)
+	logFile := &lumberjack.Logger{
+		Filename:   filepath.Clean(logPath),
+		MaxSize:    10,
+		MaxBackups: 5,
+		MaxAge:     28,
+		Compress:   true,
 	}
+
+	var multi io.Writer = io.MultiWriter(os.Stdout, logFile)
 
 	var level slog.Level
 	switch strings.ToLower(cfg.LogLevel) {
@@ -188,11 +194,7 @@ func setupLogger(cfg *config.Config) {
 
 	_, _ = fmt.Fprintln(multi, banner)
 
-	if err != nil {
-		slog.Warn("Gagal membuka file log", "error", err)
-	} else {
-		slog.Info("Logging to file enabled: zee-mirror.log")
-	}
+	slog.Info("Logging to file enabled: zee-mirror.log")
 }
 
 func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {

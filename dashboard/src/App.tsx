@@ -172,12 +172,18 @@ const App = () => {
       loadData()
 
       let ws: WebSocket | null = null
+      let reconnectAttempts = 0
+      let reconnectTimeout: number | ReturnType<typeof setTimeout> | null = null
+
       const connectWs = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${apiToken}`
         ws = new WebSocket(wsUrl)
 
-        ws.onopen = () => console.log('🟢 WS Connected')
+        ws.onopen = () => {
+          console.log('🟢 WS Connected')
+          reconnectAttempts = 0
+        }
 
         ws.onmessage = (event) => {
           try {
@@ -192,15 +198,20 @@ const App = () => {
         }
 
         ws.onclose = () => {
-          console.log('🔴 WS Closed, reconnecting in 3s...')
-          setTimeout(() => {
+          reconnectAttempts++
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+          console.log(`🔴 WS Closed, reconnecting in ${delay / 1000}s... (Attempt ${reconnectAttempts})`)
+
+          if (reconnectTimeout) clearTimeout(reconnectTimeout)
+          reconnectTimeout = setTimeout(() => {
             if (apiToken && !loginError) connectWs()
-          }, 3000)
+          }, delay)
         }
       }
       connectWs()
 
       return () => {
+        if (reconnectTimeout) clearTimeout(reconnectTimeout)
         if (ws) ws.close()
       }
     }
