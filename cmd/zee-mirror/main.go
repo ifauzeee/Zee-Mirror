@@ -94,6 +94,14 @@ func main() {
 	apiServer.SetRouter(r)
 	apiServer.Start()
 
+	go func() {
+		time.Sleep(2 * time.Second)
+		recovery := service.NewTaskRecovery(db, botSvc.TaskManager, botSvc.BotService)
+		if err := recovery.RecoverIncompleteTasks(); err != nil {
+			slog.Warn("Failed to auto-recover tasks", "error", err)
+		}
+	}()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

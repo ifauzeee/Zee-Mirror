@@ -108,11 +108,33 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 }
 
 func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map[string]interface{} {
+	connections := "16"
+	split := "32"
+
+	if task.TotalSize > 0 {
+		switch {
+		case task.TotalSize < 50*1024*1024:
+			connections = "4"
+			split = "4"
+		case task.TotalSize < 500*1024*1024:
+			connections = "8"
+			split = "16"
+		case task.TotalSize < 2*1024*1024*1024:
+			connections = "16"
+			split = "32"
+		default:
+			connections = "16"
+			split = "64"
+		}
+	}
+
 	options := map[string]interface{}{
 		"dir":                              outputDir,
 		"allow-overwrite":                  "true",
-		"max-connection-per-server":        "16",
-		"split":                            "32",
+		"continue":                         "true",
+		"always-resume":                    "true",
+		"max-connection-per-server":        connections,
+		"split":                            split,
 		"min-split-size":                   "1M",
 		"max-overall-download-limit":       "0",
 		"max-resume-failure-tries":         "0",
