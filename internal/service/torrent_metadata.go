@@ -66,7 +66,7 @@ func (s *BotService) getMetadataFilePath(sessionID, sessionURL string) (string, 
 		tmpDir, err := os.MkdirTemp("", "torrent_meta_"+sessionID+"_")
 		if err != nil {
 			s.addSessionStatus(sessionID, "❌ Gagal membuat folder temporary.")
-			return "", "", fmt.Errorf("failed to create temp dir: %v", err)
+			return "", "", fmt.Errorf("%w: failed to create temp dir: %v", domain.ErrStorage, err)
 		}
 
 		path, err := s.fetchMagnetMetadata(sessionID, sessionURL, tmpDir)
@@ -117,7 +117,7 @@ func (s *BotService) fetchMagnetMetadata(sessionID, urlStr, tmpDir string) (stri
 
 	s.addSessionStatus(sessionID, "❌ Gagal mendapatkan file metadata .torrent.")
 	slog.Warn("No .torrent file found after aria2c run", "sessionID", sessionID, "output", output)
-	return "", fmt.Errorf("metadata fetch failed")
+	return "", fmt.Errorf("%w: metadata fetch failed", domain.ErrExternal)
 }
 
 func (s *BotService) finalizeMetadataFetch(sessionID string, files []domain.TorrentFile) {

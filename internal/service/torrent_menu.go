@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/i18n"
 	"zee-mirror/pkg/utils"
 
@@ -164,7 +165,7 @@ func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFil
 	session, exists := s.TaskManager.TorrentSessions[sessionID]
 	if !exists {
 		s.TaskManager.Mu.Unlock()
-		return fmt.Errorf("session not found")
+		return fmt.Errorf("%w: session not found", domain.ErrNotFound)
 	}
 
 	delete(s.TaskManager.TorrentSessions, sessionID)

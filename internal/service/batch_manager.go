@@ -400,7 +400,7 @@ func (s *BotService) downloadBatchItem(batch *BatchTask, task *Task) error {
 
 	taskDir := filepath.Join(batch.DownloadDir, task.ID)
 	if err := os.MkdirAll(taskDir, 0750); err != nil {
-		return fmt.Errorf("failed to create task directory: %v", err)
+		return fmt.Errorf("%w: failed to create task directory: %v", domain.ErrStorage, err)
 	}
 
 	configPath := filepath.Join(s.Config.ConfigDir, "cookies.txt")
@@ -428,16 +428,16 @@ func (s *BotService) downloadBatchItem(batch *BatchTask, task *Task) error {
 	output, err := cmd.CombinedOutput()
 
 	if task.Status == StatusCancelled {
-		return fmt.Errorf("cancelled")
+		return fmt.Errorf("%w", domain.ErrTaskCancelled)
 	}
 
 	if err != nil {
-		return fmt.Errorf("aria2c failed: %v, output: %s", err, string(output))
+		return fmt.Errorf("%w: aria2c failed: %v, output: %s", domain.ErrExternal, err, string(output))
 	}
 
 	downloadedFile := findDownloadedFile(taskDir, task.Quality)
 	if downloadedFile == "" {
-		return fmt.Errorf("no file downloaded")
+		return fmt.Errorf("%w: no file downloaded", domain.ErrNotFound)
 	}
 
 	task.LocalPath = downloadedFile
@@ -465,7 +465,7 @@ func (s *BotService) zipBatchResults(batch *BatchTask) error {
 	zipPath := filepath.Join(s.TaskManager.DownloadDir, "batch_"+batch.ID+"_output", zipFileName)
 
 	if err := os.MkdirAll(filepath.Dir(zipPath), 0750); err != nil {
-		return fmt.Errorf("failed to create output directory: %v", err)
+		return fmt.Errorf("%w: failed to create output directory: %v", domain.ErrStorage, err)
 	}
 
 	args := []string{
@@ -489,11 +489,11 @@ func (s *BotService) zipBatchResults(batch *BatchTask) error {
 	output, err := cmd.CombinedOutput()
 
 	if batch.Status == StatusCancelled {
-		return fmt.Errorf("cancelled")
+		return fmt.Errorf("%w", domain.ErrTaskCancelled)
 	}
 
 	if err != nil {
-		return fmt.Errorf("7z failed: %v, output: %s", err, string(output))
+		return fmt.Errorf("%w: 7z failed: %v, output: %s", domain.ErrExternal, err, string(output))
 	}
 
 	batch.LocalPath = zipPath
@@ -544,11 +544,11 @@ func (s *BotService) uploadBatchResults(batch *BatchTask) error {
 	output, err := cmd.CombinedOutput()
 
 	if batch.Status == StatusCancelled {
-		return fmt.Errorf("cancelled")
+		return fmt.Errorf("%w", domain.ErrTaskCancelled)
 	}
 
 	if err != nil {
-		return fmt.Errorf("rclone failed: %v, output: %s", err, string(output))
+		return fmt.Errorf("%w: rclone failed: %v, output: %s", domain.ErrExternal, err, string(output))
 	}
 
 	uploadName := filepath.Base(uploadPath)

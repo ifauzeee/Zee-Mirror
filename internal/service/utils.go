@@ -9,13 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/domain"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func GenerateThumbnail(videoPath, downloadDir string) (string, error) {
 	videoPath = filepath.Clean(videoPath)
 	if !filepath.IsAbs(videoPath) {
-		return "", fmt.Errorf("video path must be absolute")
+		return "", fmt.Errorf("%w: video path must be absolute", domain.ErrInvalidInput)
 	}
 
 	thumbnailPath := videoPath + ".jpg"
@@ -24,7 +26,7 @@ func GenerateThumbnail(videoPath, downloadDir string) (string, error) {
 	videoDir := filepath.Dir(videoPath)
 
 	if !strings.HasPrefix(videoDir, allowedBaseDir) {
-		return "", fmt.Errorf("video path is not within allowed directory")
+		return "", fmt.Errorf("%w: video path is not within allowed directory", domain.ErrUnauthorized)
 	}
 
 	cmd := exec.Command("ffmpeg", "-i", videoPath, "-ss", "00:00:05", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
@@ -107,7 +109,7 @@ func (s *BotService) DownloadFile(url, destPath string) error {
 	cmd := exec.CommandContext(ctx, "curl", "-L", "-o", destPath, url)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("curl failed: %v\nOutput: %s", err, string(output))
+		return fmt.Errorf("%w: curl failed: %v\nOutput: %s", domain.ErrExternal, err, string(output))
 	}
 	return nil
 }

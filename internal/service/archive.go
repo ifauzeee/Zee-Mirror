@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
 )
 
@@ -25,7 +27,7 @@ func (s *BotService) extractArchive(task *Task) error {
 	extractDir := filepath.Join(filepath.Dir(task.LocalPath), originalFilename)
 
 	if err := os.MkdirAll(extractDir, 0750); err != nil {
-		return fmt.Errorf("failed to create extract directory: %v", err)
+		return fmt.Errorf("%w: failed to create extract directory: %v", domain.ErrStorage, err)
 	}
 
 	args := []string{
@@ -47,11 +49,11 @@ func (s *BotService) extractArchive(task *Task) error {
 	output, err := cmd.CombinedOutput()
 
 	if task.Status == StatusCancelled {
-		return fmt.Errorf("task cancelled")
+		return fmt.Errorf("%w", domain.ErrTaskCancelled)
 	}
 
 	if err != nil {
-		return fmt.Errorf("7zz extract failed: %v, output: %s", err, string(output))
+		return fmt.Errorf("%w: 7zz extract failed: %v, output: %s", domain.ErrExternal, err, string(output))
 	}
 
 	task.LocalPath = extractDir
@@ -61,11 +63,11 @@ func (s *BotService) extractArchive(task *Task) error {
 	if err != nil {
 		slog.Warn("Could not calculate directory size during extract", "error", err, "path", extractDir)
 	} else {
-		task.Mu.Lock()
-		task.TotalSize = totalSize
-		task.DownloadedSize = totalSize
-		task.Progress = 100
-		task.Mu.Unlock()
+		task.Update(func() {
+			task.TotalSize = totalSize
+			task.DownloadedSize = totalSize
+			task.Progress = 100
+		})
 	}
 
 	return nil
@@ -105,11 +107,11 @@ func (s *BotService) createZipArchive(task *Task) error {
 	output, err := cmd.CombinedOutput()
 
 	if task.Status == StatusCancelled {
-		return fmt.Errorf("task cancelled")
+		return fmt.Errorf("%w", domain.ErrTaskCancelled)
 	}
 
 	if err != nil {
-		return fmt.Errorf("7zz zip failed: %v, output: %s", err, string(output))
+		return fmt.Errorf("%w: 7zz zip failed: %v, output: %s", domain.ErrExternal, err, string(output))
 	}
 
 	task.LocalPath = zipPath

@@ -34,7 +34,7 @@ func (tr *TaskRecovery) RecoverIncompleteTasks() error {
 	ctx := context.Background()
 	tasks, err := tr.DB.GetRecoverable(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get recoverable tasks: %v", err)
+		return fmt.Errorf("%w: failed to get recoverable tasks: %v", domain.ErrStorage, err)
 	}
 
 	if len(tasks) == 0 {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -28,12 +29,12 @@ func (s *BotService) ListDriveFiles(path string) ([]DriveFile, error) {
 	cmd := exec.CommandContext(ctx, "rclone", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("rclone lsjson failed: %v", err)
+		return nil, fmt.Errorf("%w: rclone lsjson failed: %v", domain.ErrExternal, err)
 	}
 
 	var files []DriveFile
 	if err := json.Unmarshal(output, &files); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
+		return nil, fmt.Errorf("%w: failed to parse response: %v", domain.ErrExternal, err)
 	}
 
 	return files, nil

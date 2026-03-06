@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"zee-mirror/internal/domain"
 )
 
 type StorageProvider struct {
@@ -16,7 +18,7 @@ func (s *BotService) GetAvailableStorages() ([]StorageProvider, error) {
 	cmd := exec.Command("rclone", "listremotes")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list rclone remotes: %v", err)
+		return nil, fmt.Errorf("%w: failed to list rclone remotes: %v", domain.ErrExternal, err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")

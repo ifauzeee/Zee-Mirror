@@ -40,20 +40,20 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 
 	filePath := task.LocalPath
 	if filePath == "" {
-		return fmt.Errorf("no file to upload")
+		return fmt.Errorf("%w: no local file to upload", domain.ErrInvalidInput)
 	}
 
 	info, err := os.Stat(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to stat file: %v", err)
+		return fmt.Errorf("%w: failed to stat file: %v", domain.ErrStorage, err)
 	}
 
 	if info.IsDir() {
-		return fmt.Errorf("cannot upload directory to telegram directly, please zip it first")
+		return fmt.Errorf("%w: cannot upload directory to telegram directly, please zip it first", domain.ErrInvalidInput)
 	}
 
 	if info.Size() > domain.MaxTelegramUploadSize {
-		return fmt.Errorf("file too large for telegram (max 2GB)")
+		return fmt.Errorf("%w: file too large for telegram (max 2GB)", domain.ErrInvalidInput)
 	}
 
 	var msg tgbotapi.Chattable
@@ -83,7 +83,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
 		metrics.UploadDuration.WithLabelValues("telegram", "failed").Observe(time.Since(startTime).Seconds())
-		return fmt.Errorf("telegram upload failed: %v", err)
+		return fmt.Errorf("%w: telegram upload failed: %v", domain.ErrExternal, err)
 	}
 	metrics.UploadDuration.WithLabelValues("telegram", "success").Observe(time.Since(startTime).Seconds())
 

@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -98,12 +99,12 @@ func (s *BotService) UploadToViking(task *Task) error {
 
 	filePath := task.LocalPath
 	if filePath == "" {
-		return fmt.Errorf("no file to upload")
+		return fmt.Errorf("%w: no file to upload", domain.ErrInvalidInput)
 	}
 
 	info, err := os.Stat(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to stat file: %v", err)
+		return fmt.Errorf("%w: failed to stat file: %v", domain.ErrStorage, err)
 	}
 
 	fileSize := info.Size()
@@ -111,12 +112,12 @@ func (s *BotService) UploadToViking(task *Task) error {
 	slog.Info("Initiating Viking upload", "taskID", task.ID, "size", fileSize)
 	initResp, err := s.vikingGetUploadURL(fileSize)
 	if err != nil {
-		return fmt.Errorf("failed to get upload url: %v", err)
+		return fmt.Errorf("%w: failed to get upload url: %v", domain.ErrExternal, err)
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %v", err)
+		return fmt.Errorf("%w: failed to open file: %v", domain.ErrStorage, err)
 	}
 	defer file.Close()
 
@@ -149,7 +150,7 @@ func (s *BotService) UploadToViking(task *Task) error {
 
 			etag, errUpload := s.vikingUploadPart(pURL, sectionReader, size)
 			if errUpload != nil {
-				errChan <- fmt.Errorf("part %d failed: %v", pNum+1, errUpload)
+				errChan <- fmt.Errorf("%w: part %d failed: %v", domain.ErrExternal, pNum+1, errUpload)
 				return
 			}
 			partsETags[pNum] = etag
@@ -179,7 +180,7 @@ func (s *BotService) UploadToViking(task *Task) error {
 
 	completeResp, err := s.vikingCompleteUpload(initResp.Key, initResp.UploadID, partsETags, task.FileName, s.Config.VikingUserHash)
 	if err != nil {
-		return fmt.Errorf("failed to complete upload: %v", err)
+		return fmt.Errorf("%w: failed to complete upload: %v", domain.ErrExternal, err)
 	}
 
 	task.Update(func() {
