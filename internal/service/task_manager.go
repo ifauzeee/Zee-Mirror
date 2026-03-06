@@ -244,7 +244,7 @@ func (tm *TaskManager) refreshActiveDashboards() {
 	}
 }
 
-func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64, subtitleLangs string, hardsub bool) (*Task, error) {
+func (tm *TaskManager) validateTaskConstraints(url, quality string, userID int64) error {
 	if tm.StopDuplicate {
 		tm.Mu.RLock()
 		for _, t := range tm.Tasks {
@@ -257,7 +257,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 
 			if !isFinished && sameURL && sameQuality {
 				tm.Mu.RUnlock()
-				return nil, fmt.Errorf("%w: ID %s", domain.ErrDuplicateTask, t.ID)
+				return fmt.Errorf("%w: ID %s", domain.ErrDuplicateTask, t.ID)
 			}
 		}
 		tm.Mu.RUnlock()
@@ -265,13 +265,21 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 		if tm.DB != nil && !utils.IsAdmin(userID, tm.Config.OwnerID, tm.Config.AuthorizedUsers) {
 			oldTask, errDB := tm.DB.GetCompletedTaskByURL(context.Background(), url, quality)
 			if errDB == nil && oldTask != nil {
-				return nil, fmt.Errorf("%w: file already exists in cloud/database", domain.ErrDuplicateTask)
+				return fmt.Errorf("%w: file already exists in cloud/database", domain.ErrDuplicateTask)
 			}
 		}
 	}
 
 	if !tm.RateLimiter.Allow(userID) {
-		return nil, fmt.Errorf("%w: limit 5 tasks/min exceeded", domain.ErrLimitExceeded)
+		return fmt.Errorf("%w: limit 5 tasks/min exceeded", domain.ErrLimitExceeded)
+	}
+
+	return nil
+}
+
+func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatID int64, msgID, replyID int, userID int64, zip, unzip bool, password, quality string, expectedTotalSize int64, subtitleLangs string, hardsub bool) (*Task, error) {
+	if err := tm.validateTaskConstraints(url, quality, userID); err != nil {
+		return nil, err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

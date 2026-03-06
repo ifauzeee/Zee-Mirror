@@ -68,9 +68,9 @@ func (s *BotService) HandleClone(message *tgbotapi.Message, args string) {
 
 func (s *BotService) cloneWithRclone(task *Task) {
 	task.SetStatus(StatusDownloading)
-	task.Mu.Lock()
-	task.StartedAt = time.Now()
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.StartedAt = time.Now()
+	})
 	s.updateTaskStatus(task)
 
 	driveID, isFolderHint := extractDriveID(task.URL)
@@ -90,70 +90,27 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		return
 	}
 
-	task.Mu.Lock()
-	if (task.FileName == "cloning..." || task.FileName == "") && driveName != "" {
-		task.FileName = driveName
-	}
-	if task.FileName == "cloning..." || task.FileName == "" {
-		fallback := utils.GetFileNameFromURL(task.URL)
-		if fallback != "" {
-			task.FileName = fallback
-		} else {
-			task.FileName = "file_" + driveID
+	var name string
+	task.Update(func() {
+		if (task.FileName == "cloning..." || task.FileName == "") && driveName != "" {
+			task.FileName = driveName
 		}
-	}
-	name := task.FileName
-	if driveSize > 0 {
-		task.TotalSize = driveSize
-	}
-	task.Mu.Unlock()
+		if task.FileName == "cloning..." || task.FileName == "" {
+			fallback := utils.GetFileNameFromURL(task.URL)
+			if fallback != "" {
+				task.FileName = fallback
+			} else {
+				task.FileName = "file_" + driveID
+			}
+		}
+		name = task.FileName
+		if driveSize > 0 {
+			task.TotalSize = driveSize
+		}
+	})
 	s.updateTaskStatus(task)
 
-	var args []string
-	rcloneDest := strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/")
-	dest := rcloneDest
-
-	commonArgs := []string{
-		"--config", configPath,
-		"--progress",
-		"--stats", "1s",
-		"--stats-one-line",
-		"--transfers", "10",
-		"--checkers", "20",
-		"--drive-chunk-size", "256M",
-		"--buffer-size", "128M",
-		"--use-mmap",
-		"--no-traverse",
-		"--drive-pacer-min-sleep", "10ms",
-		"--drive-pacer-burst", "200",
-		"--drive-server-side-across-configs",
-		"--drive-acknowledge-abuse",
-		"--drive-description", "Mirrored by Zee-Mirror",
-		"--log-level", "NOTICE",
-	}
-
-	if isDir {
-		dest = path.Join(dest, name)
-		src := fmt.Sprintf("%s,root_folder_id=%s:", remoteName, driveID)
-		args = []string{
-			"copy",
-			src,
-			dest,
-		}
-		args = append(args, commonArgs...)
-	} else {
-		dest = path.Join(dest, name)
-
-		args = []string{
-			"backend", "copyid",
-			fmt.Sprintf("%s:", remoteName),
-			driveID,
-			dest,
-			"--config", configPath,
-			"-o", "drive-acknowledge-abuse=true",
-			"-o", "drive-description=Mirrored by Zee-Mirror",
-		}
-	}
+	args, dest := s.buildRcloneCloneArgs(remoteName, driveID, s.TaskManager.RcloneDest, name, configPath, isDir)
 
 	task.RemotePath = dest
 
@@ -188,22 +145,23 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		return
 	}
 
-	task.Mu.RLock()
-	currentSize := task.TotalSize
-	task.Mu.RUnlock()
+	var currentSize int64
+	task.Read(func() {
+		currentSize = task.TotalSize
+	})
 
 	if currentSize <= 0 {
 		if finalSize, err := s.getRcloneSize(ctx, dest, configPath); err == nil && finalSize > 0 {
-			task.Mu.Lock()
-			task.TotalSize = finalSize
-			task.DownloadedSize = finalSize
-			task.Mu.Unlock()
+			task.Update(func() {
+				task.TotalSize = finalSize
+				task.DownloadedSize = finalSize
+			})
 		} else {
-			task.Mu.Lock()
-			if task.DownloadedSize > 0 {
-				task.TotalSize = task.DownloadedSize
-			}
-			task.Mu.Unlock()
+			task.Update(func() {
+				if task.DownloadedSize > 0 {
+					task.TotalSize = task.DownloadedSize
+				}
+			})
 		}
 	}
 
@@ -212,46 +170,49 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	s.updateTaskStatus(task)
 }
 
-func (s *BotService) downloadGDriveWithRclone(task *Task) {
-	task.SetStatus(StatusDownloading)
-	task.Mu.Lock()
-	task.StartedAt = time.Now()
-	task.Mu.Unlock()
-	s.updateTaskStatus(task)
+func (s *BotService) buildRcloneCloneArgs(remoteName, driveID, rawDest, name, configPath string, isDir bool) ([]string, string) {
+	var args []string
+	rcloneDest := strings.ReplaceAll(rawDest, "\\", "/")
+	dest := path.Join(rcloneDest, name)
 
-	driveID, isFolderHint := extractDriveID(task.URL)
-	if driveID == "" {
-		slog.Warn("Failed to extract Drive ID from URL, falling back to Aria2", "url", task.URL)
-		s.downloadWithAria2(task)
-		return
-	}
-
-	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
-	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
-
-	driveName, isDir, driveSize, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
-	if err != nil {
-		slog.Warn("Failed to get Google Drive info", "error", err)
-	}
-
-	task.Mu.Lock()
-	if driveName != "" && (task.FileName == "" || task.FileName == "download" || utils.GetFileNameFromURL(task.URL) == task.FileName) {
-		task.FileName = driveName
-		if driveSize > 0 {
-			task.TotalSize = driveSize
+	if isDir {
+		src := fmt.Sprintf("%s,root_folder_id=%s:", remoteName, driveID)
+		args = []string{
+			"copy",
+			src,
+			dest,
+			"--config", configPath,
+			"--progress",
+			"--stats", "1s",
+			"--stats-one-line",
+			"--transfers", "10",
+			"--checkers", "20",
+			"--drive-chunk-size", "256M",
+			"--buffer-size", "128M",
+			"--use-mmap",
+			"--no-traverse",
+			"--drive-pacer-min-sleep", "10ms",
+			"--drive-pacer-burst", "200",
+			"--drive-server-side-across-configs",
+			"--drive-acknowledge-abuse",
+			"--drive-description", "Mirrored by Zee-Mirror",
+			"--log-level", "NOTICE",
+		}
+	} else {
+		args = []string{
+			"backend", "copyid",
+			fmt.Sprintf("%s:", remoteName),
+			driveID,
+			dest,
+			"--config", configPath,
+			"-o", "drive-acknowledge-abuse=true",
+			"-o", "drive-description=Mirrored by Zee-Mirror",
 		}
 	}
-	name := task.FileName
-	task.Mu.Unlock()
-	s.updateTaskStatus(task)
+	return args, dest
+}
 
-	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		task.SetError(fmt.Sprintf("Failed to create download directory: %v", err))
-		s.updateTaskStatus(task)
-		return
-	}
-
+func (s *BotService) buildRcloneDownloadArgs(remoteName, driveID, outputDir, name, configPath string, isDir bool) []string {
 	commonArgs := []string{
 		"--config", configPath,
 		"--progress",
@@ -289,6 +250,52 @@ func (s *BotService) downloadGDriveWithRclone(task *Task) {
 		}
 		args = append(args, commonArgs...)
 	}
+
+	return args
+}
+
+func (s *BotService) downloadGDriveWithRclone(task *Task) {
+	task.SetStatus(StatusDownloading)
+	task.Update(func() {
+		task.StartedAt = time.Now()
+	})
+	s.updateTaskStatus(task)
+
+	driveID, isFolderHint := extractDriveID(task.URL)
+	if driveID == "" {
+		slog.Warn("Failed to extract Drive ID from URL, falling back to Aria2", "url", task.URL)
+		s.downloadWithAria2(task)
+		return
+	}
+
+	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
+	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
+
+	driveName, isDir, driveSize, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	if err != nil {
+		slog.Warn("Failed to get Google Drive info", "error", err)
+	}
+
+	var name string
+	task.Update(func() {
+		if driveName != "" && (task.FileName == "" || task.FileName == "download" || utils.GetFileNameFromURL(task.URL) == task.FileName) {
+			task.FileName = driveName
+			if driveSize > 0 {
+				task.TotalSize = driveSize
+			}
+		}
+		name = task.FileName
+	})
+	s.updateTaskStatus(task)
+
+	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
+		task.SetError(fmt.Sprintf("Failed to create download directory: %v", err))
+		s.updateTaskStatus(task)
+		return
+	}
+
+	args := s.buildRcloneDownloadArgs(remoteName, driveID, outputDir, name, configPath, isDir)
 
 	slog.Info("Starting local Rclone download", "taskID", task.ID, "args", strings.Join(args, " "))
 
