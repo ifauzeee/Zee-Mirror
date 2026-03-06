@@ -141,6 +141,13 @@ func (s *BotService) Shutdown() {
 		s.TaskManager.Wg.Wait()
 		slog.Info("All tasks stopped.")
 	}
+
+	if s.DB != nil {
+		if closer, ok := s.DB.(interface{ Close() error }); ok {
+			slog.Info("Closing database connection...")
+			_ = closer.Close()
+		}
+	}
 }
 
 func (s *BotService) AutoDeleteMessage(chatID int64, messageID int, delay time.Duration) {
