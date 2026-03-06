@@ -28,10 +28,11 @@ import (
 )
 
 type Server struct {
-	Service *handlers.BotService
-	Hub     *Hub
-	Router  *router.Router
-	Port    int
+	Service    *handlers.BotService
+	Hub        *Hub
+	Router     *router.Router
+	httpServer *http.Server
+	Port       int
 }
 
 func NewServer(service *handlers.BotService, port int) *Server {
@@ -131,7 +132,7 @@ func (s *Server) Start() {
 	addr := fmt.Sprintf(":%d", s.Port)
 	slog.Info("Web Dashboard API starting", "addr", addr)
 
-	server := &http.Server{
+	s.httpServer = &http.Server{
 		Addr:              addr,
 		Handler:           globalMiddleware(mux),
 		ReadHeaderTimeout: 3 * time.Second,
@@ -144,10 +145,18 @@ func (s *Server) Start() {
 	go s.broadcastLoop()
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("API Server failed", "error", err)
 		}
 	}()
+}
+
+func (s *Server) Stop(ctx context.Context) error {
+	if s.httpServer != nil {
+		slog.Info("Shutting down Web Dashboard API Server...")
+		return s.httpServer.Shutdown(ctx)
+	}
+	return nil
 }
 
 type gzipResponseWriter struct {

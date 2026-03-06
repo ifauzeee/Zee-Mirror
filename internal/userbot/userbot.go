@@ -125,6 +125,16 @@ func (u *UserBot) Start() error {
 	return nil
 }
 
+func (u *UserBot) Stop() {
+	u.Mu.Lock()
+	defer u.Mu.Unlock()
+	if u.Started && u.Cancel != nil {
+		slog.Info("Stopping Userbot session gracefully...")
+		u.Cancel()
+		u.Started = false
+	}
+}
+
 func (u *UserBot) DownloadFile(link string, outputDir string, onProgress func(downloaded, total int64)) (string, error) {
 	u.Mu.RLock()
 	if !u.Started {
