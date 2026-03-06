@@ -78,7 +78,7 @@ func (s *MediaService) GenerateScreenshotsList(inputPath string, count int) ([]s
 	defer cancel()
 
 	cleanInput := filepath.Clean(inputPath)
-	durationCmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration", //nolint:gosec // input is sanitized via filepath.Clean
+	durationCmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration", //nolint:gosec
 		"-of", "default=noprint_wrappers=1:nokey=1", "file:"+cleanInput)
 	durationOutput, err := durationCmd.Output()
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *MediaService) GenerateScreenshotsList(inputPath string, count int) ([]s
 
 		shotCtx, shotCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
-		cmd := exec.CommandContext(shotCtx, "ffmpeg", "-ss", fmt.Sprintf("%.2f", timestamp), //nolint:gosec // input is sanitized via filepath.Clean
+		cmd := exec.CommandContext(shotCtx, "ffmpeg", "-ss", fmt.Sprintf("%.2f", timestamp), //nolint:gosec
 			"-i", "file:"+cleanInput, "-vframes", "1", "-q:v", "2", "file:"+cleanOutput, "-y")
 
 		if err := cmd.Run(); err != nil {
