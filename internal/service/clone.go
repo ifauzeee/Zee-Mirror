@@ -207,7 +207,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 		}
 	}
 
-	s.generateRcloneLink(ctx, task, configPath, isDir)
+	s.RcloneUploader.GenerateRcloneLink(ctx, &task.Task, configPath, isDir)
 	task.SetStatus(StatusCompleted)
 	s.updateTaskStatus(task)
 }

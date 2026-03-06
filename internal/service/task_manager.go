@@ -83,9 +83,9 @@ type TorrentFile = domain.TorrentFile
 type TaskManager struct {
 	Bot                  *tgbotapi.BotAPI
 	DB                   repository.TaskRepository
-	Aria2Engine          *downloader.Aria2Engine
-	YTDLPEngine          *downloader.YTDLPEngine
-	UserbotEngine        *downloader.UserbotEngine
+	Aria2Engine          downloader.DownloadEngine
+	YTDLPEngine          downloader.MediaDownloader
+	UserbotEngine        downloader.DownloadEngine
 	Config               *config.Config
 	Tasks                map[string]*Task
 	Queue                *queue.PriorityQueue

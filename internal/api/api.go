@@ -16,6 +16,7 @@ import (
 	"time"
 	"zee-mirror/handlers"
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
 
@@ -67,7 +68,12 @@ func (s *Server) Start() {
 
 	mux.HandleFunc("/api/stats", auth(s.handleStats))
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
-		version, err := s.Service.TaskManager.Aria2Engine.RPC.GetVersion()
+		version := "unknown"
+		var err error
+		if engine, ok := s.Service.TaskManager.Aria2Engine.(*downloader.Aria2Engine); ok && engine.RPC != nil {
+			version, err = engine.RPC.GetVersion()
+		}
+
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)

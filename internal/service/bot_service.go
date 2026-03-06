@@ -14,21 +14,24 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
+
+	"zee-mirror/internal/uploader"
 )
 
 type BotService struct {
-	Bot           *tgbotapi.BotAPI
-	Auth          *AuthService
-	Media         *MediaService
-	TaskManager   *TaskManager
-	BatchManager  *BatchManager
-	Settings      *Settings
-	Config        *config.Config
-	Notifications *NotificationService
-	DB            repository.FullRepository
-	UserRepo      repository.UserRepository
-	SettingsRepo  repository.SettingsRepository
-	PathCache     sync.Map
+	SettingsRepo   repository.SettingsRepository
+	DB             repository.FullRepository
+	UserRepo       repository.UserRepository
+	Media          *MediaService
+	Bot            *tgbotapi.BotAPI
+	Auth           *AuthService
+	TaskManager    *TaskManager
+	BatchManager   *BatchManager
+	Settings       *Settings
+	Config         *config.Config
+	Notifications  *NotificationService
+	RcloneUploader *uploader.RcloneUploader
+	PathCache      sync.Map
 }
 
 func (s *BotService) StorePath(path string) string {
@@ -54,15 +57,16 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 	mediaService := NewMediaService(cfg)
 
 	s := &BotService{
-		Bot:          bot,
-		Auth:         authService,
-		Media:        mediaService,
-		Config:       cfg,
-		DB:           db,
-		UserRepo:     db,
-		SettingsRepo: db,
-		Settings:     NewSettings(),
-		BatchManager: NewBatchManager(),
+		Bot:            bot,
+		Auth:           authService,
+		Media:          mediaService,
+		Config:         cfg,
+		DB:             db,
+		UserRepo:       db,
+		SettingsRepo:   db,
+		Settings:       NewSettings(),
+		BatchManager:   NewBatchManager(),
+		RcloneUploader: uploader.NewRcloneUploader(cfg.RcloneDest, cfg.ConfigDir, cfg.SmartAutoOrganization, cfg.IndexURL),
 	}
 
 	ctx := context.Background()
