@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/internal/downloader"
-	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/organizer"
 )
 
@@ -83,7 +83,7 @@ func (s *BotService) processTask(task *Task) {
 	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/")) {
 		if s.Config.UserSessionString != "" {
 			slog.Info("Using Userbot engine for private link", "taskID", task.ID)
-			s.downloadWithUserbot(task)
+			s.executeDownloadEngine(s.TaskManager.UserbotEngine, task)
 			return
 		}
 	}
@@ -96,15 +96,15 @@ func (s *BotService) processTask(task *Task) {
 
 	switch task.Type {
 	case TypeMirror, TypeLeech, TypeTorrent, TypeViking:
-		s.downloadWithAria2(task)
+		s.executeDownloadEngine(s.TaskManager.Aria2Engine, task)
 	case TypeYTDLP, TypeYTDLPLeech:
-		s.downloadWithYTDLP(task)
+		s.executeDownloadEngine(s.TaskManager.YTDLPEngine, task)
 	case TypeClone:
 		s.cloneWithRclone(task)
 	}
 }
 
-func (s *BotService) downloadWithAria2(task *Task) {
+func (s *BotService) executeDownloadEngine(engine downloader.DownloadEngine, task *Task) {
 	task.SetStatus(StatusDownloading)
 	task.Update(func() {
 		task.StartedAt = time.Now()
@@ -114,157 +114,19 @@ func (s *BotService) downloadWithAria2(task *Task) {
 	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
 
 	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
+		task.SetError(fmt.Sprintf("%v: failed to create output dir: %v", domain.ErrStorage, err))
 		s.updateTaskStatus(task)
 		return
 	}
 
-	if strings.HasPrefix(task.URL, "file://") {
-		if task.Type != TypeTorrent {
-			s.HandleLocalFileDownload(task, outputDir)
-			return
-		}
+	if strings.HasPrefix(task.URL, "file://") && task.Type != TypeTorrent {
+		s.HandleLocalFileDownload(task, outputDir)
+		return
 	}
 
-	var firstUpdate = true
+	firstUpdate := true
 	lastUpdate := time.Now()
-	err := s.TaskManager.Aria2Engine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
-		task.UpdateFromProgressUpdate(up)
-
-		if firstUpdate || time.Since(lastUpdate) >= 3*time.Second {
-			s.updateTaskStatus(task)
-			lastUpdate = time.Now()
-			_ = task.SaveToDB()
-			firstUpdate = false
-		}
-	})
-
-	if err != nil && task.Status != StatusCancelled {
-		if s.TaskManager.IsShuttingDown() {
-			return
-		}
-		if s.retryTask(task, err.Error()) {
-			return
-		}
-		task.SetError(err.Error())
-		s.updateTaskStatus(task)
-		s.cleanupTask(task)
-		return
-	}
-
-	s.HandlePostDownload(task, outputDir)
-}
-
-func (s *BotService) downloadWithYTDLP(task *Task) {
-	task.SetStatus(StatusDownloading)
-	task.Update(func() {
-		task.StartedAt = time.Now()
-	})
-	s.updateTaskStatus(task)
-
-	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
-
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
-		s.updateTaskStatus(task)
-		return
-	}
-
-	lastUpdate := time.Now()
-	err := s.TaskManager.YTDLPEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
-		task.UpdateFromProgressUpdate(up)
-
-		if time.Since(lastUpdate) >= 5*time.Second {
-			s.updateTaskStatus(task)
-			lastUpdate = time.Now()
-			_ = task.SaveToDB()
-		}
-	})
-
-	if err != nil {
-		if task.Status == StatusCancelled {
-			s.cleanupTask(task)
-			return
-		}
-		if s.TaskManager.IsShuttingDown() {
-			return
-		}
-		if s.retryTask(task, err.Error()) {
-			return
-		}
-		task.SetError(err.Error())
-		s.updateTaskStatus(task)
-		s.cleanupTask(task)
-		return
-	}
-
-	if task.Status == StatusCancelled {
-		s.cleanupTask(task)
-		return
-	}
-
-	task.LocalPath = findDownloadedFile(outputDir, task.Quality)
-	if task.LocalPath == "" {
-		task.SetError("Downloaded file not found or incomplete (.part files ignored)")
-		s.updateTaskStatus(task)
-		s.cleanupTask(task)
-		return
-	}
-	task.FileName = filepath.Base(task.LocalPath)
-
-	if info, err := os.Stat(task.LocalPath); err == nil {
-		task.DownloadedSize = info.Size()
-		task.TotalSize = info.Size()
-	}
-
-	var uploadErr error
-	if task.Type == TypeYTDLPLeech {
-		uploadErr = s.UploadToTelegram(task)
-	} else {
-		uploadErr = s.UploadWithRclone(task)
-	}
-
-	if uploadErr != nil {
-		if !task.StartedAt.IsZero() {
-			metrics.DownloadDuration.WithLabelValues(string(task.Type), "failed").Observe(time.Since(task.StartedAt).Seconds())
-		}
-		if task.Status == StatusCancelled {
-			s.cleanupTask(task)
-			return
-		}
-		if s.TaskManager.IsShuttingDown() {
-			return
-		}
-		if s.retryTask(task, uploadErr.Error()) {
-			return
-		}
-		task.SetError(fmt.Sprintf("Upload failed: %v", uploadErr))
-	} else {
-		task.SetStatus(StatusCompleted)
-	}
-	s.updateTaskStatus(task)
-	s.cleanupTask(task)
-	s.HandleAutoDelete(task)
-}
-
-func (s *BotService) downloadWithUserbot(task *Task) {
-	task.SetStatus(StatusDownloading)
-	task.Update(func() {
-		task.StartedAt = time.Now()
-	})
-	s.updateTaskStatus(task)
-
-	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
-
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		task.SetError(fmt.Sprintf("failed to create output dir: %v", err))
-		s.updateTaskStatus(task)
-		return
-	}
-
-	var firstUpdate = true
-	lastUpdate := time.Now()
-	err := s.TaskManager.UserbotEngine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
+	err := engine.Download(task.Ctx, &task.Task, outputDir, func(up downloader.ProgressUpdate) {
 		task.UpdateFromProgressUpdate(up)
 
 		if firstUpdate || time.Since(lastUpdate) >= 3*time.Second {
@@ -276,16 +138,17 @@ func (s *BotService) downloadWithUserbot(task *Task) {
 	})
 
 	if err != nil {
-		if task.Status == StatusCancelled {
+		if task.Status == StatusCancelled || errors.Is(err, context.Canceled) {
+			slog.Info("Task interrupted or cancelled", "taskID", task.ID)
 			s.cleanupTask(task)
 			return
 		}
-
-		if errors.Is(err, context.Canceled) {
-			slog.Info("Task interrupted by shutdown, preserving checkpoint", "taskID", task.ID)
+		if s.TaskManager.IsShuttingDown() {
 			return
 		}
-
+		if s.retryTask(task, err.Error()) {
+			return
+		}
 		task.SetError(err.Error())
 		s.updateTaskStatus(task)
 		s.cleanupTask(task)
@@ -337,7 +200,7 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 
 	var err error
 	switch task.Type {
-	case TypeLeech:
+	case TypeLeech, TypeYTDLPLeech:
 		err = s.UploadToTelegram(task)
 	case TypeViking:
 		err = s.UploadToViking(task)
@@ -350,7 +213,7 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 			s.cleanupTask(task)
 			return
 		}
-		task.SetError(fmt.Sprintf("Upload failed: %v", err))
+		task.SetError(fmt.Sprintf("%v: Upload failed: %v", domain.ErrExternal, err))
 	} else {
 		task.SetStatus(StatusCompleted)
 	}

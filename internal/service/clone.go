@@ -264,7 +264,7 @@ func (s *BotService) downloadGDriveWithRclone(task *Task) {
 	driveID, isFolderHint := extractDriveID(task.URL)
 	if driveID == "" {
 		slog.Warn("Failed to extract Drive ID from URL, falling back to Aria2", "url", task.URL)
-		s.downloadWithAria2(task)
+		s.executeDownloadEngine(s.TaskManager.Aria2Engine, task)
 		return
 	}
 
