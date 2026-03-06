@@ -132,27 +132,32 @@ func main() {
 			startPolling(ctx, bot, botSvc, r)
 		} else {
 			slog.Info("✅ Webhook mode active. Waiting for updates from Telegram...")
-
-			go func() {
-				<-ctx.Done()
-				slog.Info("Shutting down gracefully (webhook mode)...")
-				if err := apiServer.RemoveWebhook(); err != nil {
-					slog.Warn("Failed to remove webhook on shutdown", "error", err)
-				}
-				botSvc.Shutdown()
-				time.Sleep(1 * time.Second)
-				os.Exit(0)
-			}()
-
-			select {}
+			<-ctx.Done()
+			slog.Info("Shutting down gracefully (webhook mode)...")
+			if err := apiServer.RemoveWebhook(); err != nil {
+				slog.Warn("Failed to remove webhook on shutdown", "error", err)
+			}
 		}
 	} else {
 		slog.Info("📡 Starting in LONG POLLING mode")
-
 		_ = apiServer.RemoveWebhook()
-
 		startPolling(ctx, bot, botSvc, r)
 	}
+
+	slog.Info("Initiating global shutdown sequence...")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := apiServer.Stop(shutdownCtx); err != nil {
+		slog.Warn("API Server shutdown error", "error", err)
+	}
+
+	botSvc.Shutdown()
+	ub.Stop()
+	aria2Daemon.Stop()
+
+	slog.Info("Zee-Mirror Bot has been gracefully shut down.")
 }
 
 func setupLogger(cfg *config.Config) {
@@ -228,9 +233,6 @@ func startPolling(ctx context.Context, bot *tgbotapi.BotAPI, botSvc *handlers.Bo
 		<-ctx.Done()
 		slog.Info("Shutting down gracefully (polling mode)...")
 		bot.StopReceivingUpdates()
-		botSvc.Shutdown()
-		time.Sleep(1 * time.Second)
-		os.Exit(0)
 	}()
 
 	processUpdates(ctx, updates, botSvc, r)

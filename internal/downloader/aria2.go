@@ -33,11 +33,20 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 
 	options := e.buildAria2Options(task, outputDir)
 
+	cleanURL := task.URL
+	selection := ""
+	if idx := strings.LastIndex(task.URL, "#select="); idx != -1 {
+		cleanURL = task.URL[:idx]
+		selection = task.URL[idx+len("#select="):]
+		options["select-file"] = selection
+		slog.Info("Aria2 selective download enabled", "url", cleanURL, "files", selection)
+	}
+
 	var gid string
 	var err error
 
-	if strings.HasPrefix(task.URL, "file://") && strings.HasSuffix(strings.ToLower(task.URL), ".torrent") {
-		filePath := strings.TrimPrefix(task.URL, "file://")
+	if strings.HasPrefix(cleanURL, "file://") && strings.HasSuffix(strings.ToLower(cleanURL), ".torrent") {
+		filePath := strings.TrimPrefix(cleanURL, "file://")
 		slog.Info("Loading local torrent file for aria2", "path", filePath)
 
 		content, readErr := os.ReadFile(filePath)
@@ -48,7 +57,7 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 		encoded := base64.StdEncoding.EncodeToString(content)
 		gid, err = e.RPC.AddTorrent(encoded, options)
 	} else {
-		gid, err = e.RPC.AddURI(task.URL, options)
+		gid, err = e.RPC.AddURI(cleanURL, options)
 	}
 
 	if err != nil {

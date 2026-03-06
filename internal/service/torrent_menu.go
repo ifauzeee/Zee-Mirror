@@ -37,6 +37,9 @@ func (s *BotService) ShowTorrentSelectionMenu(message *tgbotapi.Message, url, na
 			tgbotapi.NewInlineKeyboardButtonData("📦 Select All", fmt.Sprintf("torrent_sel:all:%s", sessionID)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📂 Browse Files", fmt.Sprintf("torrent_sel:browse:%s:0", sessionID)),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
 		),
 		tgbotapi.NewInlineKeyboardRow(
@@ -143,6 +146,101 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 		s.HandleAutoDelete(task)
 		slog.Info("Torrent task created (all files)", "taskID", task.ID, "url", session.URL)
 
+	case "browse", "page":
+		offset := 0
+		if len(parts) >= 4 {
+			_, _ = fmt.Sscanf(parts[3], "%d", &offset)
+		}
+
+		if session.IsFetching {
+			s.TaskManager.Mu.Unlock()
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "⏳ Masih mengambil metadata..."))
+			return
+		}
+
+		if len(session.Files) == 0 {
+			s.TaskManager.Mu.Unlock()
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Gagal mendapatkan daftar file"))
+			return
+		}
+
+		s.TaskManager.Mu.Unlock()
+		s.ShowTorrentBrowseMenu(callback, sessionID, offset)
+
+	case "toggle":
+		if len(parts) < 5 {
+			s.TaskManager.Mu.Unlock()
+			return
+		}
+
+		fileIdx := 0
+		offset := 0
+		_, _ = fmt.Sscanf(parts[3], "%d", &fileIdx)
+		_, _ = fmt.Sscanf(parts[4], "%d", &offset)
+
+		found := false
+		for i, idx := range session.SelectedFiles {
+			if idx == fileIdx {
+				session.SelectedFiles = append(session.SelectedFiles[:i], session.SelectedFiles[i+1:]...)
+				found = true
+				break
+			}
+		}
+		if !found {
+			session.SelectedFiles = append(session.SelectedFiles, fileIdx)
+		}
+
+		s.TaskManager.Mu.Unlock()
+		s.ShowTorrentBrowseMenu(callback, sessionID, offset)
+		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Pilihan diperbarui"))
+
+	case "start_sel":
+		selected := session.SelectedFiles
+		if len(selected) == 0 {
+			s.TaskManager.Mu.Unlock()
+			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "⚠️ Pilih minimal satu file!"))
+			return
+		}
+		s.TaskManager.Mu.Unlock()
+		_ = s.StartTorrentWithSelectedFiles(sessionID, selected)
+
+	case "back":
+		s.TaskManager.Mu.Unlock()
+
+		baseURL := s.Config.DashboardURL
+		if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+			baseURL = "http://" + baseURL
+		}
+		dashboardURL := ""
+		if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") {
+			dashboardURL = fmt.Sprintf("%s:%d/torrent-select/%s", baseURL, s.Config.DashboardPort, sessionID)
+		} else {
+			dashboardURL = fmt.Sprintf("%s/torrent-select/%s", baseURL, sessionID)
+		}
+
+		lang := s.GetUserLanguage(callback.From.ID)
+		text := i18n.T(lang, "torrent_menu_text")
+
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📦 Select All", fmt.Sprintf("torrent_sel:all:%s", sessionID)),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📂 Browse Files", fmt.Sprintf("torrent_sel:browse:%s:0", sessionID)),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("torrent_sel:cancel:%s", sessionID)),
+			),
+		)
+
+		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+		edit.ParseMode = MarkdownV2
+		edit.ReplyMarkup = &keyboard
+		_, _ = s.Bot.Send(edit)
+
 	case "cancel":
 		delete(s.TaskManager.TorrentSessions, sessionID)
 		s.TaskManager.Mu.Unlock()
@@ -158,6 +256,89 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 		s.TaskManager.Mu.Unlock()
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Aksi tidak valid"))
 	}
+}
+
+func (s *BotService) ShowTorrentBrowseMenu(callback *tgbotapi.CallbackQuery, sessionID string, offset int) {
+	s.TaskManager.Mu.RLock()
+	session, exists := s.TaskManager.TorrentSessions[sessionID]
+	if !exists {
+		s.TaskManager.Mu.RUnlock()
+		return
+	}
+
+	files := session.Files
+	selected := session.SelectedFiles
+	s.TaskManager.Mu.RUnlock()
+
+	limit := 8
+	end := offset + limit
+	if end > len(files) {
+		end = len(files)
+	}
+
+	lang := s.GetUserLanguage(callback.From.ID)
+	text := i18n.T(lang, "torrent_browse_title", len(files))
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+	for i := offset; i < end; i++ {
+		file := files[i]
+
+		isChosen := false
+		for _, sIdx := range selected {
+			if sIdx == file.Index {
+				isChosen = true
+				break
+			}
+		}
+
+		icon := "⬜"
+		if isChosen {
+			icon = "✅"
+		}
+
+		btnText := fmt.Sprintf("%s %s (%s)", icon, file.Name, utils.FormatBytes(file.Size))
+		callbackData := fmt.Sprintf("torrent_sel:toggle:%d:%d:%s", file.Index, offset, sessionID)
+
+		if len(btnText) > 40 {
+			btnText = btnText[:37] + "..."
+		}
+
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(btnText, callbackData),
+		))
+	}
+
+	var navRow []tgbotapi.InlineKeyboardButton
+	if offset > 0 {
+		prevOffset := offset - limit
+		if prevOffset < 0 {
+			prevOffset = 0
+		}
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("torrent_sel:page:%d:%s", prevOffset, sessionID)))
+	}
+
+	if end < len(files) {
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("torrent_sel:page:%d:%s", end, sessionID)))
+	}
+
+	if len(navRow) > 0 {
+		rows = append(rows, navRow)
+	}
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "torrent_start_selected"), fmt.Sprintf("torrent_sel:start_sel:%s", sessionID)),
+	))
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), fmt.Sprintf("torrent_sel:back:%s", sessionID)),
+	))
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
+
+	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	edit.ParseMode = MarkdownV2
+	edit.ReplyMarkup = &keyboard
+
+	_, _ = s.Bot.Request(edit)
 }
 
 func (s *BotService) StartTorrentWithSelectedFiles(sessionID string, selectedFiles []int) error {
