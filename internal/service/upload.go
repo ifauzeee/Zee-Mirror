@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/organizer"
 	"zee-mirror/internal/uploader"
@@ -51,7 +52,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 		return fmt.Errorf("cannot upload directory to telegram directly, please zip it first")
 	}
 
-	if info.Size() > 2*1024*1024*1024 {
+	if info.Size() > domain.MaxTelegramUploadSize {
 		return fmt.Errorf("file too large for telegram (max 2GB)")
 	}
 

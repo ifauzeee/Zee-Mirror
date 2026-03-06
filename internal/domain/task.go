@@ -34,6 +34,10 @@ const (
 	TypePlaylist   TaskType = "playlist"
 )
 
+const (
+	MaxTelegramUploadSize int64 = 2 * 1024 * 1024 * 1024
+)
+
 type Task struct {
 	CompletedAt       time.Time
 	CreatedAt         time.Time

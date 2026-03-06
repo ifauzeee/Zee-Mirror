@@ -66,7 +66,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 		SettingsRepo:   db,
 		Settings:       NewSettings(),
 		BatchManager:   NewBatchManager(),
-		RcloneUploader: uploader.NewRcloneUploader(cfg.RcloneDest, cfg.ConfigDir, cfg.SmartAutoOrganization, cfg.IndexURL),
+		RcloneUploader: uploader.NewRcloneUploader(cfg),
 	}
 
 	ctx := context.Background()

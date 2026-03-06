@@ -9,8 +9,8 @@ import (
 )
 
 type Config struct {
-	IndexURL                 string
-	VikingUserHash           string
+	WebhookSecret            string
+	UserSessionString        string
 	TelegramAPI              string
 	RcloneDest               string
 	DownloadDir              string
@@ -20,20 +20,27 @@ type Config struct {
 	BotToken                 string
 	DashboardURL             string
 	AppHash                  string
-	UserSessionString        string
+	RcloneTransfers          string
 	AuthPassword             string
 	Aria2RPCURL              string
 	Aria2RPCSecret           string
 	WebhookURL               string
-	WebhookSecret            string
+	VikingUserHash           string
+	IndexURL                 string
+	RcloneLogLevel           string
+	RclonePacerBurst         string
+	RclonePacerMinSleep      string
+	RcloneBufferSize         string
+	RcloneDriveChunkSize     string
+	RcloneCheckers           string
 	AuthorizedUsers          []int64
-	OwnerID                  int64
-	DefaultMaxDailyBandwidth int64
-	MaxConcurrentDownloads   int
-	DashboardPort            int
-	DefaultMaxDailyTasks     int
-	AppID                    int
 	MaxRetries               int
+	AppID                    int
+	DefaultMaxDailyTasks     int
+	DashboardPort            int
+	MaxConcurrentDownloads   int
+	DefaultMaxDailyBandwidth int64
+	OwnerID                  int64
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
 	UseWebhook               bool
@@ -67,6 +74,13 @@ func LoadConfig() *Config {
 		WebhookURL:               os.Getenv("WEBHOOK_URL"),
 		WebhookSecret:            getEnv("WEBHOOK_SECRET", ""),
 		UseWebhook:               getEnvBool("USE_WEBHOOK", false),
+		RcloneTransfers:          getEnv("RCLONE_TRANSFERS", "10"),
+		RcloneCheckers:           getEnv("RCLONE_CHECKERS", "20"),
+		RcloneDriveChunkSize:     getEnv("RCLONE_DRIVE_CHUNK_SIZE", "256M"),
+		RcloneBufferSize:         getEnv("RCLONE_BUFFER_SIZE", "128M"),
+		RclonePacerMinSleep:      getEnv("RCLONE_PACER_MIN_SLEEP", "10ms"),
+		RclonePacerBurst:         getEnv("RCLONE_PACER_BURST", "200"),
+		RcloneLogLevel:           getEnv("RCLONE_LOG_LEVEL", "NOTICE"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

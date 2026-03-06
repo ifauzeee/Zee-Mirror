@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/organizer"
@@ -36,18 +37,12 @@ type FileUploader interface {
 }
 
 type RcloneUploader struct {
-	rcloneDest            string
-	configDir             string
-	indexURL              string
-	smartAutoOrganization bool
+	cfg *config.Config
 }
 
-func NewRcloneUploader(dest, cfgDir string, smartOrg bool, index string) *RcloneUploader {
+func NewRcloneUploader(cfg *config.Config) *RcloneUploader {
 	return &RcloneUploader{
-		rcloneDest:            dest,
-		configDir:             cfgDir,
-		smartAutoOrganization: smartOrg,
-		indexURL:              index,
+		cfg: cfg,
 	}
 }
 
@@ -74,8 +69,8 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 		}
 	}
 
-	remoteDest := r.rcloneDest
-	if r.smartAutoOrganization {
+	remoteDest := r.cfg.RcloneDest
+	if r.cfg.SmartAutoOrganization {
 		if subFolder := organizer.GetTargetFolder(task.FileName); subFolder != "" {
 			remoteDest = filepath.Join(remoteDest, subFolder)
 			slog.Info("Smart Auto Organization: moving to subfolder", "taskID", task.ID, "subFolder", subFolder)
@@ -90,7 +85,7 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 		rcloneDest = remotePath
 	}
 
-	configPath := filepath.Join(r.configDir, "rclone.conf")
+	configPath := filepath.Join(r.cfg.ConfigDir, "rclone.conf")
 	args := []string{
 		"copy",
 		uploadPath,
@@ -99,18 +94,18 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 		"--progress",
 		"--stats", "1s",
 		"--stats-one-line",
-		"--transfers", "10",
-		"--checkers", "20",
-		"--drive-chunk-size", "256M",
-		"--drive-upload-cutoff", "256M",
-		"--buffer-size", "128M",
+		"--transfers", r.cfg.RcloneTransfers,
+		"--checkers", r.cfg.RcloneCheckers,
+		"--drive-chunk-size", r.cfg.RcloneDriveChunkSize,
+		"--drive-upload-cutoff", r.cfg.RcloneDriveChunkSize,
+		"--buffer-size", r.cfg.RcloneBufferSize,
 		"--low-level-retries", "10",
 		"--use-mmap",
 		"--size-only",
 		"--no-traverse",
-		"--drive-pacer-min-sleep", "10ms",
-		"--drive-pacer-burst", "200",
-		"--log-level", "NOTICE",
+		"--drive-pacer-min-sleep", r.cfg.RclonePacerMinSleep,
+		"--drive-pacer-burst", r.cfg.RclonePacerBurst,
+		"--log-level", r.cfg.RcloneLogLevel,
 	}
 
 	cmdCtx, cancel := context.WithCancel(ctx)
@@ -221,12 +216,12 @@ func (r *RcloneUploader) estimateUploadProgress(totalSize int64, onProgress func
 func (r *RcloneUploader) GenerateRcloneLink(ctx context.Context, task *domain.Task, configPath string, isDirUpload bool) {
 	currentRemotePath := task.RemotePath
 	if currentRemotePath == "" {
-		currentRemotePath = filepath.Join(r.rcloneDest, task.FileName)
+		currentRemotePath = filepath.Join(r.cfg.RcloneDest, task.FileName)
 	}
 
 	currentRemotePath = strings.ReplaceAll(currentRemotePath, "\\", "/")
 
-	if r.indexURL != "" {
+	if r.cfg.IndexURL != "" {
 		if r.generateIndexURL(ctx, task, configPath, currentRemotePath) {
 			return
 		}
@@ -418,7 +413,7 @@ func (r *RcloneUploader) generateIDBasedIndexURL(ctx context.Context, task *doma
 	}
 
 	if fileID != "" && parentID != "" {
-		baseURL := strings.TrimRight(r.indexURL, "/")
+		baseURL := strings.TrimRight(r.cfg.IndexURL, "/")
 		encodedFileName := url.PathEscape(task.FileName)
 		encodedFileName = strings.ReplaceAll(encodedFileName, "%2F", "/")
 
@@ -433,7 +428,7 @@ func (r *RcloneUploader) generateIDBasedIndexURL(ctx context.Context, task *doma
 
 func (r *RcloneUploader) generatePathBasedIndexURL(task *domain.Task, currentRemotePath string) bool {
 	remotePathSlash := strings.ReplaceAll(currentRemotePath, "\\", "/")
-	rcloneDestSlash := strings.ReplaceAll(r.rcloneDest, "\\", "/")
+	rcloneDestSlash := strings.ReplaceAll(r.cfg.RcloneDest, "\\", "/")
 	rcloneDestSlash = strings.TrimRight(rcloneDestSlash, "/")
 
 	var relPath string
@@ -456,7 +451,7 @@ func (r *RcloneUploader) generatePathBasedIndexURL(task *domain.Task, currentRem
 	encodedPath := strings.Join(pathParts, "/")
 	encodedPath = strings.ReplaceAll(encodedPath, "%2F", "/")
 
-	baseURL := strings.TrimRight(r.indexURL, "/")
+	baseURL := strings.TrimRight(r.cfg.IndexURL, "/")
 	task.RemoteURL = fmt.Sprintf("%s/%s", baseURL, encodedPath)
 	slog.Info("Generated Path-based Index URL", "url", task.RemoteURL)
 	return true
