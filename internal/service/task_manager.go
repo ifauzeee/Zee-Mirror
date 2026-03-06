@@ -15,6 +15,7 @@ import (
 	"zee-mirror/internal/queue"
 	"zee-mirror/internal/recovery"
 	"zee-mirror/internal/repository"
+	"zee-mirror/internal/uploader"
 	"zee-mirror/pkg/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -247,11 +248,12 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 	if tm.StopDuplicate {
 		tm.Mu.RLock()
 		for _, t := range tm.Tasks {
-			t.Mu.RLock()
-			isFinished := t.Status == StatusCompleted || t.Status == StatusFailed || t.Status == StatusCancelled
-			sameURL := t.URL == url
-			sameQuality := t.Quality == quality
-			t.Mu.RUnlock()
+			var isFinished, sameURL, sameQuality bool
+			t.Read(func() {
+				isFinished = t.Status == StatusCompleted || t.Status == StatusFailed || t.Status == StatusCancelled
+				sameURL = t.URL == url
+				sameQuality = t.Quality == quality
+			})
 
 			if !isFinished && sameURL && sameQuality {
 				tm.Mu.RUnlock()
@@ -326,39 +328,39 @@ func (t *Task) SaveToDB() error {
 		return nil
 	}
 
-	t.Mu.RLock()
-	defer t.Mu.RUnlock()
+	var record domain.TaskRecord
+	t.Read(func() {
+		record = domain.TaskRecord{
+			ID:             t.ID,
+			GID:            t.GID,
+			Type:           string(t.Type),
+			Status:         string(t.Status),
+			URL:            t.URL,
+			FileName:       t.FileName,
+			LocalPath:      t.LocalPath,
+			RemotePath:     t.RemotePath,
+			RemoteURL:      t.RemoteURL,
+			TotalSize:      t.TotalSize,
+			DownloadedSize: t.DownloadedSize,
+			UploadedSize:   t.UploadedSize,
+			ChatID:         t.ChatID,
+			UserID:         t.UserID,
+			CreatedAt:      t.CreatedAt,
+			Zip:            t.Zip,
+			Unzip:          t.Unzip,
+			Password:       t.Password,
+			Error:          t.Error,
+			Quality:        t.Quality,
+			RetryCount:     t.RetryCount,
+		}
 
-	record := domain.TaskRecord{
-		ID:             t.ID,
-		GID:            t.GID,
-		Type:           string(t.Type),
-		Status:         string(t.Status),
-		URL:            t.URL,
-		FileName:       t.FileName,
-		LocalPath:      t.LocalPath,
-		RemotePath:     t.RemotePath,
-		RemoteURL:      t.RemoteURL,
-		TotalSize:      t.TotalSize,
-		DownloadedSize: t.DownloadedSize,
-		UploadedSize:   t.UploadedSize,
-		ChatID:         t.ChatID,
-		UserID:         t.UserID,
-		CreatedAt:      t.CreatedAt,
-		Zip:            t.Zip,
-		Unzip:          t.Unzip,
-		Password:       t.Password,
-		Error:          t.Error,
-		Quality:        t.Quality,
-		RetryCount:     t.RetryCount,
-	}
-
-	if !t.CompletedAt.IsZero() {
-		record.CompletedAt = struct {
-			Time  time.Time
-			Valid bool
-		}{Time: t.CompletedAt, Valid: true}
-	}
+		if !t.CompletedAt.IsZero() {
+			record.CompletedAt = struct {
+				Time  time.Time
+				Valid bool
+			}{Time: t.CompletedAt, Valid: true}
+		}
+	})
 
 	ctx := context.Background()
 	err := t.DB.Save(ctx, record)
@@ -420,35 +422,41 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 		return false
 	}
 
-	task.Mu.Lock()
-	if task.Status == StatusCompleted || task.Status == StatusCancelled {
-		task.Mu.Unlock()
+	var shouldCancel bool
+	task.Update(func() {
+		if task.Status != StatusCompleted && task.Status != StatusCancelled {
+			task.Status = StatusCancelled
+			task.CompletedAt = time.Now().UTC()
+			if task.CancelFunc != nil {
+				task.CancelFunc()
+			}
+			shouldCancel = true
+		}
+	})
+
+	if !shouldCancel {
 		return false
 	}
-
-	task.Status = StatusCancelled
-	task.CompletedAt = time.Now().UTC()
-	if task.CancelFunc != nil {
-		task.CancelFunc()
-	}
-	task.Mu.Unlock()
 
 	err := task.SaveToDB()
 	return err == nil
 }
 
 func (t *Task) Cancel(status TaskStatus) bool {
-	t.Mu.Lock()
-	if t.Status == StatusCompleted || t.Status == StatusFailed || t.Status == StatusCancelled {
-		t.Mu.Unlock()
+	var shouldCancel bool
+	t.Update(func() {
+		if t.Status != StatusCompleted && t.Status != StatusFailed && t.Status != StatusCancelled {
+			t.Status = status
+			if t.CancelFunc != nil {
+				t.CancelFunc()
+			}
+			shouldCancel = true
+		}
+	})
+
+	if !shouldCancel {
 		return false
 	}
-
-	t.Status = status
-	if t.CancelFunc != nil {
-		t.CancelFunc()
-	}
-	t.Mu.Unlock()
 
 	_ = t.SaveToDB()
 	return true
@@ -501,70 +509,103 @@ func (tm *TaskManager) IsShuttingDown() bool {
 }
 
 func (t *Task) UpdateFromProgressUpdate(up downloader.ProgressUpdate) {
-	t.Mu.Lock()
-	defer t.Mu.Unlock()
+	t.Update(func() {
+		if up.FileName != "" {
+			t.FileName = up.FileName
+		}
+		if up.Downloaded != 0 {
+			t.DownloadedSize = up.Downloaded
+		}
+		if up.Total != 0 {
+			t.TotalSize = up.Total
+		}
+		if up.Speed != 0 {
+			t.Speed = up.Speed
+		}
+		if up.Progress != 0 {
+			t.Progress = up.Progress
+		}
+		if up.Connections != 0 {
+			t.Connections = up.Connections
+		}
+		if up.ETA != 0 {
+			t.ETA = up.ETA
+		}
+		if up.Error != "" {
+			t.Error = up.Error
+		}
+		if up.Message != "" {
+			t.ProcessingMessage = up.Message
+			t.Speed = 0
+			t.ETA = 0
+		}
+	})
+}
 
-	if up.FileName != "" {
-		t.FileName = up.FileName
-	}
-	if up.Downloaded != 0 {
-		t.DownloadedSize = up.Downloaded
-	}
-	if up.Total != 0 {
-		t.TotalSize = up.Total
-	}
-	if up.Speed != 0 {
-		t.Speed = up.Speed
-	}
-	if up.Progress != 0 {
-		t.Progress = up.Progress
-	}
-	if up.Connections != 0 {
-		t.Connections = up.Connections
-	}
-	if up.ETA != 0 {
-		t.ETA = up.ETA
-	}
-	if up.Error != "" {
-		t.Error = up.Error
-	}
-	if up.Message != "" {
-		t.ProcessingMessage = up.Message
-		t.Speed = 0
-		t.ETA = 0
-	}
+func (t *Task) UpdateFromUploadProgress(up uploader.ProgressUpdate) {
+	t.Update(func() {
+		if up.UploadedSize > 0 {
+			t.UploadedSize = up.UploadedSize
+		}
+		if up.TotalSize > 0 {
+			t.TotalSize = up.TotalSize
+		}
+		if up.Progress > 0 {
+			t.Progress = up.Progress
+		}
+		if up.Speed > 0 {
+			t.Speed = up.Speed
+		}
+		if up.ETA > 0 {
+			t.ETA = up.ETA
+		}
+	})
+}
+
+func (t *Task) SetProgress(progress float64) {
+	t.Update(func() {
+		t.Progress = progress
+	})
+}
+
+func (t *Task) CompleteTelegramUpload(msgID int, uploadedSize int64) {
+	t.Update(func() {
+		t.ResultMessageID = msgID
+		t.Progress = 100
+		t.UploadedSize = uploadedSize
+		t.RemotePath = "telegram"
+	})
 }
 
 func (t *Task) SetStatus(status TaskStatus) {
-	t.Mu.Lock()
-	if t.Status == StatusCancelled && status != StatusCancelled {
-		t.Mu.Unlock()
-		return
-	}
-	oldStatus := t.Status
-	t.Status = status
-	if status == StatusDownloading {
-		if t.Type == TypeYTDLP || t.Type == TypeMirror || t.Type == TypeLeech || t.Type == TypeTorrent {
-			t.Connections = 16
+	t.Update(func() {
+		if t.Status == StatusCancelled && status != StatusCancelled {
+			return
 		}
-	}
-	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
-		t.CompletedAt = time.Now().UTC()
-		if oldStatus != status {
-			metrics.TasksTotal.WithLabelValues(string(t.Type), string(status)).Inc()
+		oldStatus := t.Status
+		t.Status = status
+		if status == StatusDownloading {
+			if t.Type == TypeYTDLP || t.Type == TypeMirror || t.Type == TypeLeech || t.Type == TypeTorrent {
+				t.Connections = 16
+			}
 		}
-	}
-	t.Mu.Unlock()
+		if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
+			t.CompletedAt = time.Now().UTC()
+			if oldStatus != status {
+				metrics.TasksTotal.WithLabelValues(string(t.Type), string(status)).Inc()
+			}
+		}
+	})
 	_ = t.SaveToDB()
 }
 
 func (t *Task) SetError(err string) {
-	t.Mu.Lock()
-	t.Error = err
-	t.Status = StatusFailed
-	t.CompletedAt = time.Now().UTC()
-	metrics.TasksTotal.WithLabelValues(string(t.Type), "failed").Inc()
-	t.Mu.Unlock()
+	t.Update(func() {
+		t.Error = err
+		t.Status = StatusFailed
+		t.CompletedAt = time.Now().UTC()
+		metrics.TasksTotal.WithLabelValues(string(t.Type), "failed").Inc()
+	})
 	_ = t.SaveToDB()
 }
 

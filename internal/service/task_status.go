@@ -28,9 +28,10 @@ func (s *BotService) updateTaskStatus(task *Task) {
 	text := buildTaskStatusText(lang, snapshot)
 
 	if snapshot.Status == StatusCompleted && organizer.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
-		task.Mu.RLock()
-		existingID := task.ResultMessageID
-		task.Mu.RUnlock()
+		var existingID int
+		task.Read(func() {
+			existingID = task.ResultMessageID
+		})
 
 		if existingID == 0 {
 			if s.sendVideoWithThumbnail(task, text) {
@@ -62,9 +63,9 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 		}
 		sentMsg, sendErr := s.Bot.Send(photo)
 		if sendErr == nil {
-			task.Mu.Lock()
-			task.ResultMessageID = sentMsg.MessageID
-			task.Mu.Unlock()
+			task.Update(func() {
+				task.ResultMessageID = sentMsg.MessageID
+			})
 			slog.Info("Captured result video message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
 			_ = os.Remove(thumb)
 			return true
@@ -78,9 +79,10 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 func (s *BotService) sendFinalMessage(task *Task, text string) {
 	snapshot := task.GetSnapshot()
 
-	task.Mu.RLock()
-	msgID := task.ResultMessageID
-	task.Mu.RUnlock()
+	var msgID int
+	task.Read(func() {
+		msgID = task.ResultMessageID
+	})
 
 	if msgID != 0 {
 		editCaption := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
@@ -141,9 +143,9 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 	}
 
 	if sentMsg, err := s.Bot.Send(msg); err == nil {
-		task.Mu.Lock()
-		task.ResultMessageID = sentMsg.MessageID
-		task.Mu.Unlock()
+		task.Update(func() {
+			task.ResultMessageID = sentMsg.MessageID
+		})
 		slog.Info("Captured result final message ID", "message_id", sentMsg.MessageID, "task_id", task.ID)
 	} else {
 		slog.Error("Failed to send final task message", "error", err, "task_id", task.ID, "chatID", snapshot.ChatID)

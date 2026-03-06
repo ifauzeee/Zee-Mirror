@@ -15,30 +15,11 @@ import (
 
 func (s *BotService) UploadWithRclone(task *Task) error {
 	task.SetStatus(StatusUploading)
-	task.Mu.Lock()
-	task.Progress = 0
-	task.Mu.Unlock()
+	task.SetProgress(0)
 	s.updateTaskStatus(task)
 
 	err := s.RcloneUploader.Upload(task.Ctx, &task.Task, func(up uploader.ProgressUpdate) {
-		task.Mu.Lock()
-		if up.UploadedSize > 0 {
-			task.UploadedSize = up.UploadedSize
-		}
-		if up.TotalSize > 0 {
-			task.TotalSize = up.TotalSize
-		}
-		if up.Progress > 0 {
-			task.Progress = up.Progress
-		}
-		if up.Speed > 0 {
-			task.Speed = up.Speed
-		}
-		if up.ETA > 0 {
-			task.ETA = up.ETA
-		}
-		task.Mu.Unlock()
-
+		task.UpdateFromUploadProgress(up)
 		s.updateTaskStatus(task)
 	})
 
@@ -46,17 +27,13 @@ func (s *BotService) UploadWithRclone(task *Task) error {
 		return err
 	}
 
-	task.Mu.Lock()
-	task.Progress = 100
-	task.Mu.Unlock()
+	task.SetProgress(100)
 	return nil
 }
 
 func (s *BotService) UploadToTelegram(task *Task) error {
 	task.SetStatus(StatusUploading)
-	task.Mu.Lock()
-	task.Progress = 0
-	task.Mu.Unlock()
+	task.SetProgress(0)
 	s.updateTaskStatus(task)
 	startTime := time.Now()
 
@@ -99,9 +76,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 		msg = doc
 	}
 
-	task.Mu.Lock()
-	task.Progress = 50
-	task.Mu.Unlock()
+	task.SetProgress(50)
 	s.updateTaskStatus(task)
 
 	sentMsg, err := s.Bot.Send(msg)
@@ -111,12 +86,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 	}
 	metrics.UploadDuration.WithLabelValues("telegram", "success").Observe(time.Since(startTime).Seconds())
 
-	task.Mu.Lock()
-	task.ResultMessageID = sentMsg.MessageID
-	task.Progress = 100
-	task.UploadedSize = info.Size()
-	task.RemotePath = "telegram"
-	task.Mu.Unlock()
+	task.CompleteTelegramUpload(sentMsg.MessageID, info.Size())
 
 	return nil
 }

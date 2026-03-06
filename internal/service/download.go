@@ -121,9 +121,10 @@ func (s *BotService) HandleTelegramFileDownload(message *tgbotapi.Message, fileI
 func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 	sourcePath := strings.TrimPrefix(task.URL, "file://")
 
-	task.Mu.RLock()
-	expectedSize := task.TotalSize
-	task.Mu.RUnlock()
+	var expectedSize int64
+	task.Read(func() {
+		expectedSize = task.TotalSize
+	})
 
 	s.updateTaskStatus(task)
 
@@ -147,12 +148,12 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 			}
 
 			if time.Since(lastUpdate) >= 1*time.Second {
-				task.Mu.Lock()
-				task.DownloadedSize = currentSize
-				if expectedSize > 0 {
-					task.Progress = float64(currentSize) / float64(expectedSize) * 100
-				}
-				task.Mu.Unlock()
+				task.Update(func() {
+					task.DownloadedSize = currentSize
+					if expectedSize > 0 {
+						task.Progress = float64(currentSize) / float64(expectedSize) * 100
+					}
+				})
 				s.updateTaskStatus(task)
 				lastUpdate = time.Now()
 			}
@@ -183,11 +184,11 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 	}
 	destPath := filepath.Join(outputDir, fileName)
 
-	task.Mu.Lock()
-	task.TotalSize = info.Size()
-	task.DownloadedSize = 0
-	task.Progress = 0
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.TotalSize = info.Size()
+		task.DownloadedSize = 0
+		task.Progress = 0
+	})
 	s.updateTaskStatus(task)
 
 	cleanedSource := filepath.Clean(sourcePath)
@@ -213,10 +214,10 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 	startTime := time.Now()
 	lastUpdate = time.Now()
 
-	task.Mu.Lock()
-	task.DownloadedSize = 0
-	task.Progress = 0
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.DownloadedSize = 0
+		task.Progress = 0
+	})
 	s.updateTaskStatus(task)
 
 	for {
@@ -239,20 +240,20 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 		}
 
 		if time.Since(lastUpdate) >= 1*time.Second {
-			task.Mu.Lock()
-			task.DownloadedSize = copied
-			if task.TotalSize > 0 {
-				task.Progress = float64(copied) / float64(task.TotalSize) * 100
-			}
-			elapsed := time.Since(startTime).Seconds()
-			if elapsed > 0 {
-				task.Speed = int64(float64(copied) / elapsed)
-				if task.Speed > 0 && task.TotalSize > 0 {
-					remaining := task.TotalSize - copied
-					task.ETA = time.Duration(remaining/task.Speed) * time.Second
+			task.Update(func() {
+				task.DownloadedSize = copied
+				if task.TotalSize > 0 {
+					task.Progress = float64(copied) / float64(task.TotalSize) * 100
 				}
-			}
-			task.Mu.Unlock()
+				elapsed := time.Since(startTime).Seconds()
+				if elapsed > 0 {
+					task.Speed = int64(float64(copied) / elapsed)
+					if task.Speed > 0 && task.TotalSize > 0 {
+						remaining := task.TotalSize - copied
+						task.ETA = time.Duration(remaining/task.Speed) * time.Second
+					}
+				}
+			})
 			s.updateTaskStatus(task)
 			lastUpdate = time.Now()
 		}
@@ -267,10 +268,10 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 		}
 	}
 
-	task.Mu.Lock()
-	task.DownloadedSize = task.TotalSize
-	task.Progress = 100
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.DownloadedSize = task.TotalSize
+		task.Progress = 100
+	})
 	s.updateTaskStatus(task)
 
 	s.HandlePostDownload(task, outputDir)

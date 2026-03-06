@@ -16,10 +16,12 @@ import (
 )
 
 func (s *BotService) processTask(task *Task) {
-	task.Mu.RLock()
-	status := task.Status
-	url := task.URL
-	task.Mu.RUnlock()
+	var status TaskStatus
+	var url string
+	task.Read(func() {
+		status = task.Status
+		url = task.URL
+	})
 
 	if status == StatusCancelled {
 		slog.Info("Skipping cancelled task", "taskID", task.ID)
@@ -66,12 +68,12 @@ func (s *BotService) processTask(task *Task) {
 			fileURL = s.GetFileLink(tgFile, isOfficial)
 		}
 
-		task.Mu.Lock()
-		task.URL = fileURL
-		if task.TotalSize == 0 {
-			task.TotalSize = int64(tgFile.FileSize)
-		}
-		task.Mu.Unlock()
+		task.Update(func() {
+			task.URL = fileURL
+			if task.TotalSize == 0 {
+				task.TotalSize = int64(tgFile.FileSize)
+			}
+		})
 
 		_ = task.SaveToDB()
 		s.updateTaskStatus(task)
@@ -104,9 +106,9 @@ func (s *BotService) processTask(task *Task) {
 
 func (s *BotService) downloadWithAria2(task *Task) {
 	task.SetStatus(StatusDownloading)
-	task.Mu.Lock()
-	task.StartedAt = time.Now()
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.StartedAt = time.Now()
+	})
 	s.updateTaskStatus(task)
 
 	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
@@ -155,9 +157,9 @@ func (s *BotService) downloadWithAria2(task *Task) {
 
 func (s *BotService) downloadWithYTDLP(task *Task) {
 	task.SetStatus(StatusDownloading)
-	task.Mu.Lock()
-	task.StartedAt = time.Now()
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.StartedAt = time.Now()
+	})
 	s.updateTaskStatus(task)
 
 	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
@@ -247,9 +249,9 @@ func (s *BotService) downloadWithYTDLP(task *Task) {
 
 func (s *BotService) downloadWithUserbot(task *Task) {
 	task.SetStatus(StatusDownloading)
-	task.Mu.Lock()
-	task.StartedAt = time.Now()
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.StartedAt = time.Now()
+	})
 	s.updateTaskStatus(task)
 
 	outputDir := filepath.Join(s.TaskManager.DownloadDir, task.ID)
@@ -358,20 +360,19 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 }
 
 func (s *BotService) retryTask(task *Task, originalErr string) bool {
-	task.Mu.Lock()
-	if task.Status == StatusCancelled {
-		task.Mu.Unlock()
+	var retries int
+	var shouldRetry bool
+	task.Update(func() {
+		if task.Status != StatusCancelled && task.RetryCount < task.MaxRetries {
+			task.RetryCount++
+			retries = task.RetryCount
+			shouldRetry = true
+		}
+	})
+
+	if !shouldRetry {
 		return false
 	}
-
-	if task.RetryCount >= task.MaxRetries {
-		task.Mu.Unlock()
-		return false
-	}
-
-	task.RetryCount++
-	retries := task.RetryCount
-	task.Mu.Unlock()
 
 	backoff := 5 * time.Second
 	for i := 1; i < retries; i++ {
@@ -392,10 +393,10 @@ func (s *BotService) retryTask(task *Task, originalErr string) bool {
 	go func() {
 		time.Sleep(backoff)
 
-		task.Mu.Lock()
-		task.Status = StatusQueued
-		task.Error = ""
-		task.Mu.Unlock()
+		task.Update(func() {
+			task.Status = StatusQueued
+			task.Error = ""
+		})
 
 		s.updateTaskStatus(task)
 		s.TaskManager.Queue.Enqueue(task, 0)

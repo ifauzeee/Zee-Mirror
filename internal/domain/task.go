@@ -207,6 +207,18 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 	}
 }
 
+func (t *Task) Update(fn func()) {
+	t.Mu.Lock()
+	defer t.Mu.Unlock()
+	fn()
+}
+
+func (t *Task) Read(fn func()) {
+	t.Mu.RLock()
+	defer t.Mu.RUnlock()
+	fn()
+}
+
 type TaskCheckpoint struct {
 	LastUpdate      time.Time
 	TaskID          string

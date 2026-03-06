@@ -90,10 +90,10 @@ func (s *BotService) HandleViking(message *tgbotapi.Message, args string) {
 
 func (s *BotService) UploadToViking(task *Task) error {
 	task.SetStatus(StatusUploading)
-	task.Mu.Lock()
-	task.Progress = 0
-	task.UploadedSize = 0
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.Progress = 0
+		task.UploadedSize = 0
+	})
 	s.updateTaskStatus(task)
 
 	filePath := task.LocalPath
@@ -156,10 +156,10 @@ func (s *BotService) UploadToViking(task *Task) error {
 
 			mu.Lock()
 			uploadedBytes += size
-			task.Mu.Lock()
-			task.UploadedSize = uploadedBytes
-			task.Progress = float64(uploadedBytes) / float64(fileSize) * 100
-			task.Mu.Unlock()
+			task.Update(func() {
+				task.UploadedSize = uploadedBytes
+				task.Progress = float64(uploadedBytes) / float64(fileSize) * 100
+			})
 			mu.Unlock()
 
 			if pNum%2 == 0 {
@@ -182,11 +182,11 @@ func (s *BotService) UploadToViking(task *Task) error {
 		return fmt.Errorf("failed to complete upload: %v", err)
 	}
 
-	task.Mu.Lock()
-	task.RemoteURL = completeResp.URL
-	task.RemotePath = "viking://" + completeResp.Hash
-	task.Progress = 100
-	task.Mu.Unlock()
+	task.Update(func() {
+		task.RemoteURL = completeResp.URL
+		task.RemotePath = "viking://" + completeResp.Hash
+		task.Progress = 100
+	})
 
 	return nil
 }
