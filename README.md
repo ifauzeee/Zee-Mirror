@@ -49,7 +49,6 @@ Role-based access control, daily task/bandwidth limits, health checks, Prometheu
 <td width="50%">
 
 ### 🌐 Modern Web Dashboard
-A full React-powered control panel with real-time WebSocket updates, interactive charts, file explorer, torrent browser, and user management — all accessible from your browser.
 
 ### 📦 Zero-Config Deploy
 Multi-stage Docker build bundles everything — aria2, yt-dlp, rclone, ffmpeg, 7zz, Local Bot API. One command to deploy, fully operational.
@@ -95,7 +94,6 @@ Google Drive, OneDrive, Mega, S3, Dropbox, and **40+ cloud providers** via rclon
 | 🌐 | **Speed Test** | Built-in network speed testing via `/speed` command |
 | 🌍 | **Internationalization** | User-selectable interface language (i18n support) |
 | 📁 | **Smart Organization** | Auto-organize files into categories (Movies, Music, etc.) |
-| 🌐 | **Web Dashboard** | Full React control panel with 7 pages and WebSocket real-time updates |
 
 </div>
 
@@ -117,7 +115,6 @@ Google Drive, OneDrive, Mega, S3, Dropbox, and **40+ cloud providers** via rclon
 | [`golang-migrate/v4`](https://github.com/golang-migrate/migrate) | Database schema migrations with versioned SQL files |
 | [`gopsutil/v3`](https://github.com/shirou/gopsutil) | Cross-platform system metrics (CPU, RAM, Disk, Host info) |
 | [`prometheus/client_golang`](https://github.com/prometheus/client_golang) | Prometheus metrics export for Grafana integration |
-| [`gorilla/websocket`](https://github.com/gorilla/websocket) | WebSocket hub for pushing real-time updates to the dashboard |
 | [`joho/godotenv`](https://github.com/joho/godotenv) | `.env` file loading for local development |
 | [`google/uuid`](https://github.com/google/uuid) | Unique task ID generation |
 | [`PuerkitoBio/goquery`](https://github.com/PuerkitoBio/goquery) | HTML parsing for torrent search scraping |
@@ -134,7 +131,6 @@ Google Drive, OneDrive, Mega, S3, Dropbox, and **40+ cloud providers** via rclon
 
 | Package | Purpose |
 |---------|---------|
-| [React 18](https://reactjs.org) | Component-based UI framework |
 | [Vite 4](https://vitejs.dev) | Next-gen build tool with instant HMR |
 | [Tailwind CSS 3](https://tailwindcss.com) | Utility-first CSS for rapid UI styling |
 | [Recharts 3](https://recharts.org) | Composable data visualization (charts, graphs) |
@@ -212,8 +208,7 @@ TELEGRAM_API_HASH=your_api_hash         # From my.telegram.org
 
 # ─── RECOMMENDED ───────────────────────────────────────
 RCLONE_DEST=gdrive:/Zee-Mirror          # Default upload destination
-WEB_DASHBOARD_TOKEN=your_secure_pass    # Dashboard login password
-WEB_DASHBOARD_URL=http://your-ip        # Your server's public IP/domain
+API_PORT=8080                     # Internal API port (health/metrics/webhook)
 ```
 
 > 📝 See the [Full Configuration Reference](#%EF%B8%8F-configuration-reference) for all available variables.
@@ -291,8 +286,6 @@ docker compose down && docker compose up -d --build
 - SQLite (built into Go driver, no separate install needed)
 
 ```bash
-# 1. Build the dashboard
-cd dashboard && npm install && npm run build && cd ..
 
 # 2. Build the Go binary
 go mod download
@@ -333,10 +326,8 @@ All configuration is managed through environment variables in the `.env` file.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DASHBOARD_PORT` | `80` | External port for the web dashboard (the port you access in your browser) |
-| `DASHBOARD_PORT_INTERNAL` | `8080` | Internal container listen port (typically unchanged) |
-| `WEB_DASHBOARD_URL` | `http://localhost` | Public URL of the dashboard. Used for generating links in bot messages |
-| `WEB_DASHBOARD_TOKEN` | `zee-mirror-secret` | Password for dashboard login. **Change this for production!** |
+| `API_PORT` | `8080` | Internal API listen port for health, metrics, and webhook endpoints |
+| `API_PORT_INTERNAL` | `8080` | Internal container listen port (typically unchanged) |
 
 </details>
 
@@ -608,14 +599,12 @@ All media commands use **ffmpeg** under the hood. Reply to a video/audio message
 
 ## 🌐 Web Dashboard
 
-> A full-featured **React 18** control panel with **Tailwind CSS** styling, **Framer Motion** animations, and real-time **WebSocket** updates.
 
 ### 🔑 Accessing the Dashboard
 
 | | |
 |---|---|
-| **URL** | `http://your-server-ip:DASHBOARD_PORT` (default port `80`) |
-| **Login** | Use the `WEB_DASHBOARD_TOKEN` value from your `.env` file |
+| **URL** | `http://your-server-ip:API_PORT` (default port `80`) |
 
 <br>
 
@@ -646,7 +635,6 @@ All media commands use **ffmpeg** under the hood. Reply to a video/audio message
 
 ### ⚡ Real-time Updates
 
-The dashboard maintains a persistent **WebSocket** connection (`/ws`) to the backend, providing instant push updates for:
 
 - 📊 Task progress changes (percentage, speed, ETA)
 - ✅ Task completion / failure notifications
@@ -661,7 +649,6 @@ No manual page refresh needed — everything updates automatically.
 
 | Aspect | Detail |
 |--------|--------|
-| **Framework** | React 18 with functional components and hooks |
 | **Build** | Vite 4 with fast HMR for development |
 | **Styling** | Tailwind CSS 3 with custom configuration |
 | **Charts** | Recharts 3 for responsive data visualization |
@@ -669,7 +656,6 @@ No manual page refresh needed — everything updates automatically.
 | **Icons** | Lucide React for consistent, scalable icons |
 | **State** | React Context for global state management |
 | **HTTP** | Axios for API calls with interceptors |
-| **Custom Hooks** | 7 specialized hooks for data fetching, WebSocket, etc. |
 | **Linting** | ESLint + Prettier with React-specific rules |
 
 <br>
@@ -678,7 +664,6 @@ No manual page refresh needed — everything updates automatically.
 
 ## 📡 REST API
 
-> The backend exposes a comprehensive RESTful API on port `:8080` (internal). All endpoints require `WEB_DASHBOARD_TOKEN` authentication.
 
 <details open>
 <summary><b>📋 All API Endpoints</b></summary>
@@ -741,7 +726,6 @@ No manual page refresh needed — everything updates automatically.
 
 | Method | Endpoint | Description |
 |:------:|----------|-------------|
-| `GET` | `/ws` | WebSocket connection for live task/system updates |
 
 </details>
 
@@ -803,9 +787,7 @@ Zee-Mirror/
 │   └── disk_other.go                 # Cross-platform disk usage fallback
 │
 ├── internal/                          # Internal packages (not importable by external code)
-│   ├── api/                          # REST API & WebSocket server
 │   │   ├── api.go                    # HTTP server, route registration, 20+ API handlers
-│   │   └── websocket.go             # WebSocket hub: client management, broadcast loop
 │   ├── config/                       # Configuration management
 │   │   └── config.go                # Load env vars, type conversion, validation
 │   ├── database/                     # SQLite database layer
@@ -843,7 +825,6 @@ Zee-Mirror/
 │   └── i18n/                         # Internationalization
 │       └── *.go                     # Language detection, translation loading, fallbacks
 │
-├── dashboard/                         # Web Dashboard (React SPA)
 │   ├── src/
 │   │   ├── App.jsx                  # Root component: routing, layout, auth gate
 │   │   ├── main.jsx                 # React DOM entry point
@@ -862,7 +843,6 @@ Zee-Mirror/
 │   │   │   ├── Task/               # Task progress card
 │   │   │   └── Popups/             # Modal dialogs and confirmations
 │   │   ├── hooks/                   # 7 custom React hooks
-│   │   │   └── *.js                # useWebSocket, useFetch, useAuth, etc.
 │   │   ├── context/                 # React context providers
 │   │   │   └── *.jsx               # AuthContext, ThemeContext
 │   │   └── utils/                   # Frontend utilities
@@ -1004,7 +984,6 @@ task check                # Run ALL quality checks (tidy → fmt → vet → sec
 task all                  # Quality checks + build
 
 # ─── Frontend ──────────────────────────────
-cd dashboard
 npm install               # Install npm dependencies
 npm run dev               # Start Vite dev server with HMR
 npm run build             # Production build → dist/
@@ -1162,9 +1141,9 @@ Four **GitHub Actions** workflows ensure code quality on every push and PR:
 <details>
 <summary><b>🌐 Dashboard not loading</b></summary>
 
-1. Check `DASHBOARD_PORT` is not blocked by a firewall
+1. Check `API_PORT` is not blocked by a firewall
 2. Verify port mapping: `docker ps` should show `0.0.0.0:80->8080/tcp`
-3. Try accessing directly: `curl http://localhost:DASHBOARD_PORT/api/health`
+3. Try accessing directly: `curl http://localhost:API_PORT/api/health`
 4. Check browser console for any CORS or auth errors
 </details>
 
@@ -1198,8 +1177,6 @@ docker exec zee-mirror-bot cat /app/config/zee-mirror.log
 # Via Telegram bot
 /logs
 
-# Via web dashboard
-# Navigate to the "Logs" page
 ```
 </details>
 

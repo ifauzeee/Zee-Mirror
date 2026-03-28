@@ -23,7 +23,7 @@ var (
 
 	APIRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeemirror_api_requests_total",
-		Help: "Total number of API requests to the dashboard",
+		Help: "Total number of API requests to the bot service",
 	}, []string{"path", "method", "status"})
 
 	DownloadDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{

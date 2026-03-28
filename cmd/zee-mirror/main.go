@@ -80,7 +80,7 @@ func main() {
 	botSvc := handlers.NewBotService(bot, cfg, db)
 	botSvc.TaskManager.Aria2Engine = downloader.NewAria2Engine(cfg.ConfigDir, cfg.Aria2RPCURL, cfg.Aria2RPCSecret)
 
-	apiServer := api.NewServer(botSvc, cfg.DashboardPort)
+	apiServer := api.NewServer(botSvc, cfg.APIPort)
 
 	r := router.NewRouter(botSvc.BotService)
 	setupRoutes(r)
@@ -90,7 +90,7 @@ func main() {
 		if text == "" {
 			text = m.Caption
 		}
-		botSvc.HandleTorrent(m, text)
+		download.HandleTorrent(botSvc.BotService, m, text)
 	})
 
 	apiServer.SetRouter(r)

@@ -49,7 +49,3 @@ temp/
 *.so
 *.dylib
 
-# Dashboard dev
-dashboard/node_modules/
-dashboard/.eslintcache
-dashboard/.stylelintcache

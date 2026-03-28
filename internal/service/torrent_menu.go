@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 	"log/slog"
-	"strings"
+
 	"time"
 
 	"zee-mirror/internal/domain"
@@ -17,18 +17,6 @@ import (
 func (s *BotService) ShowTorrentSelectionMenu(message *tgbotapi.Message, url, name string, zip, unzip bool, password string, replyID int) {
 	sessionID := s.CreateTorrentSession(url, name, zip, unzip, password, message.Chat.ID, message.MessageID, replyID, message.From.ID)
 
-	baseURL := s.Config.DashboardURL
-	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-		baseURL = "http://" + baseURL
-	}
-
-	dashboardURL := ""
-	if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") {
-		dashboardURL = fmt.Sprintf("%s:%d/torrent-select/%s", baseURL, s.Config.DashboardPort, sessionID)
-	} else {
-		dashboardURL = fmt.Sprintf("%s/torrent-select/%s", baseURL, sessionID)
-	}
-
 	lang := s.GetUserLanguage(message.From.ID)
 	text := i18n.T(lang, "torrent_menu_text")
 
@@ -38,9 +26,6 @@ func (s *BotService) ShowTorrentSelectionMenu(message *tgbotapi.Message, url, na
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📂 Browse Files", fmt.Sprintf("torrent_sel:browse:%s:0", sessionID)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("torrent_sel:cancel:%s", sessionID)),
@@ -207,17 +192,6 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 	case "back":
 		s.TaskManager.Mu.Unlock()
 
-		baseURL := s.Config.DashboardURL
-		if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-			baseURL = "http://" + baseURL
-		}
-		dashboardURL := ""
-		if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") {
-			dashboardURL = fmt.Sprintf("%s:%d/torrent-select/%s", baseURL, s.Config.DashboardPort, sessionID)
-		} else {
-			dashboardURL = fmt.Sprintf("%s/torrent-select/%s", baseURL, sessionID)
-		}
-
 		lang := s.GetUserLanguage(callback.From.ID)
 		text := i18n.T(lang, "torrent_menu_text")
 
@@ -227,9 +201,6 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("📂 Browse Files", fmt.Sprintf("torrent_sel:browse:%s:0", sessionID)),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
 			),
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("torrent_sel:cancel:%s", sessionID)),

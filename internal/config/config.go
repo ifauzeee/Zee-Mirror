@@ -15,10 +15,8 @@ type Config struct {
 	RcloneDest               string
 	DownloadDir              string
 	ConfigDir                string
-	DashboardToken           string
 	LogLevel                 string
 	BotToken                 string
-	DashboardURL             string
 	AppHash                  string
 	RcloneTransfers          string
 	AuthPassword             string
@@ -37,7 +35,7 @@ type Config struct {
 	MaxRetries               int
 	AppID                    int
 	DefaultMaxDailyTasks     int
-	DashboardPort            int
+	APIPort                  int
 	MaxConcurrentDownloads   int
 	DefaultMaxDailyBandwidth int64
 	OwnerID                  int64
@@ -54,12 +52,10 @@ func LoadConfig() *Config {
 		DownloadDir:              getEnv("DOWNLOAD_DIR", "/app/downloads"),
 		ConfigDir:                getEnv("CONFIG_DIR", "/app/config"),
 		MaxConcurrentDownloads:   getEnvInt("MAX_CONCURRENT_DOWNLOADS", 3),
-		DashboardToken:           getEnv("WEB_DASHBOARD_TOKEN", "zee-mirror-secret"),
-		DashboardPort:            getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
+		APIPort:                  getEnvInt("API_PORT", 8080),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		SmartAutoOrganization:    getEnvBool("SMART_AUTO_ORGANIZATION", false),
 		IndexURL:                 os.Getenv("INDEX_URL"),
-		DashboardURL:             getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
 		DefaultMaxDailyTasks:     getEnvInt("DEFAULT_MAX_DAILY_TASKS", -1),
 		DefaultMaxDailyBandwidth: utils.ParseBytesString(getEnv("DEFAULT_MAX_DAILY_BANDWIDTH", "-1")),
 		StopDuplicate:            getEnvBool("STOP_DUPLICATE", false),

@@ -17,10 +17,8 @@
 .env
 *.env.local
 
-# Dashboard
+# Frontend build leftovers
 /dist/
-dashboard/node_modules/
-dashboard/dist/
 .eslintcache
 .stylelintcache
 

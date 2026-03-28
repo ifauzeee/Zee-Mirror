@@ -1,12 +1,4 @@
 
-FROM node:18-alpine AS dashboard-builder
-WORKDIR /dashboard
-COPY dashboard/package*.json ./
-RUN npm install
-COPY dashboard/ ./
-RUN npm run build
-
-
 FROM golang:1.25.7-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
@@ -55,7 +47,6 @@ RUN mkdir -p /app/downloads /app/config /home/botuser/.cache/yt-dlp && \
 WORKDIR /app
 COPY --from=builder /build/zee-mirror /app/zee-mirror
 COPY --from=builder /build/migrations /app/migrations
-COPY --from=dashboard-builder /dist /app/dist
 RUN chmod +x /app/zee-mirror
 
 USER root
@@ -68,8 +59,7 @@ ENV BOT_TOKEN="" \
     DOWNLOAD_DIR="/app/downloads" \
     CONFIG_DIR="/app/config" \
     HOME="/home/botuser" \
-    PATH="/usr/local/bin:/usr/bin:/bin:/home/botuser/.local/bin" \
-    WEB_DASHBOARD_TOKEN="zee-mirror-secret"
+    PATH="/usr/local/bin:/usr/bin:/bin:/home/botuser/.local/bin"
 
 EXPOSE 8080
 

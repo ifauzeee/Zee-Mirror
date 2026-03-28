@@ -23,7 +23,7 @@ services:
       - telegram-bot-api
     stop_grace_period: 30s
     ports:
-      - "${DASHBOARD_PORT:-80}:8080"
+      - "${API_PORT:-8080}:8080"
     
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
@@ -34,8 +34,6 @@ services:
       - MAX_CONCURRENT_DOWNLOADS=${MAX_CONCURRENT_DOWNLOADS:-3}
       - TZ=${TZ:-Asia/Jakarta}
       - TELEGRAM_API=http://telegram-bot-api:8081/bot%s/%s
-      - WEB_DASHBOARD_TOKEN=${WEB_DASHBOARD_TOKEN}
-      - WEB_DASHBOARD_URL=${WEB_DASHBOARD_URL:-http://localhost}
       - SMART_AUTO_ORGANIZATION=${SMART_AUTO_ORGANIZATION:-false}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - DOWNLOAD_DIR=${DOWNLOAD_DIR:-/app/downloads}
