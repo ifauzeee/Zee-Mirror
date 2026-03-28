@@ -1,8 +1,10 @@
-FROM golang:1.25.7-alpine AS builder
+FROM golang:1.25.8-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
 COPY go.mod go.sum* ./
-RUN go mod download
+ENV GOTOOLCHAIN=auto
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 COPY . .
 ARG GO_BUILD_PARALLELISM=1
 ARG GO_MEMORY_LIMIT=1200MiB
