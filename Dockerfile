@@ -1,13 +1,15 @@
-
 FROM golang:1.25.7-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
+ARG GO_BUILD_PARALLELISM=1
+ARG GO_MEMORY_LIMIT=1200MiB
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o zee-mirror ./cmd/zee-mirror
+    CGO_ENABLED=0 GOOS=linux GOMAXPROCS=${GO_BUILD_PARALLELISM} GOMEMLIMIT=${GO_MEMORY_LIMIT} \
+    go build -p=${GO_BUILD_PARALLELISM} -ldflags="-w -s" -o zee-mirror ./cmd/zee-mirror
 
 
 FROM alpine:3.20
