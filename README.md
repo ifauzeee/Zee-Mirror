@@ -876,7 +876,7 @@ Zee-Mirror/
 ├── .golangci.yml                      # GolangCI-Lint: 12 linters enabled with custom rules
 ├── .gitignore                         # Ignored files and directories
 ├── .dockerignore                      # Docker build exclusions
-├── go.mod                             # Go module definition (Go 1.25.8)
+├── go.mod                             # Go module definition (Go 1.26.2)
 ├── go.sum                             # Go dependency checksums
 └── LICENSE                            # MIT License
 ```

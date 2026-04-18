@@ -24,7 +24,7 @@ jobs:
           go build -v -o dist/zee-mirror ./cmd/zee-mirror
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/zee-mirror
           generate_release_notes: true
