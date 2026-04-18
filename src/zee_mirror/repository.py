@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from zee_mirror.database import Database
-from zee_mirror.models import User
+from zee_mirror.models import RuntimeTask, User
 
 
 class Repository:
@@ -93,6 +93,72 @@ class Repository:
             "failed_tasks": int(failed_row["count"]) if failed_row else 0,
             "total_bandwidth": int(bandwidth_row["total_bandwidth"]) if bandwidth_row else 0,
         }
+
+    async def save_task(self, task: RuntimeTask) -> None:
+        record = task.to_record()
+        completed_at = (
+            record.completed_at.isoformat(sep=" ", timespec="seconds") if record.completed_at is not None else None
+        )
+        await self.db.execute(
+            """
+            INSERT INTO tasks (
+                id, gid, type, status, url, file_name, local_path, remote_path, remote_url,
+                total_size, downloaded_size, uploaded_size, chat_id, user_id, created_at,
+                completed_at, zip, unzip, password, error, retries, quality
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                gid = excluded.gid,
+                status = excluded.status,
+                file_name = excluded.file_name,
+                local_path = excluded.local_path,
+                remote_path = excluded.remote_path,
+                remote_url = excluded.remote_url,
+                total_size = excluded.total_size,
+                downloaded_size = excluded.downloaded_size,
+                uploaded_size = excluded.uploaded_size,
+                completed_at = excluded.completed_at,
+                error = excluded.error,
+                retries = excluded.retries,
+                quality = excluded.quality
+            """,
+            (
+                record.id,
+                record.gid,
+                record.type,
+                record.status,
+                record.url,
+                record.file_name,
+                record.local_path,
+                record.remote_path,
+                record.remote_url,
+                record.total_size,
+                record.downloaded_size,
+                record.uploaded_size,
+                record.chat_id,
+                record.user_id,
+                record.created_at.isoformat(sep=" ", timespec="seconds"),
+                completed_at,
+                False,
+                False,
+                "",
+                record.error,
+                record.retries,
+                record.quality,
+            ),
+        )
+
+    async def get_active_tasks(self) -> list[dict[str, object]]:
+        rows = await self.db.fetchall(
+            """
+            SELECT id, type, status, url, file_name, local_path, remote_path, remote_url, total_size,
+                   downloaded_size, uploaded_size, chat_id, user_id, created_at, error, retries, quality
+            FROM tasks
+            WHERE status NOT IN ('completed', 'failed', 'cancelled')
+            ORDER BY created_at ASC
+            """
+        )
+        return [dict(row) for row in rows]
 
 
 def _parse_datetime(value: str | None) -> datetime | None:

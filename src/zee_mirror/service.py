@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from html import escape
+from urllib.parse import urlparse
 
 import httpx
 from aiogram import Bot
-from aiogram.types import User as TelegramUser
+from aiogram.types import Message, User as TelegramUser
 
 from zee_mirror.config import Settings
 from zee_mirror.database import Database
-from zee_mirror.models import User
+from zee_mirror.models import RuntimeTask, TaskStatus, TaskType, User
 from zee_mirror.repository import Repository
+from zee_mirror.task_manager import TaskManager
+from zee_mirror.transfer import TransferManager
 
 
 logger = logging.getLogger(__name__)
@@ -23,14 +27,28 @@ class BotService:
         self.repository = repository
         self.bot = bot
         self.bot_username: str = ""
+        self.transfer = TransferManager(settings, bot)
+        self.task_manager = TaskManager(
+            repository=repository,
+            processor=self.process_task,
+            download_dir=settings.download_path,
+            max_concurrent=settings.max_concurrent_downloads,
+            max_retries=3,
+            owner_id=settings.owner_id,
+            privileged_users=set(settings.authorized_users),
+        )
 
     async def startup(self) -> None:
         self.settings.config_path.mkdir(parents=True, exist_ok=True)
         self.settings.download_path.mkdir(parents=True, exist_ok=True)
         await self.bootstrap_users()
+        await self.task_manager.startup()
         me = await self.bot.get_me()
         self.bot_username = me.username or ""
         logger.info("Authorized on account %s", self.bot_username or me.id)
+
+    async def shutdown(self) -> None:
+        await self.task_manager.shutdown()
 
     async def bootstrap_users(self) -> None:
         await self.repository.upsert_user(
@@ -110,6 +128,7 @@ class BotService:
             "bot_username": self.bot_username,
             "db": "ok" if await self.db.ping() else "error",
             "webhook_mode": self.settings.use_webhook,
+            "active_tasks": len(self.task_manager.get_active_tasks()),
         }
 
         aria2_version = await self.get_aria2_version()
@@ -142,6 +161,121 @@ class BotService:
         if isinstance(result, dict):
             return result.get("version")
         return None
+
+    async def create_url_task(self, message: Message, task_type: TaskType, url: str, file_name: str = "") -> RuntimeTask:
+        await self.sync_user(message.from_user)
+        normalized_name = file_name or self.guess_name_from_url(url)
+        task = await self.task_manager.create_task(
+            task_type=task_type,
+            url=url,
+            file_name=normalized_name,
+            chat_id=message.chat.id,
+            user_id=message.from_user.id if message.from_user else 0,
+            message_id=message.message_id,
+            reply_message_id=message.reply_to_message.message_id if message.reply_to_message else 0,
+            command_text=message.text or "",
+        )
+        return task
+
+    async def create_reply_file_task(self, message: Message, task_type: TaskType) -> RuntimeTask | None:
+        reply = message.reply_to_message
+        if reply is None:
+            return None
+
+        file_id, file_name = self.extract_file_from_message(reply)
+        if not file_id:
+            return None
+
+        await self.sync_user(message.from_user)
+        return await self.task_manager.create_task(
+            task_type=task_type,
+            url=f"telegram://{file_id}",
+            file_name=file_name or "telegram-file.bin",
+            chat_id=message.chat.id,
+            user_id=message.from_user.id if message.from_user else 0,
+            message_id=message.message_id,
+            reply_message_id=reply.message_id,
+            source_kind="telegram_file",
+            source_file_id=file_id,
+            original_name=file_name or "",
+            command_text=message.text or "",
+        )
+
+    async def process_task(self, task: RuntimeTask) -> None:
+        if task.status == TaskStatus.CANCELLED:
+            return
+
+        await self.task_manager.mark_status(task, TaskStatus.DOWNLOADING)
+        try:
+            await self.transfer.execute(task)
+        except Exception as exc:
+            logger.exception("Task %s failed", task.id)
+            task.error = str(exc)
+            task.retries += 1
+            if task.retries <= task.max_retries:
+                await self.bot.send_message(
+                    task.chat_id,
+                    (
+                        f"Task <code>{escape(task.id)}</code> gagal sementara dan akan dicoba ulang.\n"
+                        f"Retry: {task.retries}/{task.max_retries}\n"
+                        f"Error: <code>{escape(task.error)}</code>"
+                    ),
+                )
+                await self.task_manager.requeue_task(task, delay_seconds=min(5 * task.retries, 30))
+                return
+
+            task.status = TaskStatus.FAILED
+            await self.repository.save_task(task)
+            await self.bot.send_message(
+                task.chat_id,
+                (
+                    f"Task <code>{escape(task.id)}</code> gagal.\n"
+                    f"Error: <code>{escape(task.error)}</code>"
+                ),
+            )
+            return
+
+        await self.repository.save_task(task)
+        completion_text = (
+            f"Task <code>{escape(task.id)}</code> selesai.\n"
+            f"Mode: <code>{escape(task.type.value)}</code>\n"
+            f"File: <code>{escape(task.file_name)}</code>"
+        )
+        if task.type == TaskType.MIRROR and task.remote_path:
+            completion_text += f"\nRemote: <code>{escape(task.remote_path)}</code>"
+        await self.bot.send_message(task.chat_id, completion_text)
+
+    def guess_name_from_url(self, url: str) -> str:
+        parsed = urlparse(url)
+        name = parsed.path.rsplit("/", 1)[-1]
+        return name or "download.bin"
+
+    def extract_file_from_message(self, message: Message) -> tuple[str, str]:
+        if message.document:
+            return message.document.file_id, message.document.file_name or "document.bin"
+        if message.video:
+            return message.video.file_id, message.video.file_name or "video.mp4"
+        if message.audio:
+            return message.audio.file_id, message.audio.file_name or "audio.bin"
+        if message.voice:
+            return message.voice.file_id, "voice.ogg"
+        return "", ""
+
+    def render_task_status(self, chat_id: int) -> str:
+        tasks = self.task_manager.get_active_tasks(chat_id=chat_id)
+        if not tasks:
+            return "Tidak ada task aktif."
+
+        lines = ["Task aktif:"]
+        for task in tasks[:10]:
+            lines.append(
+                f"- {task.id} | {task.type.value} | {task.status.value} | "
+                f"{task.progress:.1f}% | {task.file_name or task.url}"
+            )
+        return "\n".join(lines)
+
+    async def cancel_task(self, task_id: str) -> bool:
+        return await self.task_manager.cancel_task(task_id)
 
 
 def _parse_bandwidth(value: str) -> int:

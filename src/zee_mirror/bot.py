@@ -5,10 +5,11 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.enums import ParseMode
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
 from zee_mirror.config import Settings
+from zee_mirror.models import TaskType
 from zee_mirror.service import BotService
 
 
@@ -56,7 +57,11 @@ def _build_router(service: BotService) -> Router:
             "/help - daftar command\n"
             "/ping - bot responsiveness\n"
             "/health - runtime health\n\n"
-            "Task pipeline lanjutan masih dalam proses porting dari Go ke Python."
+            "/mirror &lt;url&gt; - download lalu upload via rclone\n"
+            "/leech &lt;url&gt; - download lalu kirim ke Telegram\n"
+            "/status - lihat task aktif\n"
+            "/cancel &lt;task_id&gt; - batalkan task\n\n"
+            "Task pipeline Python dasar sudah aktif untuk URL HTTP/file dan reply file Telegram."
         )
         await message.answer(text)
 
@@ -83,6 +88,67 @@ def _build_router(service: BotService) -> Router:
         if "aria2_version" in payload:
             text += f"aria2_version: {payload['aria2_version']}\n"
         await message.answer(text)
+
+    @router.message(Command("mirror"))
+    async def mirror_handler(message: Message, command: CommandObject) -> None:
+        if not await service.is_authorized(message.from_user.id if message.from_user else None):
+            await message.answer("Access denied. Hubungi owner untuk mendapatkan akses.")
+            return
+
+        args = (command.args or "").strip()
+        task = None
+        if message.reply_to_message is not None:
+            task = await service.create_reply_file_task(message, TaskType.MIRROR)
+        elif args:
+            task = await service.create_url_task(message, TaskType.MIRROR, args)
+
+        if task is None:
+            await message.answer("Gunakan /mirror <url> atau reply ke file Telegram.")
+            return
+
+        await message.answer(f"Task mirror dibuat: <code>{task.id}</code>\nFile: <code>{task.file_name}</code>")
+
+    @router.message(Command("leech"))
+    async def leech_handler(message: Message, command: CommandObject) -> None:
+        if not await service.is_authorized(message.from_user.id if message.from_user else None):
+            await message.answer("Access denied. Hubungi owner untuk mendapatkan akses.")
+            return
+
+        args = (command.args or "").strip()
+        task = None
+        if message.reply_to_message is not None:
+            task = await service.create_reply_file_task(message, TaskType.LEECH)
+        elif args:
+            task = await service.create_url_task(message, TaskType.LEECH, args)
+
+        if task is None:
+            await message.answer("Gunakan /leech <url> atau reply ke file Telegram.")
+            return
+
+        await message.answer(f"Task leech dibuat: <code>{task.id}</code>\nFile: <code>{task.file_name}</code>")
+
+    @router.message(Command("status"))
+    async def status_handler(message: Message) -> None:
+        if not await service.is_authorized(message.from_user.id if message.from_user else None):
+            await message.answer("Access denied. Hubungi owner untuk mendapatkan akses.")
+            return
+        await message.answer(service.render_task_status(message.chat.id))
+
+    @router.message(Command("cancel"))
+    async def cancel_handler(message: Message, command: CommandObject) -> None:
+        if not await service.is_authorized(message.from_user.id if message.from_user else None):
+            await message.answer("Access denied. Hubungi owner untuk mendapatkan akses.")
+            return
+
+        task_id = (command.args or "").strip()
+        if not task_id:
+            await message.answer("Gunakan /cancel <task_id>.")
+            return
+
+        if await service.cancel_task(task_id):
+            await message.answer(f"Task <code>{task_id}</code> dibatalkan.")
+        else:
+            await message.answer(f"Task <code>{task_id}</code> tidak ditemukan atau sudah selesai.")
 
     @router.message(F.text)
     async def fallback_handler(message: Message) -> None:

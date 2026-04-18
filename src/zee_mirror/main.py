@@ -64,6 +64,7 @@ async def main() -> None:
         if settings.use_webhook:
             with suppress(Exception):
                 await bot.delete_webhook(drop_pending_updates=False)
+        await service.shutdown()
         await bot.session.close()
         await db.close()
 
