@@ -1,0 +1,62 @@
+services:
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: telegram-bot-api
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_LOCAL=1
+    volumes:
+      - telegram-data:/var/lib/telegram-bot-api
+      - downloads:/app/downloads
+    networks:
+      - zee-network
+
+  zee-mirror-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: zee-mirror-python
+    restart: unless-stopped
+    depends_on:
+      - telegram-bot-api
+    stop_grace_period: 30s
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - OWNER_ID=${OWNER_ID}
+      - AUTHORIZED_USERS=${AUTHORIZED_USERS:-}
+      - RCLONE_DEST=${RCLONE_DEST:-gdrive:/MirrorBot}
+      - INDEX_URL=${INDEX_URL:-}
+      - MAX_CONCURRENT_DOWNLOADS=${MAX_CONCURRENT_DOWNLOADS:-3}
+      - TZ=${TZ:-Asia/Jakarta}
+      - TELEGRAM_API=http://telegram-bot-api:8081/bot%s/%s
+      - SMART_AUTO_ORGANIZATION=${SMART_AUTO_ORGANIZATION:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DOWNLOAD_DIR=${DOWNLOAD_DIR:-/app/downloads}
+      - CONFIG_DIR=${CONFIG_DIR:-/app/config}
+      - STOP_DUPLICATE=${STOP_DUPLICATE:-false}
+      - VIKING_USER_HASH=${VIKING_USER_HASH:-}
+      - APP_ID=${APP_ID:-${TELEGRAM_API_ID}}
+      - APP_HASH=${APP_HASH:-${TELEGRAM_API_HASH}}
+      - USER_SESSION_STRING=${USER_SESSION_STRING:-}
+      - USE_WEBHOOK=${USE_WEBHOOK:-false}
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+      - API_PORT=${API_PORT:-8080}
+    volumes:
+      - downloads:/app/downloads
+      - ./config:/app/config
+      - telegram-data:/var/lib/telegram-bot-api:ro
+    networks:
+      - zee-network
+
+networks:
+  zee-network:
+    driver: bridge
+
+volumes:
+  downloads:
+  telegram-data:

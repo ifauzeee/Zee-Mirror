@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zee-mirror-python"
+version = "0.1.0"
+description = "Python rewrite foundation for Zee-Mirror"
+readme = "README_PYTHON_REWRITE.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.18,<4",
+    "aiosqlite>=0.21,<1",
+    "fastapi>=0.116,<1",
+    "httpx>=0.28,<1",
+    "prometheus-client>=0.23,<1",
+    "pydantic-settings>=2.8,<3",
+    "python-dotenv>=1.1,<2",
+    "telethon>=1.39,<2",
+    "uvicorn[standard]>=0.35,<1",
+]
+
+[project.scripts]
+zee-mirror-py = "zee_mirror.main:run"
+zee-session-gen = "zee_mirror.session_gen:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

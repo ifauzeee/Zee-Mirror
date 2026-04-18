@@ -1,0 +1,47 @@
+FROM python:3.12-alpine
+
+RUN apk add --no-cache \
+    aria2 \
+    ca-certificates \
+    coreutils \
+    curl \
+    expect \
+    ffmpeg \
+    gcc \
+    git \
+    musl-dev \
+    nodejs \
+    p7zip \
+    py3-cryptography \
+    py3-pip \
+    py3-pycryptodomex \
+    python3-dev \
+    tzdata \
+    unzip
+
+WORKDIR /app
+
+COPY pyproject.toml README_PYTHON_REWRITE.md ./
+COPY src ./src
+COPY migrations ./migrations
+COPY .env.example ./.env.example
+
+RUN pip install --break-system-packages --no-cache-dir .
+RUN pip install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli
+
+COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
+RUN chmod 755 /usr/bin/rclone
+
+RUN addgroup -S botgroup && adduser -D -G botgroup botuser
+RUN mkdir -p /app/downloads /app/config && chown -R botuser:botgroup /app
+
+ENV DOWNLOAD_DIR="/app/downloads" \
+    CONFIG_DIR="/app/config" \
+    PYTHONUNBUFFERED="1"
+
+WORKDIR /app
+USER botuser
+
+EXPOSE 8080
+
+CMD ["python", "-m", "zee_mirror.main"]
