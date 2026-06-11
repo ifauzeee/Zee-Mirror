@@ -1,4 +1,4 @@
-package downloader
+package torrent
 
 import (
 	"context"
@@ -10,9 +10,18 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/downloader"
 	"zee-mirror/pkg/utils"
+	"zee-mirror/plugins/registry"
 )
+
+func init() {
+	registry.RegisterDownloadEngine("aria2", func(cfg *config.Config) downloader.DownloadEngine {
+		return NewAria2Engine(cfg.ConfigDir, cfg.Aria2RPCURL, cfg.Aria2RPCSecret)
+	})
+}
 
 type Aria2Engine struct {
 	RPC       *Aria2RPCClient
@@ -26,7 +35,7 @@ func NewAria2Engine(configDir string, rpcURL, rpcSecret string) *Aria2Engine {
 	}
 }
 
-func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
+func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
 	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
 		return &domain.StorageError{Path: outputDir, Err: errDir}
 	}
@@ -99,7 +108,7 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 				return fmt.Errorf("task was removed from aria2")
 			}
 
-			update := ProgressUpdate{}
+			update := downloader.ProgressUpdate{}
 			update.Downloaded = utils.ParseBytesString(status.CompletedLength)
 			update.Total = utils.ParseBytesString(status.TotalLength)
 			update.Speed = utils.ParseBytesString(status.DownloadSpeed)

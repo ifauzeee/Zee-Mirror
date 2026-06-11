@@ -1,4 +1,4 @@
-package downloader
+package torrent
 
 import (
 	"encoding/json"

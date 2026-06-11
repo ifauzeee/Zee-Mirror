@@ -1,4 +1,4 @@
-package downloader
+package ytdlp
 
 import (
 	"bufio"
@@ -11,10 +11,19 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/parser"
 	"zee-mirror/pkg/utils"
+	"zee-mirror/plugins/registry"
 )
+
+func init() {
+	registry.RegisterMediaDownloader("ytdlp", func(cfg *config.Config) downloader.MediaDownloader {
+		return NewYTDLPEngine(cfg.ConfigDir)
+	})
+}
 
 type YTDLPEngine struct {
 	ConfigDir string
@@ -99,7 +108,7 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 	return resMap, nil
 }
 
-func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*PlaylistMetadata, error) {
+func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*downloader.PlaylistMetadata, error) {
 	args := []string{
 		"--flat-playlist",
 		"-J",
@@ -129,13 +138,13 @@ func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*Pla
 		}
 	}
 
-	var metadata PlaylistMetadata
+	var metadata downloader.PlaylistMetadata
 	if err := json.Unmarshal(output, &metadata); err != nil {
-		var singleEntry PlaylistEntry
+		var singleEntry downloader.PlaylistEntry
 		if errJSON := json.Unmarshal(output, &singleEntry); errJSON == nil && singleEntry.ID != "" {
-			return &PlaylistMetadata{
+			return &downloader.PlaylistMetadata{
 				Title:   singleEntry.Title,
-				Entries: []PlaylistEntry{singleEntry},
+				Entries: []downloader.PlaylistEntry{singleEntry},
 			}, nil
 		}
 		return nil, err
@@ -149,7 +158,7 @@ func (e *YTDLPEngine) IsPlaylist(url string) bool {
 	return strings.Contains(lower, "playlist") || strings.Contains(lower, "list=") || strings.Contains(lower, "/channel/") || strings.Contains(lower, "/user/") || strings.Contains(lower, "/c/") || strings.Contains(lower, "@")
 }
 
-func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error {
+func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
 	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
 		return &domain.StorageError{Path: outputDir, Err: errDir}
 	}
@@ -180,7 +189,7 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 				errorOutput += line + "\n"
 			}
 			if strings.Contains(line, "ERROR:") {
-				onProgress(ProgressUpdate{Error: line})
+				onProgress(downloader.ProgressUpdate{Error: line})
 			}
 		}
 	}()
@@ -210,13 +219,13 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 	}
 
 	if task.Hardsub && task.SubtitleLangs != "" {
-		onProgress(ProgressUpdate{Message: "Burning subtitles..."})
+		onProgress(downloader.ProgressUpdate{Message: "Burning subtitles..."})
 		if err := e.burnSubtitles(ctx, outputDir); err != nil {
 			slog.Error("Failed to burn subtitles", "error", err)
 
-			onProgress(ProgressUpdate{Error: "Hardsub failed: " + err.Error()})
+			onProgress(downloader.ProgressUpdate{Error: "Hardsub failed: " + err.Error()})
 		} else {
-			onProgress(ProgressUpdate{Message: "Hardsubbing completed!"})
+			onProgress(downloader.ProgressUpdate{Message: "Hardsubbing completed!"})
 		}
 	}
 
@@ -340,7 +349,7 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 	return args
 }
 
-func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(ProgressUpdate)) {
+func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(downloader.ProgressUpdate)) {
 	reader, ok := stdout.(interface {
 		Close() error
 		Read(p []byte) (n int, err error)
@@ -354,7 +363,7 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(Progress
 	scanner.Split(utils.ScanLinesWithCR)
 	for scanner.Scan() {
 		line := scanner.Text()
-		update := ProgressUpdate{}
+		update := downloader.ProgressUpdate{}
 
 		if strings.Contains(line, "ERROR:") {
 			update.Error = line

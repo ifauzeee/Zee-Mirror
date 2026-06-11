@@ -41,6 +41,7 @@ downloads/
 *.swo
 *~
 .task/
+repomix-output.xml
 
 # OS files
 .DS_Store

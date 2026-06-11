@@ -16,9 +16,9 @@ import (
 	"time"
 	"zee-mirror/handlers"
 	"zee-mirror/internal/domain"
-	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
+	"zee-mirror/plugins/torrent"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -71,7 +71,7 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		version := "unknown"
 		var err error
-		if engine, ok := s.Service.TaskManager.Aria2Engine.(*downloader.Aria2Engine); ok && engine.RPC != nil {
+		if engine, ok := s.Service.TaskManager.Aria2Engine.(*torrent.Aria2Engine); ok && engine.RPC != nil {
 			version, err = engine.RPC.GetVersion()
 		}
 
@@ -267,6 +267,42 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var req struct {
+			URL      string `json:"url"`
+			Type     string `json:"type"`
+			FileName string `json:"fileName"`
+			Zip      bool   `json:"zip"`
+			Unzip    bool   `json:"unzip"`
+			Password string `json:"password"`
+			Quality  string `json:"quality"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		if req.URL == "" {
+			http.Error(w, "URL is required", http.StatusBadRequest)
+			return
+		}
+		if req.Type == "" {
+			req.Type = "mirror"
+		}
+
+		task, err := s.Service.TaskManager.CreateTask(domain.TaskType(req.Type), req.URL, req.FileName, 0, 0, 0, 0, req.Zip, req.Unzip, req.Password, req.Quality, 0, "", false)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(task.GetSnapshot()); err != nil {
+			slog.Error("Failed to encode created task response", "error", err)
+		}
+		return
+	}
+
 	if r.Method == http.MethodDelete {
 		taskID := r.URL.Query().Get("id")
 		if taskID != "" {
@@ -275,6 +311,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	tasks := s.Service.TaskManager.GetActiveTasks()
 	var snapshots []interface{}
 	for _, t := range tasks {

@@ -17,6 +17,7 @@ import (
 	"zee-mirror/internal/repository"
 	"zee-mirror/internal/uploader"
 	"zee-mirror/pkg/utils"
+	"zee-mirror/plugins/registry"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
@@ -117,6 +118,9 @@ type TaskManager struct {
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository) *TaskManager {
 	cfg := config.LoadConfig()
 
+	aria2Engine, _ := registry.CreateDownloadEngine("aria2", cfg)
+	ytdlpEngine, _ := registry.CreateMediaDownloader("ytdlp", cfg)
+
 	tm := &TaskManager{
 		Tasks:                make(map[string]*Task),
 		Queue:                queue.NewPriorityQueue(),
@@ -135,8 +139,8 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		StatusPages:          make(map[int64]int),
 		ProcessTaskFunc:      processTaskFunc,
 		RefreshDashboardFunc: refreshDashboardFunc,
-		Aria2Engine:          downloader.NewAria2Engine(configDir, cfg.Aria2RPCURL, cfg.Aria2RPCSecret),
-		YTDLPEngine:          downloader.NewYTDLPEngine(configDir),
+		Aria2Engine:          aria2Engine,
+		YTDLPEngine:          ytdlpEngine,
 		UserbotEngine:        downloader.NewUserbotEngine(cfg),
 		LastDashUpdateAt:     make(map[int64]time.Time),
 		LastDashProgressSum:  make(map[int64]float64),
