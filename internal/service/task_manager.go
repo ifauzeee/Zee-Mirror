@@ -114,6 +114,7 @@ type TaskManager struct {
 	StatusMu             sync.Mutex
 	ActiveCount          int
 	MaxConcurrent        int
+	Semaphore            chan struct{}
 	StopDuplicate        bool
 }
 
@@ -129,6 +130,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		QueueSignal:          make(chan struct{}, 1000),
 		RateLimiter:          queue.NewUserRateLimiter(5, 10),
 		MaxConcurrent:        maxConcurrent,
+		Semaphore:            make(chan struct{}, maxConcurrent),
 		DownloadDir:          downloadDir,
 		RcloneDest:           rcloneDest,
 		ConfigDir:            configDir,
@@ -542,15 +544,33 @@ func (tm *TaskManager) worker(_ int) {
 			return
 		case <-tm.QueueSignal:
 			item := tm.Queue.DequeueNonBlocking()
-			if item != nil {
-				if task, ok := item.(*Task); ok {
-					tm.Wg.Add(1)
-					if tm.ProcessTaskFunc != nil {
-						tm.ProcessTaskFunc(task)
-					}
-					tm.Wg.Done()
-				}
+			if item == nil {
+				continue
 			}
+			task, ok := item.(*Task)
+			if !ok {
+				continue
+			}
+
+			// Acquire semaphore slot
+			tm.Semaphore <- struct{}{}
+
+			tm.Mu.Lock()
+			tm.ActiveCount++
+			tm.Mu.Unlock()
+
+			tm.Wg.Add(1)
+			if tm.ProcessTaskFunc != nil {
+				tm.ProcessTaskFunc(task)
+			}
+			tm.Wg.Done()
+
+			// Release semaphore slot
+			<-tm.Semaphore
+
+			tm.Mu.Lock()
+			tm.ActiveCount--
+			tm.Mu.Unlock()
 		}
 	}
 }
