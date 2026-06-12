@@ -25,7 +25,7 @@ func (s *BotService) updateTaskStatus(task *Task) {
 	s.UpdateSharedDashboard(snapshot.ChatID, false)
 
 	lang := s.GetUserLanguage(snapshot.UserID)
-	text := buildTaskStatusText(lang, snapshot)
+	text := buildTaskStatusText(lang, snapshot, s.Config.IndexURL)
 
 	if snapshot.Status == StatusCompleted && organizer.IsVideoFile(snapshot.FileName) && snapshot.LocalPath != "" {
 		var existingID int

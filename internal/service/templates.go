@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ const (
 	UnknownSize      = "Unknown"
 )
 
-func buildTaskStatusText(lang string, snapshot domain.TaskSnapshot) string {
+func buildTaskStatusText(lang string, snapshot domain.TaskSnapshot, baseURL string) string {
 	var text string
 	switch snapshot.Status {
 	case domain.StatusCompleted:
@@ -31,17 +32,30 @@ func buildTaskStatusText(lang string, snapshot domain.TaskSnapshot) string {
 			playlistLine = fmt.Sprintf("\n📋 *Playlist:* \\[%d/%d\\]", snapshot.PlaylistIndex, snapshot.PlaylistCount)
 		}
 
+		md5Line := ""
+		if snapshot.MD5 != "" {
+			md5Line = fmt.Sprintf("\n🔐 *MD5:* `%s`", utils.EscapeMarkdownV2Code(snapshot.MD5))
+		}
+
+		streamLine := ""
+		if baseURL != "" && snapshot.FileName != "" {
+			streamURL := strings.TrimRight(baseURL, "/") + "/stream/" + url.PathEscape(snapshot.FileName)
+			streamLine = fmt.Sprintf("\n🌊 *Stream:* `%s`", utils.EscapeMarkdownV2Code(streamURL))
+		}
+
 		text = fmt.Sprintf("%s\n\n"+
 			"📄 *Name:* `%s`\n"+
 			"📦 *Size:* `%s`\n"+
 			"⏱ *Time:* `%s`\n"+
-			"📁 *Path:* `%s`%s",
+			"📁 *Path:* `%s`%s%s%s",
 			i18n.T(lang, "status_completed"),
 			utils.EscapeMarkdownV2Code(snapshot.FileName),
 			utils.EscapeMarkdownV2Code(sizeStr),
 			utils.EscapeMarkdownV2Code(utils.FormatDuration(duration)),
 			utils.EscapeMarkdownV2Code(snapshot.RemotePath),
-			playlistLine)
+			playlistLine,
+			md5Line,
+			streamLine)
 	case domain.StatusFailed:
 		text = fmt.Sprintf("%s\n📄 `%s`\nError: `%s`",
 			i18n.T(lang, "status_failed"),
