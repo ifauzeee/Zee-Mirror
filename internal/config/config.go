@@ -111,19 +111,30 @@ func LoadConfig() *Config {
 var currentConfig atomic.Value
 
 func init() {
+	_ = godotenv.Load()
 	currentConfig.Store(LoadConfig())
 }
 
 // Get returns the current active configuration.
 func Get() *Config {
-	return currentConfig.Load().(*Config)
+	val, ok := currentConfig.Load().(*Config)
+	if !ok || val == nil {
+		return LoadConfig()
+	}
+	return val
 }
 
 // Reload re-reads environment variables and .env, swaps the config atomically,
 // and returns the new config. Callers should use Get() to access the active config.
 func Reload() *Config {
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		slog.Warn("Failed to load .env file", "error", err)
+	}
 	newCfg := LoadConfig()
+	if newCfg.BotToken == "" {
+		slog.Error("Reloaded config has empty BOT_TOKEN, keeping previous config")
+		return currentConfig.Load().(*Config)
+	}
 	currentConfig.Store(newCfg)
 	slog.Info("Config reloaded successfully",
 		"maxConcurrent", newCfg.MaxConcurrentDownloads,
