@@ -20,6 +20,9 @@ import (
 	"zee-mirror/internal/router"
 	"zee-mirror/plugins/torrent"
 
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "zee-mirror/docs" // import swagger generated docs
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
@@ -114,6 +117,8 @@ func (s *Server) Start() {
 		mux.HandleFunc("/api/telegram/webhook", s.handleWebhook)
 		slog.Info("Webhook endpoint registered at /api/telegram/webhook")
 	}
+
+	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 
 	fs := http.FileServer(http.Dir("./dist"))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +257,13 @@ func (s *Server) broadcastLoop() {
 	}
 }
 
+// @Summary Dapatkan statistik bot
+// @Description Dapatkan informasi statistik database dan jumlah user
+// @Security ApiKeyAuth
+// @Tags System
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/stats [get]
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	stats, _ := s.Service.DB.GetBotStats(ctx)
@@ -266,16 +278,25 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary Kelola Tasks
+// @Description Endpoint multi-fungsi untuk membuat (POST) task baru
+// @Security ApiKeyAuth
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param request body object true "Parameter Task"
+// @Success 201 {object} map[string]interface{}
+// @Router /api/tasks [post]
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req struct {
 			URL      string `json:"url"`
 			Type     string `json:"type"`
 			FileName string `json:"fileName"`
-			Zip      bool   `json:"zip"`
-			Unzip    bool   `json:"unzip"`
 			Password string `json:"password"`
 			Quality  string `json:"quality"`
+			Zip      bool   `json:"zip"`
+			Unzip    bool   `json:"unzip"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -294,7 +315,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(w).Encode(task.GetSnapshot()); err != nil {

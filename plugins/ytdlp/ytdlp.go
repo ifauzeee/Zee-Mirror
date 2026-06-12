@@ -21,11 +21,11 @@ import (
 
 func init() {
 	registry.RegisterMediaDownloader("ytdlp", func(cfg *config.Config) downloader.MediaDownloader {
-		return NewYTDLPEngine(cfg.ConfigDir)
+		return NewEngine(cfg.ConfigDir)
 	})
 }
 
-type YTDLPEngine struct {
+type Engine struct {
 	ConfigDir string
 }
 
@@ -34,13 +34,13 @@ type VideoFormat struct {
 	FPS    float64
 }
 
-func NewYTDLPEngine(configDir string) *YTDLPEngine {
-	return &YTDLPEngine{
+func NewEngine(configDir string) *Engine {
+	return &Engine{
 		ConfigDir: configDir,
 	}
 }
 
-func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]downloader.FormatInfo, error) {
+func (e *Engine) GetFormats(ctx context.Context, url string) (map[int]downloader.FormatInfo, error) {
 	args := []string{
 		"-j",
 		"--no-playlist",
@@ -116,7 +116,7 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]downl
 		if strings.HasPrefix(f.FormatID, "sb") {
 			continue
 		}
-		
+
 		size := f.Filesize
 		if size == 0 {
 			size = f.FilesizeApprox
@@ -144,7 +144,7 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]downl
 			}
 		}
 	}
-	
+
 	if bestAudioSize > 0 {
 		resMap[0] = downloader.FormatInfo{Size: bestAudioSize}
 	}
@@ -155,7 +155,7 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]downl
 	return resMap, nil
 }
 
-func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*downloader.PlaylistMetadata, error) {
+func (e *Engine) GetPlaylistMetadata(ctx context.Context, url string) (*downloader.PlaylistMetadata, error) {
 	args := []string{
 		"--flat-playlist",
 		"-J",
@@ -200,12 +200,12 @@ func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*dow
 	return &metadata, nil
 }
 
-func (e *YTDLPEngine) IsPlaylist(url string) bool {
+func (e *Engine) IsPlaylist(url string) bool {
 	lower := strings.ToLower(url)
 	return strings.Contains(lower, "playlist") || strings.Contains(lower, "list=") || strings.Contains(lower, "/channel/") || strings.Contains(lower, "/user/") || strings.Contains(lower, "/c/") || strings.Contains(lower, "@")
 }
 
-func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
+func (e *Engine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
 	if errDir := os.MkdirAll(outputDir, 0750); errDir != nil {
 		return &domain.StorageError{Path: outputDir, Err: errDir}
 	}
@@ -279,7 +279,7 @@ func (e *YTDLPEngine) Download(ctx context.Context, task *domain.Task, outputDir
 	return nil
 }
 
-func (e *YTDLPEngine) burnSubtitles(ctx context.Context, dir string) error {
+func (e *Engine) burnSubtitles(ctx context.Context, dir string) error {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -327,7 +327,7 @@ func (e *YTDLPEngine) burnSubtitles(ctx context.Context, dir string) error {
 	return os.Rename(outputFile, videoFile)
 }
 
-func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []string {
+func (e *Engine) buildYTDLPArgs(task *domain.Task, outputDir string) []string {
 	outputTemplate := "%(title)s.%(ext)s"
 	if task.FileName != "" && task.FileName != "video" && task.FileName != "unknown_file" && task.FileName != "watch" {
 		ext := filepath.Ext(task.FileName)
@@ -396,7 +396,7 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 	return args
 }
 
-func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(downloader.ProgressUpdate)) {
+func (e *Engine) parseProgress(stdout interface{}, onProgress func(downloader.ProgressUpdate)) {
 	reader, ok := stdout.(interface {
 		Close() error
 		Read(p []byte) (n int, err error)
@@ -463,7 +463,7 @@ func (e *YTDLPEngine) parseProgress(stdout interface{}, onProgress func(download
 		}
 	}
 }
-func (e *YTDLPEngine) runYTDLP(ctx context.Context, args ...string) ([]byte, error) {
+func (e *Engine) runYTDLP(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout

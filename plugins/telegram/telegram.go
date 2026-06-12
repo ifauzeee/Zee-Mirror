@@ -13,19 +13,19 @@ import (
 
 func init() {
 	registry.RegisterDownloadEngine("telegram", func(cfg *config.Config) downloader.DownloadEngine {
-		return NewTelegramEngine(cfg)
+		return NewEngine(cfg)
 	})
 }
 
-type TelegramEngine struct {
+type Engine struct {
 	Config *config.Config
 }
 
-func NewTelegramEngine(cfg *config.Config) *TelegramEngine {
-	return &TelegramEngine{Config: cfg}
+func NewEngine(cfg *config.Config) *Engine {
+	return &Engine{Config: cfg}
 }
 
-func (e *TelegramEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
+func (e *Engine) Download(_ context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
 	ub := userbot.GetInstance(e.Config)
 	if err := ub.Start(); err != nil {
 		return err
@@ -57,7 +57,7 @@ func (e *TelegramEngine) Download(ctx context.Context, task *domain.Task, output
 
 	if err == nil && filePath != "" {
 		task.Mu.Lock()
-		task.FileName = filePath 
+		task.FileName = filePath
 		task.Mu.Unlock()
 	}
 

@@ -13,19 +13,19 @@ import (
 
 func init() {
 	registry.RegisterDownloadEngine("mega", func(cfg *config.Config) downloader.DownloadEngine {
-		return NewMegaEngine(cfg)
+		return NewEngine(cfg)
 	})
 }
 
-type MegaEngine struct {
+type Engine struct {
 	Config *config.Config
 }
 
-func NewMegaEngine(cfg *config.Config) *MegaEngine {
-	return &MegaEngine{Config: cfg}
+func NewEngine(cfg *config.Config) *Engine {
+	return &Engine{Config: cfg}
 }
 
-func (e *MegaEngine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
+func (e *Engine) Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(downloader.ProgressUpdate)) error {
 	var cmdName string
 	if _, err := exec.LookPath("mega-get"); err == nil {
 		cmdName = "mega-get"
@@ -55,7 +55,7 @@ func (e *MegaEngine) Download(ctx context.Context, task *domain.Task, outputDir 
 
 	task.Mu.Lock()
 	if task.FileName == "" || task.FileName == "unknown_file" {
-		task.FileName = "mega_downloaded_file" 
+		task.FileName = "mega_downloaded_file"
 	}
 	task.Mu.Unlock()
 

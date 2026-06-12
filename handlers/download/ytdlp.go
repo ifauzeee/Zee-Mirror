@@ -248,11 +248,11 @@ func formatQualityLabel(height int, info downloader.FormatInfo) string {
 	if info.FPS > 30 {
 		label += fmt.Sprintf(" %dfps", int(info.FPS))
 	}
-	
+
 	if info.Size > 0 {
 		label += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
 	}
-	
+
 	return label
 }
 

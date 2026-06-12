@@ -11,23 +11,23 @@ import (
 
 func init() {
 	registry.RegisterFileUploader("drive", func(cfg *config.Config) uploader.FileUploader {
-		return NewDriveUploader(cfg)
+		return NewUploader(cfg)
 	})
 }
 
-type DriveUploader struct {
+type Uploader struct {
 	Config *config.Config
 }
 
-func NewDriveUploader(cfg *config.Config) *DriveUploader {
-	return &DriveUploader{Config: cfg}
+func NewUploader(cfg *config.Config) *Uploader {
+	return &Uploader{Config: cfg}
 }
 
-func (u *DriveUploader) Upload(ctx context.Context, task *domain.Task, onProgress func(uploader.ProgressUpdate)) error {
+func (u *Uploader) Upload(ctx context.Context, task *domain.Task, onProgress func(uploader.ProgressUpdate)) error {
 	cfgCopy := *u.Config
-	
+
 	cfgCopy.RcloneDest = "drive:/"
-	
+
 	rcloneUploader := uploader.NewRcloneUploader(&cfgCopy)
 	return rcloneUploader.Upload(ctx, task, onProgress)
 }

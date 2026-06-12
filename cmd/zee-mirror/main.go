@@ -43,6 +43,13 @@ import (
 	_ "zee-mirror/plugins/ytdlp"
 )
 
+// @title Zee-Mirror REST API
+// @version 1.0
+// @description API untuk mengontrol bot Zee-Mirror, manage task, dan storage.
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
+
 func main() {
 	_ = godotenv.Load()
 	cfg := config.LoadConfig()
