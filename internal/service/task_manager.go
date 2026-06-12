@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -725,6 +728,20 @@ func (t *Task) UpdateFromUploadProgress(up uploader.ProgressUpdate) {
 			t.ETA = up.ETA
 		}
 	})
+}
+
+func calculateMD5(filePath string) (string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := md5.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (t *Task) SetProgress(progress float64) {

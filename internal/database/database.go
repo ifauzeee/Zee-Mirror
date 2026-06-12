@@ -485,6 +485,11 @@ func (db *DB) SetTaskRecoverable(_ context.Context, _ string, _ bool) error {
 	return nil
 }
 
+func (db *DB) UpdateMD5(ctx context.Context, id, md5 string) error {
+	_, err := db.ExecContext(ctx, "UPDATE tasks SET md5=? WHERE id=?", md5, id)
+	return err
+}
+
 func (db *DB) DeleteOld(ctx context.Context, before string) (int, error) {
 	result, err := db.ExecContext(ctx, "DELETE FROM tasks WHERE status IN ('completed', 'failed', 'cancelled') AND created_at < ?", before)
 	if err != nil {

@@ -207,7 +207,18 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 		}
 	}
 
-	var err error
+	md5Hex, err := calculateMD5(task.LocalPath)
+	if err != nil {
+		slog.Warn("Failed to calculate MD5", "taskID", task.ID, "path", task.LocalPath, "error", err)
+	} else {
+		task.Update(func() {
+			task.MD5 = md5Hex
+		})
+		if err := s.TaskManager.DB.UpdateMD5(context.Background(), task.ID, md5Hex); err != nil {
+			slog.Warn("Failed to persist MD5", "taskID", task.ID, "error", err)
+		}
+	}
+
 	switch task.Type {
 	case TypeLeech, TypeYTDLPLeech:
 		err = s.UploadToTelegram(task)
