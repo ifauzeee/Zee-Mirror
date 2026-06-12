@@ -329,6 +329,9 @@ func setupBasicRoutes(r *router.Router) {
 	r.RegisterCommand("language", func(s *service.BotService, m *tgbotapi.Message) {
 		(&handlers.BotService{BotService: s}).HandleLanguage(m)
 	})
+	r.RegisterCommand("schedule", func(s *service.BotService, m *tgbotapi.Message) {
+		(&handlers.BotService{BotService: s}).HandleSchedule(m, m.CommandArguments())
+	})
 }
 
 func setupDownloadRoutes(r *router.Router) {
