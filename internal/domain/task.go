@@ -52,6 +52,7 @@ type Task struct {
 	FileName          string
 	LocalPath         string
 	RemotePath        string
+	Dest              string
 	Dest2             string
 	RemoteURL         string
 	Error             string
@@ -94,6 +95,7 @@ type TaskRecord struct {
 	FileName       string
 	LocalPath      string
 	RemotePath     string
+	Dest           string
 	Dest2          string
 	RemoteURL      string
 	Password       string
@@ -142,6 +144,7 @@ type TaskSnapshot struct {
 	FileName          string        `json:"fileName"`
 	LocalPath         string        `json:"localPath"`
 	RemotePath        string        `json:"remotePath"`
+	Dest              string        `json:"dest,omitempty"`
 	Dest2             string        `json:"dest2,omitempty"`
 	RemoteURL         string        `json:"remoteURL"`
 	Error             string        `json:"error"`
@@ -185,6 +188,7 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		FileName:          t.FileName,
 		LocalPath:         t.LocalPath,
 		RemotePath:        t.RemotePath,
+		Dest:              t.Dest,
 		Dest2:             t.Dest2,
 		RemoteURL:         t.RemoteURL,
 		TotalSize:         t.TotalSize,

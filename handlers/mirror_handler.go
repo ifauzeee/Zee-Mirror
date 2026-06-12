@@ -67,6 +67,14 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 			s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 			return
 		}
+		destStr := utils.ExtractDest(args)
+		if destStr != "" {
+			parts := strings.SplitN(destStr, "|", 2)
+			task.Dest = parts[0]
+			if len(parts) > 1 {
+				task.Dest2 = parts[1]
+			}
+		}
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.HandleAutoDelete(task)
 		slog.Info("Mirror task created", "taskID", task.ID, "url", url)
@@ -134,6 +142,14 @@ func (s *BotService) HandleLeech(message *tgbotapi.Message, args string) {
 		if err != nil {
 			s.handleCreateTaskError(message.Chat.ID, message.MessageID, err)
 			return
+		}
+		destStr := utils.ExtractDest(args)
+		if destStr != "" {
+			parts := strings.SplitN(destStr, "|", 2)
+			task.Dest = parts[0]
+			if len(parts) > 1 {
+				task.Dest2 = parts[1]
+			}
 		}
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.HandleAutoDelete(task)

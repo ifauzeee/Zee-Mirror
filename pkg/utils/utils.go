@@ -199,6 +199,28 @@ func ParseFlags(args string) (url string, zip bool, unzip bool, password string,
 	return
 }
 
+func ExtractDest(args string) string {
+	parts := strings.Fields(args)
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+		switch {
+		case part == "-z", part == "-uz", part == "-hs", part == "-hardsub":
+		case part == "-p", part == "-q", part == "-s", part == "-subs":
+			i++
+		case part == "-n" || part == "-name":
+			for i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "-") && !strings.HasPrefix(parts[i+1], "http") && !strings.HasPrefix(parts[i+1], "magnet:") {
+				i++
+			}
+		default:
+			if strings.HasPrefix(part, "http") || strings.HasPrefix(part, "magnet:") {
+				continue
+			}
+			return part
+		}
+	}
+	return ""
+}
+
 func parseNameArg(parts []string, currentIndex int) (string, int) {
 	var nameParts []string
 	i := currentIndex
