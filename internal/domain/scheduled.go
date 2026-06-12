@@ -5,20 +5,20 @@ type ScheduledTask struct {
 	TaskType    string
 	URL         string
 	FileName    string
-	ChatID      int64
-	UserID      int64
-	Zip         bool
-	Unzip       bool
 	Password    string
 	Quality     string
 	ScheduledAt string
 	Status      string
 	TaskID      string
 	CreatedAt   string
+	ChatID      int64
+	UserID      int64
+	Zip         bool
+	Unzip       bool
 }
 
 type ScheduledTaskFilter struct {
+	Status string
 	Page   int
 	Limit  int
-	Status string
 }

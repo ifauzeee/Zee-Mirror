@@ -11,17 +11,17 @@ import (
 )
 
 type RateLimitRecord struct {
+	LastFetch time.Time
 	UserID    int64
 	Tokens    float64
-	LastFetch time.Time
 }
 
 type UserRateLimiter struct {
 	limiters map[int64]*rate.Limiter
+	db       *sql.DB
 	mu       sync.RWMutex
 	rate     rate.Limit
 	burst    int
-	db       *sql.DB
 }
 
 func NewUserRateLimiter(ratePerMin int, burst int) *UserRateLimiter {
@@ -68,6 +68,7 @@ func (rl *UserRateLimiter) loadFromDB() {
 		if newTokens > float64(rl.burst) {
 			newTokens = float64(rl.burst)
 		}
+		_ = newTokens
 		// Note: rate.Limiter doesn't expose a direct way to set token count.
 		// The limiter will start with full burst tokens, which is acceptable
 		// since we're restoring from DB on startup.

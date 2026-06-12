@@ -332,7 +332,7 @@ func handleYTDLPPlaylist(s *service.BotService, message *tgbotapi.Message, url, 
 	go handlePlaylistDownload(s, message, metadata, name, zip, password, quality, subs, hardsub, taskType)
 }
 
-func handlePlaylistDownload(s *service.BotService, message *tgbotapi.Message, metadata *downloader.PlaylistMetadata, name string, zip bool, password, quality, subs string, hardsub bool, taskType service.TaskType) {
+func handlePlaylistDownload(s *service.BotService, message *tgbotapi.Message, metadata *downloader.PlaylistMetadata, name string, _ bool, _, _, _ string, _ bool, taskType service.TaskType) {
 	parentTask, err := s.TaskManager.CreatePlaylistParentTask(
 		metadata.Title,
 		metadata.Entries[0].URL,

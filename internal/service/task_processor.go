@@ -214,8 +214,8 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 		task.Update(func() {
 			task.MD5 = md5Hex
 		})
-		if err := s.TaskManager.DB.UpdateMD5(context.Background(), task.ID, md5Hex); err != nil {
-			slog.Warn("Failed to persist MD5", "taskID", task.ID, "error", err)
+		if updateErr := s.TaskManager.DB.UpdateMD5(context.Background(), task.ID, md5Hex); updateErr != nil {
+			slog.Warn("Failed to persist MD5", "taskID", task.ID, "error", updateErr)
 		}
 	}
 

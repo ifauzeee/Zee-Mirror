@@ -23,17 +23,17 @@ type BotService struct {
 	SettingsRepo   repository.SettingsRepository
 	DB             repository.FullRepository
 	UserRepo       repository.UserRepository
-	Media          *MediaService
+	TaskManager    *TaskManager
 	Bot            *tgbotapi.BotAPI
 	Auth           *AuthService
-	TaskManager    *TaskManager
+	Media          *MediaService
 	BatchManager   *BatchManager
 	Settings       *Settings
 	Config         *config.Config
 	Notifications  *NotificationService
 	RcloneUploader *uploader.RcloneUploader
-	PathCache      sync.Map
 	SQLDB          *sql.DB
+	PathCache      sync.Map
 }
 
 func (s *BotService) StorePath(path string) string {

@@ -236,10 +236,10 @@ func (t *Task) Read(fn func()) {
 }
 
 type TaskFilter struct {
+	Status string
 	UserID int64
 	Limit  int
 	Offset int
-	Status string
 }
 
 type TaskCheckpoint struct {

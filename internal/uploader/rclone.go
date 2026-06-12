@@ -187,7 +187,7 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 	return nil
 }
 
-func (u *RcloneUploader) UploadToCustomDest(ctx context.Context, content io.Reader, fileName, dest string) error {
+func (r *RcloneUploader) UploadToCustomDest(ctx context.Context, content io.Reader, fileName, dest string) error {
 	tmpFile, err := os.CreateTemp("", "rclone-upload-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %v", err)
@@ -195,15 +195,15 @@ func (u *RcloneUploader) UploadToCustomDest(ctx context.Context, content io.Read
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
-	if _, err := io.Copy(tmpFile, content); err != nil {
+	if _, copyErr := io.Copy(tmpFile, content); copyErr != nil {
 		tmpFile.Close()
-		return fmt.Errorf("failed to write temp file: %v", err)
+		return fmt.Errorf("failed to write temp file: %v", copyErr)
 	}
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temp file: %v", err)
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		return fmt.Errorf("failed to close temp file: %v", closeErr)
 	}
 
-	configPath := filepath.Join(u.cfg.ConfigDir, "rclone.conf")
+	configPath := filepath.Join(r.cfg.ConfigDir, "rclone.conf")
 	args := []string{
 		"copy",
 		tmpPath,
@@ -212,18 +212,18 @@ func (u *RcloneUploader) UploadToCustomDest(ctx context.Context, content io.Read
 		"--progress",
 		"--stats", "1s",
 		"--stats-one-line",
-		"--transfers", u.cfg.RcloneTransfers,
-		"--checkers", u.cfg.RcloneCheckers,
-		"--drive-chunk-size", u.cfg.RcloneDriveChunkSize,
-		"--drive-upload-cutoff", u.cfg.RcloneDriveChunkSize,
-		"--buffer-size", u.cfg.RcloneBufferSize,
+		"--transfers", r.cfg.RcloneTransfers,
+		"--checkers", r.cfg.RcloneCheckers,
+		"--drive-chunk-size", r.cfg.RcloneDriveChunkSize,
+		"--drive-upload-cutoff", r.cfg.RcloneDriveChunkSize,
+		"--buffer-size", r.cfg.RcloneBufferSize,
 		"--low-level-retries", "10",
 		"--use-mmap",
 		"--size-only",
 		"--no-traverse",
-		"--drive-pacer-min-sleep", u.cfg.RclonePacerMinSleep,
-		"--drive-pacer-burst", u.cfg.RclonePacerBurst,
-		"--log-level", u.cfg.RcloneLogLevel,
+		"--drive-pacer-min-sleep", r.cfg.RclonePacerMinSleep,
+		"--drive-pacer-burst", r.cfg.RclonePacerBurst,
+		"--log-level", r.cfg.RcloneLogLevel,
 	}
 
 	cmd := exec.CommandContext(ctx, "rclone", args...)

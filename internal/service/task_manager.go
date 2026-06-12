@@ -89,12 +89,12 @@ type TorrentSession = domain.TorrentSession
 type TorrentFile = domain.TorrentFile
 
 type TaskManager struct {
-	Bot                  *tgbotapi.BotAPI
+	UserbotEngine        downloader.DownloadEngine
 	DB                   repository.TaskRepository
 	Aria2Engine          downloader.DownloadEngine
 	YTDLPEngine          downloader.MediaDownloader
-	UserbotEngine        downloader.DownloadEngine
-	Config               *config.Config
+	LastTasksCount       map[int64]int
+	ShutdownChan         chan struct{}
 	Tasks                map[string]*Task
 	Queue                *queue.PriorityQueue
 	QueueSignal          chan struct{}
@@ -105,22 +105,22 @@ type TaskManager struct {
 	TorrentSessions      map[string]*TorrentSession
 	LastDashUpdateAt     map[int64]time.Time
 	LastDashProgressSum  map[int64]float64
-	LastTasksCount       map[int64]int
-	ShutdownChan         chan struct{}
+	Bot                  *tgbotapi.BotAPI
+	Config               *config.Config
 	ProcessTaskFunc      func(*Task)
 	RefreshDashboardFunc func(int64, bool)
 	CheckpointManager    *recovery.CheckpointManager
-	DownloadDir          string
-	RcloneDest           string
+	Scheduler            *Scheduler
+	Semaphore            chan struct{}
 	ConfigDir            string
-	Mu                   sync.RWMutex
+	RcloneDest           string
+	DownloadDir          string
 	Wg                   sync.WaitGroup
-	StatusMu             sync.Mutex
 	ActiveCount          int
 	MaxConcurrent        int
-	Semaphore            chan struct{}
+	Mu                   sync.RWMutex
+	StatusMu             sync.Mutex
 	StopDuplicate        bool
-	Scheduler            *Scheduler
 }
 
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository, sqlDB *sql.DB) *TaskManager {
