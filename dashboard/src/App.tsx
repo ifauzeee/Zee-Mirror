@@ -11,6 +11,7 @@ import Logs from './pages/Logs'
 import TorrentSelect from './pages/TorrentSelect'
 import Users from './pages/Users'
 import Settings from './pages/Settings'
+import TaskHistory from './pages/TaskHistory'
 import TaskRow from './components/Task/TaskRow'
 import useTasks from './hooks/useTasks'
 import useSystemStats from './hooks/useSystemStats'
@@ -265,6 +266,10 @@ const App = () => {
               setActiveTab={() => { }}
             />
           ),
+        },
+        {
+          path: 'tasks/history',
+          element: <TaskHistory token={apiToken} />,
         },
         {
           path: 'tasks',

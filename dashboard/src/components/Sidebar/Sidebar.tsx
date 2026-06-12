@@ -9,6 +9,7 @@ import {
   LogOut,
   GitBranch,
   Users,
+  Clock,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -18,13 +19,21 @@ interface SidebarProps {
   onLogout: () => void
 }
 
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, tasksCount, onLogout }) => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const currentPath = location.pathname.substring(1) || 'overview'
+  const isActiveItem = (itemId: string) => {
+    if (itemId === currentPath) return true
+    if (currentPath.startsWith(itemId + '/')) return true
+    return false
+  }
   const navItems = [
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'tasks', label: 'Queued Tasks', icon: Download },
+    { id: 'tasks/history', label: 'Task History', icon: Clock },
     { id: 'files', label: 'File Explorer', icon: Folder },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'logs', label: 'System Logs', icon: Terminal },
@@ -58,19 +67,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, tasksCount, onLogout }) =>
             <button
               key={item.id}
               onClick={() => navigate(item.id === 'overview' ? '/' : `/${item.id}`)}
-              className={`flex items-center space-x-4 w-full px-6 py-4 rounded-[1.75rem] transition-all duration-500 font-black text-xs uppercase tracking-wider group ${activeTab === item.id
+              className={`flex items-center space-x-4 w-full px-6 py-4 rounded-[1.75rem] transition-all duration-500 font-black text-xs uppercase tracking-wider group ${isActiveItem(item.id)
                 ? 'bg-primary text-white shadow-[0_12px_24px_-8px_rgba(59,130,246,0.4)] scale-[1.03]'
                 : 'text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-primary dark:hover:text-primary transition-all'
                 }`}
             >
               <item.icon
                 size={18}
-                className={`${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'} transition-all`}
+                className={`${isActiveItem(item.id) ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'} transition-all`}
               />
               <span>{item.label}</span>
               {item.id === 'tasks' && tasksCount > 0 && (
                 <span
-                  className={`ml-auto px-2 py-0.5 rounded-lg text-[9px] font-black ${activeTab === 'tasks' ? 'bg-white text-primary' : 'bg-primary/10 text-primary animate-pulse'}`}
+                  className={`ml-auto px-2 py-0.5 rounded-lg text-[9px] font-black ${isActiveItem(item.id) ? 'bg-white text-primary' : 'bg-primary/10 text-primary animate-pulse'}`}
                 >
                   {tasksCount}
                 </span>
