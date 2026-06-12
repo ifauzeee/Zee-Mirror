@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"zee-mirror/internal/config"
@@ -161,6 +162,78 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 
 	onProgress(ProgressUpdate{Progress: 100, UploadedSize: totalSize, TotalSize: totalSize})
 	metrics.UploadDuration.WithLabelValues("rclone", "success").Observe(time.Since(startTime).Seconds())
+
+	if task.Dest2 != "" {
+		if info, err := os.Stat(uploadPath); err == nil && !info.IsDir() {
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				f, err := os.Open(uploadPath)
+				if err != nil {
+					slog.Error("Failed to open file for Dest2 upload", "taskID", task.ID, "error", err)
+					return
+				}
+				defer f.Close()
+				rcloneDest2 := filepath.Join(task.Dest2, task.FileName)
+				if err := r.UploadToCustomDest(ctx, f, task.FileName, rcloneDest2); err != nil {
+					slog.Error("Failed to upload to Dest2", "taskID", task.ID, "dest2", task.Dest2, "error", err)
+				}
+			}()
+			wg.Wait()
+		}
+	}
+
+	return nil
+}
+
+func (u *RcloneUploader) UploadToCustomDest(ctx context.Context, content io.Reader, fileName, dest string) error {
+	tmpFile, err := os.CreateTemp("", "rclone-upload-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %v", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpFile, content); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write temp file: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %v", err)
+	}
+
+	configPath := filepath.Join(u.cfg.ConfigDir, "rclone.conf")
+	args := []string{
+		"copy",
+		tmpPath,
+		dest,
+		"--config", configPath,
+		"--progress",
+		"--stats", "1s",
+		"--stats-one-line",
+		"--transfers", u.cfg.RcloneTransfers,
+		"--checkers", u.cfg.RcloneCheckers,
+		"--drive-chunk-size", u.cfg.RcloneDriveChunkSize,
+		"--drive-upload-cutoff", u.cfg.RcloneDriveChunkSize,
+		"--buffer-size", u.cfg.RcloneBufferSize,
+		"--low-level-retries", "10",
+		"--use-mmap",
+		"--size-only",
+		"--no-traverse",
+		"--drive-pacer-min-sleep", u.cfg.RclonePacerMinSleep,
+		"--drive-pacer-burst", u.cfg.RclonePacerBurst,
+		"--log-level", u.cfg.RcloneLogLevel,
+	}
+
+	cmd := exec.CommandContext(ctx, "rclone", args...)
+	slog.Info("Starting rclone upload to custom dest", "dest", dest, "fileName", fileName, "args", strings.Join(args, " "))
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("rclone to %s failed: %v, output: %s", dest, err, string(output))
+	}
+	slog.Info("Upload to custom dest completed", "dest", dest, "fileName", fileName)
 	return nil
 }
 
