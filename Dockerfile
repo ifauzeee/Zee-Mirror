@@ -1,5 +1,5 @@
 
-FROM node:18-alpine AS dashboard-builder
+FROM node:22-alpine AS dashboard-builder
 WORKDIR /dashboard
 COPY dashboard/package*.json ./
 RUN npm install
