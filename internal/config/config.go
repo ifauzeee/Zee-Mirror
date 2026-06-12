@@ -2,10 +2,14 @@ package config
 
 import (
 	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"zee-mirror/pkg/utils"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -101,6 +105,32 @@ func LoadConfig() *Config {
 	}
 
 	return cfg
+}
+
+// currentConfig holds the active config atomically for safe concurrent access.
+var currentConfig atomic.Value
+
+func init() {
+	currentConfig.Store(LoadConfig())
+}
+
+// Get returns the current active configuration.
+func Get() *Config {
+	return currentConfig.Load().(*Config)
+}
+
+// Reload re-reads environment variables and .env, swaps the config atomically,
+// and returns the new config. Callers should use Get() to access the active config.
+func Reload() *Config {
+	_ = godotenv.Load()
+	newCfg := LoadConfig()
+	currentConfig.Store(newCfg)
+	slog.Info("Config reloaded successfully",
+		"maxConcurrent", newCfg.MaxConcurrentDownloads,
+		"stopDuplicate", newCfg.StopDuplicate,
+		"logLevel", newCfg.LogLevel,
+	)
+	return newCfg
 }
 
 func getEnv(key, fallback string) string {
