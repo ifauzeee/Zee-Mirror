@@ -21,6 +21,11 @@ type TaskRepository interface {
 	GetWeeklyStats(ctx context.Context) ([]domain.DailyStats, error)
 	GetMonthlyStats(ctx context.Context) ([]domain.DailyStats, error)
 	GetCompletedTaskByURL(ctx context.Context, url, quality string) (*domain.TaskRecord, error)
+
+	SaveScheduled(ctx context.Context, task domain.ScheduledTask) error
+	GetPendingScheduled(ctx context.Context) ([]domain.ScheduledTask, error)
+	MarkScheduledDone(ctx context.Context, id, taskID string) error
+	DeleteScheduled(ctx context.Context, id string) error
 }
 
 type UserRepository interface {
