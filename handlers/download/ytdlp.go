@@ -333,11 +333,26 @@ func handleYTDLPPlaylist(s *service.BotService, message *tgbotapi.Message, url, 
 }
 
 func handlePlaylistDownload(s *service.BotService, message *tgbotapi.Message, metadata *downloader.PlaylistMetadata, name string, zip bool, password, quality, subs string, hardsub bool, taskType service.TaskType) {
-	for i, entry := range metadata.Entries {
-		if i >= 50 {
-			slog.Warn("Playlist item limit reached", "limit", 50, "total", len(metadata.Entries))
-			break
-		}
+	parentTask, err := s.TaskManager.CreatePlaylistParentTask(
+		metadata.Title,
+		metadata.Entries[0].URL,
+		message.Chat.ID,
+		message.MessageID,
+		message.From.ID,
+		len(metadata.Entries),
+	)
+	if err != nil {
+		slog.Error("Failed to create playlist parent task", "error", err)
+		return
+	}
+
+	totalItems := len(metadata.Entries)
+	if totalItems > 50 {
+		totalItems = 50
+	}
+
+	for i := 0; i < totalItems; i++ {
+		entry := metadata.Entries[i]
 
 		itemURL := entry.URL
 		if itemURL == "" {
@@ -345,19 +360,25 @@ func handlePlaylistDownload(s *service.BotService, message *tgbotapi.Message, me
 		}
 
 		fileName := name
-		if fileName != "" {
-			fileName = fmt.Sprintf("%s - %03d", name, i+1)
+		if fileName == "" {
+			fileName = entry.Title
+		}
+		if fileName == "" {
+			fileName = fmt.Sprintf("video_%d", i+1)
 		}
 
-		task, err := s.TaskManager.CreateTask(taskType, itemURL, fileName, message.Chat.ID, message.MessageID, 0, message.From.ID, zip, false, password, quality, 0, subs, hardsub)
+		_, err := s.TaskManager.CreatePlaylistSubTask(
+			parentTask,
+			itemURL,
+			fileName,
+			i+1,
+			len(metadata.Entries),
+			taskType,
+		)
 		if err != nil {
-			slog.Error("Failed to create task for playlist item", "index", i, "error", err)
+			slog.Error("Failed to create playlist sub-task", "index", i+1, "error", err)
 			continue
 		}
-		task.Mu.Lock()
-		task.PlaylistCount = len(metadata.Entries)
-		task.PlaylistIndex = i + 1
-		task.Mu.Unlock()
 		s.UpdateSharedDashboard(message.Chat.ID, false)
 		time.Sleep(2 * time.Second)
 	}

@@ -397,6 +397,75 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 	return task, nil
 }
 
+func (tm *TaskManager) CreatePlaylistParentTask(title, url string, chatID int64, msgID int, userID int64, totalItems int) (*Task, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	task := &Task{
+		Task: domain.Task{
+			ID:            uuid.New().String()[:12],
+			Type:          TypePlaylist,
+			Status:        StatusDownloading,
+			URL:           url,
+			FileName:      title,
+			ChatID:        chatID,
+			MessageID:     msgID,
+			UserID:        userID,
+			CreatedAt:     time.Now().UTC(),
+			Ctx:           ctx,
+			CancelFunc:    cancel,
+			PlaylistCount: totalItems,
+			TotalSize:     0,
+			MaxRetries:    tm.Config.MaxRetries,
+		},
+		DB: tm.DB,
+	}
+
+	tm.Mu.Lock()
+	tm.Tasks[task.ID] = task
+	tm.Mu.Unlock()
+
+	_ = task.SaveToDB()
+
+	return task, nil
+}
+
+func (tm *TaskManager) CreatePlaylistSubTask(parent *Task, url, fileName string, index, total int, taskType TaskType) (*Task, error) {
+	ctx, cancel := context.WithCancel(parent.Ctx)
+
+	task := &Task{
+		Task: domain.Task{
+			ID:            fmt.Sprintf("%s_%d", parent.ID, index),
+			Type:          taskType,
+			Status:        StatusQueued,
+			URL:           url,
+			FileName:      fileName,
+			ChatID:        parent.ChatID,
+			UserID:        parent.UserID,
+			CreatedAt:     time.Now().UTC(),
+			Ctx:           ctx,
+			CancelFunc:    cancel,
+			PlaylistIndex: index,
+			PlaylistCount: total,
+			MaxRetries:    tm.Config.MaxRetries,
+		},
+		DB: tm.DB,
+	}
+
+	tm.Mu.Lock()
+	tm.Tasks[task.ID] = task
+	tm.Mu.Unlock()
+
+	_ = task.SaveToDB()
+
+	tm.Queue.Enqueue(task, 0)
+	select {
+	case tm.QueueSignal <- struct{}{}:
+	default:
+	}
+
+	return task, nil
+}
+
 func (t *Task) SaveToDB() error {
 	if t.DB == nil {
 		return nil
