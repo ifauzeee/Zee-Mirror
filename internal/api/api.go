@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 	"zee-mirror/handlers"
+	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
@@ -106,6 +107,28 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/users/update", auth(s.handleUpdateUser))
 	mux.HandleFunc("/api/users/delete", auth(s.handleDeleteUser))
 	mux.HandleFunc("/api/config", auth(s.handleConfig))
+	mux.HandleFunc("/api/config/reload", auth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+
+		newCfg := config.Reload()
+		s.Service.TaskManager.Mu.Lock()
+		s.Service.TaskManager.Config = newCfg
+		s.Service.TaskManager.MaxConcurrent = newCfg.MaxConcurrentDownloads
+		s.Service.TaskManager.StopDuplicate = newCfg.StopDuplicate
+		s.Service.TaskManager.Mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":                   "ok",
+			"message":                  "Config reloaded successfully",
+			"max_concurrent_downloads": newCfg.MaxConcurrentDownloads,
+			"stop_duplicate":           newCfg.StopDuplicate,
+			"log_level":                newCfg.LogLevel,
+		})
+	}))
 	mux.HandleFunc("/api/explorer/upload", auth(s.handleUpload))
 
 	mux.HandleFunc("/api/ws", s.handleWebsocket)
