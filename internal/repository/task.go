@@ -13,6 +13,7 @@ type TaskRepository interface {
 	GetRecoverable(ctx context.Context) ([]domain.TaskRecord, error)
 	UpdateStatus(ctx context.Context, id, status, err string) error
 	UpdateMD5(ctx context.Context, id, md5 string) error
+	ListTasks(ctx context.Context, filter domain.TaskFilter) ([]domain.TaskRecord, error)
 	DeleteOld(ctx context.Context, before string) (int, error)
 
 	GetBotStats(ctx context.Context) (map[string]interface{}, error)

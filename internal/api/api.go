@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"zee-mirror/handlers"
@@ -94,6 +95,7 @@ func (s *Server) Start() {
 	})
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/api/tasks", auth(s.handleTasks))
+	mux.HandleFunc("/api/tasks/history", auth(s.handleGetTaskHistory))
 	mux.HandleFunc("/api/settings", auth(s.handleSettings))
 	mux.HandleFunc("/api/system", auth(s.handleSystem))
 	mux.HandleFunc("/api/explorer", auth(s.handleExplorer))
@@ -999,5 +1001,36 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); encodeErr != nil {
 		slog.Debug("Failed to encode success response", "error", encodeErr)
+	}
+}
+
+func (s *Server) handleGetTaskHistory(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+	status := r.URL.Query().Get("status")
+	userID, _ := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
+
+	filter := domain.TaskFilter{
+		UserID: userID,
+		Limit:  limit,
+		Offset: offset,
+		Status: status,
+	}
+
+	tasks, err := s.Service.DB.ListTasks(r.Context(), filter)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		slog.Error("Failed to encode task history response", "error", err)
 	}
 }

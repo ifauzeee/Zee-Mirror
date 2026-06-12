@@ -187,6 +187,53 @@ func (db *DB) Delete(ctx context.Context, id int64) error {
 
 type TaskRecord = domain.TaskRecord
 
+func (db *DB) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]TaskRecord, error) {
+	query := "SELECT id, gid, type, status, url, file_name, local_path, remote_path, remote_url, total_size, downloaded_size, uploaded_size, chat_id, user_id, created_at, completed_at, zip, unzip, password, error, retries, quality FROM tasks WHERE 1=1"
+	var args []interface{}
+
+	if filter.UserID > 0 {
+		query += " AND user_id = ?"
+		args = append(args, filter.UserID)
+	}
+	if filter.Status != "" {
+		query += " AND status = ?"
+		args = append(args, filter.Status)
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	if filter.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, filter.Limit)
+	}
+	if filter.Offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, filter.Offset)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var tasks []TaskRecord
+	for rows.Next() {
+		var t TaskRecord
+		err := rows.Scan(
+			&t.ID, &t.GID, &t.Type, &t.Status, &t.URL, &t.FileName, &t.LocalPath, &t.RemotePath, &t.RemoteURL,
+			&t.TotalSize, &t.DownloadedSize, &t.UploadedSize, &t.ChatID, &t.UserID, &t.CreatedAt,
+			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount, &t.Quality,
+		)
+		if err != nil {
+			slog.Error("Error scanning task in ListTasks", "error", err)
+			continue
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks, nil
+}
+
 func (db *DB) GetCompletedTaskByURL(ctx context.Context, url, quality string) (*TaskRecord, error) {
 	tr := &TaskRecord{}
 	err := db.QueryRowContext(ctx, `

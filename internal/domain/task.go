@@ -227,6 +227,13 @@ func (t *Task) Read(fn func()) {
 	fn()
 }
 
+type TaskFilter struct {
+	UserID int64
+	Limit  int
+	Offset int
+	Status string
+}
+
 type TaskCheckpoint struct {
 	LastUpdate      time.Time
 	TaskID          string
