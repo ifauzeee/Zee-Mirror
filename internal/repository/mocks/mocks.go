@@ -150,6 +150,36 @@ func (m *MockRepository) SetLanguage(ctx context.Context, id int64, lang string)
 	return args.Error(0)
 }
 
+func (m *MockRepository) UpdateMD5(ctx context.Context, id, md5 string) error {
+	args := m.Called(ctx, id, md5)
+	return args.Error(0)
+}
+
+func (m *MockRepository) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]domain.TaskRecord, error) {
+	args := m.Called(ctx, filter)
+	return args.Get(0).([]domain.TaskRecord), args.Error(1)
+}
+
+func (m *MockRepository) SaveScheduled(ctx context.Context, task domain.ScheduledTask) error {
+	args := m.Called(ctx, task)
+	return args.Error(0)
+}
+
+func (m *MockRepository) GetPendingScheduled(ctx context.Context) ([]domain.ScheduledTask, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]domain.ScheduledTask), args.Error(1)
+}
+
+func (m *MockRepository) MarkScheduledDone(ctx context.Context, id, taskID string) error {
+	args := m.Called(ctx, id, taskID)
+	return args.Error(0)
+}
+
+func (m *MockRepository) DeleteScheduled(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 func (m *MockRepository) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
