@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS rate_limits (
+    user_id INTEGER PRIMARY KEY,
+    tokens REAL NOT NULL,
+    last_fetch REAL NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
