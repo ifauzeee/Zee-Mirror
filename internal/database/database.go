@@ -327,13 +327,14 @@ func (db *DB) GetUserStats(ctx context.Context, userID int64) (*UserStats, error
 	if err := db.QueryRowContext(ctx, "SELECT COALESCE(SUM(total_size), 0) FROM tasks WHERE user_id = ? AND status = 'completed'", userID).Scan(&stats.TotalBandwidth); err != nil {
 		slog.Error("Database error in GetUserStats bandwidth", "error", err)
 	}
-	var lastActive sql.NullTime
-	if err := db.QueryRowContext(ctx, "SELECT MAX(created_at) FROM tasks WHERE user_id = ?", userID).Scan(&lastActive); err != nil {
+	var lastActiveStr sql.NullString
+	if err := db.QueryRowContext(ctx, "SELECT MAX(created_at) FROM tasks WHERE user_id = ?", userID).Scan(&lastActiveStr); err != nil {
 		slog.Error("Database error in GetUserStats last active", "error", err)
 	}
-	if lastActive.Valid {
-		stats.LastActive = lastActive.Time
-	} else {
+	if lastActiveStr.Valid {
+		stats.LastActive, _ = time.Parse("2006-01-02 15:04:05", lastActiveStr.String)
+	}
+	if stats.LastActive.IsZero() {
 		stats.LastActive = time.Now()
 	}
 
