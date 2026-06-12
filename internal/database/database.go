@@ -24,6 +24,7 @@ type DB struct {
 var _ repository.TaskRepository = (*DB)(nil)
 var _ repository.UserRepository = (*DB)(nil)
 var _ repository.SettingsRepository = (*DB)(nil)
+var _ repository.ScheduledTaskRepository = (*DB)(nil)
 
 func NewDB(configDir, migrationsDir string) (*DB, error) {
 	if err := os.MkdirAll(configDir, 0750); err != nil {
@@ -566,4 +567,50 @@ func (db *DB) GetCheckpoint(ctx context.Context, taskID string) (*domain.TaskChe
 func (db *DB) DeleteCheckpoint(ctx context.Context, taskID string) error {
 	_, err := db.ExecContext(ctx, "DELETE FROM task_checkpoints WHERE task_id = ?", taskID)
 	return err
+}
+
+func (db *DB) SaveScheduled(ctx context.Context, task domain.ScheduledTask) error {
+	_, err := db.ExecContext(ctx, `
+        INSERT INTO scheduled_tasks (id, task_type, url, file_name, chat_id, user_id, zip, unzip, password, quality, scheduled_at, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
+    `, task.ID, task.TaskType, task.URL, task.FileName, task.ChatID, task.UserID, boolToInt(task.Zip), boolToInt(task.Unzip), task.Password, task.Quality, task.ScheduledAt)
+	return err
+}
+
+func (db *DB) GetPendingScheduled(ctx context.Context) ([]domain.ScheduledTask, error) {
+	rows, err := db.QueryContext(ctx, "SELECT id, task_type, url, file_name, chat_id, user_id, zip, unzip, password, quality, scheduled_at, status, task_id, created_at FROM scheduled_tasks WHERE status='pending' AND scheduled_at <= datetime('now')")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks []domain.ScheduledTask
+	for rows.Next() {
+		var t domain.ScheduledTask
+		var zipInt, unzipInt int
+		if err := rows.Scan(&t.ID, &t.TaskType, &t.URL, &t.FileName, &t.ChatID, &t.UserID, &zipInt, &unzipInt, &t.Password, &t.Quality, &t.ScheduledAt, &t.Status, &t.TaskID, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		t.Zip = zipInt == 1
+		t.Unzip = unzipInt == 1
+		tasks = append(tasks, t)
+	}
+	return tasks, rows.Err()
+}
+
+func (db *DB) MarkScheduledDone(ctx context.Context, id, taskID string) error {
+	_, err := db.ExecContext(ctx, "UPDATE scheduled_tasks SET status='done', task_id=? WHERE id=?", taskID, id)
+	return err
+}
+
+func (db *DB) DeleteScheduled(ctx context.Context, id string) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM scheduled_tasks WHERE id=?", id)
+	return err
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

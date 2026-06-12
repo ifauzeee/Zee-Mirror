@@ -45,6 +45,13 @@ type SettingsRepository interface {
 	Set(ctx context.Context, key, value string) error
 }
 
+type ScheduledTaskRepository interface {
+	SaveScheduled(ctx context.Context, task domain.ScheduledTask) error
+	GetPendingScheduled(ctx context.Context) ([]domain.ScheduledTask, error)
+	MarkScheduledDone(ctx context.Context, id, taskID string) error
+	DeleteScheduled(ctx context.Context, id string) error
+}
+
 type FullRepository interface {
 	TaskRepository
 	UserRepository
