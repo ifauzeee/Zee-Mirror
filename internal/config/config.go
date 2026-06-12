@@ -44,6 +44,7 @@ type Config struct {
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
 	UseWebhook               bool
+	AutoCleanupDays          int
 }
 
 func LoadConfig() *Config {
@@ -81,6 +82,7 @@ func LoadConfig() *Config {
 		RclonePacerMinSleep:      getEnv("RCLONE_PACER_MIN_SLEEP", "10ms"),
 		RclonePacerBurst:         getEnv("RCLONE_PACER_BURST", "200"),
 		RcloneLogLevel:           getEnv("RCLONE_LOG_LEVEL", "NOTICE"),
+		AutoCleanupDays:          getEnvInt("AUTO_CLEANUP_DAYS", 30),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {

@@ -121,6 +121,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 	}
 
 	go s.startDiskCleanupWorker()
+	go s.startDatabaseCleanupWorker()
 	s.StartResourceMonitor()
 
 	return s
