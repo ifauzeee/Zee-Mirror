@@ -185,7 +185,7 @@ func getSortedHeights(resMap map[int]downloader.FormatInfo) []int {
 }
 
 func createYTDLPSession(s *service.BotService, url, name string, zip bool, password string, taskType service.TaskType) string {
-	sessionID := uuid.New().String()[:8]
+	sessionID := uuid.New().String()[:12]
 	s.TaskManager.Mu.Lock()
 	defer s.TaskManager.Mu.Unlock()
 	s.TaskManager.YTDLPSessions[sessionID] = &service.YTDLPSession{

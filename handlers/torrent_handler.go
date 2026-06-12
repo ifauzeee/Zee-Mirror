@@ -102,7 +102,7 @@ func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, na
 }
 
 func (s *BotService) createTorrentSession(url, name string, zip, unzip bool, password string, chatID int64, msgID, replyID int, userID int64) string {
-	sessionID := uuid.New().String()[:8]
+	sessionID := uuid.New().String()[:12]
 
 	s.TaskManager.Mu.Lock()
 	defer s.TaskManager.Mu.Unlock()

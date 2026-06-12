@@ -171,7 +171,7 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 	SortResultsBySeeders(results)
 
 	if len(results) == 0 {
-		sessionID := uuid.New().String()[:8]
+		sessionID := uuid.New().String()[:12]
 		session := &Session{
 			Query:     query,
 			Provider:  provider,
@@ -199,7 +199,7 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 		return
 	}
 
-	sessionID := uuid.New().String()[:8]
+	sessionID := uuid.New().String()[:12]
 	session := &Session{
 		Query:     query,
 		Provider:  provider,

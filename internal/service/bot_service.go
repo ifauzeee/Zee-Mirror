@@ -35,7 +35,7 @@ type BotService struct {
 }
 
 func (s *BotService) StorePath(path string) string {
-	id := uuid.New().String()[:8]
+	id := uuid.New().String()[:12]
 	s.PathCache.Store(id, path)
 	go func() {
 		time.Sleep(1 * time.Hour)

@@ -67,6 +67,8 @@ const (
 	IconFile   = "📄"
 	IconOK     = "✅ OK"
 	IconError  = "❌ ERROR"
+
+	CleanupInterval = 30 * time.Minute
 )
 
 type Task struct {
@@ -215,6 +217,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 	}
 
 	go tm.startAutoRefresh()
+	go tm.startCleanup()
 
 	return tm
 }
@@ -245,6 +248,47 @@ func (tm *TaskManager) refreshActiveDashboards() {
 		if tm.RefreshDashboardFunc != nil {
 			tm.RefreshDashboardFunc(chatID, false)
 		}
+	}
+}
+
+func (tm *TaskManager) startCleanup() {
+	ticker := time.NewTicker(CleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-tm.ShutdownChan:
+			return
+		case <-ticker.C:
+			tm.cleanupTerminalTasks()
+		}
+	}
+}
+
+func (tm *TaskManager) cleanupTerminalTasks() {
+	cutoff := time.Now().Add(-CleanupInterval)
+
+	tm.Mu.Lock()
+	var toRemove []string
+	for id, task := range tm.Tasks {
+		var isTerminal bool
+		var completedAt time.Time
+		task.Read(func() {
+			isTerminal = task.Status == StatusCompleted || task.Status == StatusFailed || task.Status == StatusCancelled
+			completedAt = task.CompletedAt
+		})
+		if isTerminal && !completedAt.IsZero() && completedAt.Before(cutoff) {
+			toRemove = append(toRemove, id)
+		}
+	}
+
+	for _, id := range toRemove {
+		delete(tm.Tasks, id)
+	}
+	tm.Mu.Unlock()
+
+	if len(toRemove) > 0 {
+		slog.Info("Cleaned up terminal tasks from memory", "count", len(toRemove))
 	}
 }
 
@@ -290,7 +334,7 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 
 	task := &Task{
 		Task: domain.Task{
-			ID:             uuid.New().String()[:8],
+			ID:             uuid.New().String()[:12],
 			Type:           taskType,
 			Status:         StatusQueued,
 			URL:            url,

@@ -209,7 +209,7 @@ URL3
 func (s *BotService) createBatchTask(name string, urls []string, chatID int64, msgID int, userID int64, zipAll bool, password string, priority int) *BatchTask {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	batchID := uuid.New().String()[:8]
+	batchID := uuid.New().String()[:12]
 	downloadDir := filepath.Join(s.TaskManager.DownloadDir, "batch_"+batchID)
 
 	batch := &BatchTask{
@@ -391,6 +391,8 @@ func (s *BotService) createBatchSubTask(batch *BatchTask, url string, index int)
 		},
 		DB: s.TaskManager.DB,
 	}
+
+	_ = task.SaveToDB()
 
 	return task
 }
