@@ -72,6 +72,9 @@ config/*.db-wal
 *.db-shm
 *.db-wal
 
+# Superpowers planning docs (not for public repo)
+docs/superpowers/
+
 # Temp
 tmp/
 temp/
