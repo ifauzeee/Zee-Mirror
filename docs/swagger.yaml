@@ -1,0 +1,53 @@
+info:
+  contact: {}
+  description: API untuk mengontrol bot Zee-Mirror, manage task, dan storage.
+  title: Zee-Mirror REST API
+  version: "1.0"
+paths:
+  /api/stats:
+    get:
+      description: Dapatkan informasi statistik database dan jumlah user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Dapatkan statistik bot
+      tags:
+      - System
+  /api/tasks:
+    post:
+      consumes:
+      - application/json
+      description: Endpoint multi-fungsi untuk membuat (POST) task baru
+      parameters:
+      - description: Parameter Task
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Kelola Tasks
+      tags:
+      - Tasks
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"
