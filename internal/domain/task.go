@@ -56,6 +56,7 @@ type Task struct {
 	Error             string
 	Password          string
 	Quality           string
+	MD5               string
 	OrigFileName      string
 	SubtitleLangs     string
 	ProcessingMessage string
@@ -96,6 +97,7 @@ type TaskRecord struct {
 	Password       string
 	Error          string
 	Quality        string
+	MD5            string
 	TotalSize      int64
 	DownloadedSize int64
 	UploadedSize   int64
@@ -142,6 +144,7 @@ type TaskSnapshot struct {
 	Error             string        `json:"error"`
 	Password          string        `json:"password"`
 	Quality           string        `json:"quality"`
+	MD5               string        `json:"md5,omitempty"`
 	OrigFileName      string        `json:"origFileName"`
 	SubtitleLangs     string        `json:"subtitleLangs,omitempty"`
 	ProcessingMessage string        `json:"processingMessage,omitempty"`
@@ -198,6 +201,7 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		Unzip:             t.Unzip,
 		Password:          t.Password,
 		Quality:           t.Quality,
+		MD5:               t.MD5,
 		OrigFileName:      t.OrigFileName,
 		ResultMessageID:   t.ResultMessageID,
 		ReplyMessageID:    t.ReplyMessageID,
