@@ -91,6 +91,22 @@ func main() {
 
 	botSvc := handlers.NewBotService(bot, cfg, db)
 
+	// Config hot-reload via SIGHUP
+	sighup := make(chan os.Signal, 1)
+	signal.Notify(sighup, syscall.SIGHUP)
+	go func() {
+		for range sighup {
+			slog.Info("Received SIGHUP, reloading config...")
+			newCfg := config.Reload()
+			botSvc.TaskManager.Mu.Lock()
+			botSvc.TaskManager.Config = newCfg
+			botSvc.TaskManager.MaxConcurrent = newCfg.MaxConcurrentDownloads
+			botSvc.TaskManager.StopDuplicate = newCfg.StopDuplicate
+			botSvc.TaskManager.Mu.Unlock()
+			slog.Info("TaskManager config updated")
+		}
+	}()
+
 	apiServer := api.NewServer(botSvc, cfg.DashboardPort)
 
 	r := router.NewRouter(botSvc.BotService)
