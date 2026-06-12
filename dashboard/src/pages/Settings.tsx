@@ -29,6 +29,8 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
   )
   const [rawConfig, setRawConfig] = useState<string>('')
   const [isConfigLoading, setIsConfigLoading] = useState<boolean>(true)
+  const [updating, setUpdating] = useState(false)
+  const [updateResult, setUpdateResult] = useState<string | null>(null)
 
   const fetchRawConfig = useCallback(async () => {
     if (!token) return
@@ -65,6 +67,20 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
       showToast(res.data.status || 'Manifest updated successfully', 'success')
     } catch {
       showAlert('Manifest Error', 'Failed to update system manifest.', { type: 'error' })
+    }
+  }
+
+  const handleUpdateTools = async () => {
+    setUpdating(true)
+    setUpdateResult(null)
+    try {
+      const config = { headers: { 'X-API-Key': token } }
+      const res = await axios.post('/api/tools/update', {}, config)
+      setUpdateResult(res.data.output || res.data.error || 'Updated')
+    } catch (err: any) {
+      setUpdateResult(err.response?.data?.error || err.message || 'Update failed')
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -183,6 +199,36 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
               <p className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">
                 SQLite CGO-Free
               </p>
+            </div>
+          </div>
+
+          {/* Tools Card */}
+          <div className="glass-card p-10 rounded-[3.5rem] relative overflow-hidden group">
+            <div className="flex items-center space-x-4 mb-10">
+              <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl">
+                <Terminal size={24} />
+              </div>
+              <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">
+                Tools
+              </h3>
+            </div>
+            <div className="space-y-6">
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                Update yt-dlp to the latest version using the system package manager.
+              </p>
+              <button
+                onClick={handleUpdateTools}
+                disabled={updating}
+                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-6 rounded-[2.5rem] font-black text-sm uppercase tracking-widest flex items-center justify-center space-x-3 hover:scale-[0.98] active:scale-[0.95] transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={20} className={updating ? 'animate-spin' : ''} />
+                <span>{updating ? 'Updating...' : 'Update yt-dlp'}</span>
+              </button>
+              {updateResult && (
+                <pre className="mt-4 p-6 bg-slate-900/90 dark:bg-black/40 text-emerald-400 font-mono text-[13px] rounded-[2rem] border border-white/5 shadow-inner leading-relaxed whitespace-pre-wrap overflow-x-auto">
+                  {updateResult}
+                </pre>
+              )}
             </div>
           </div>
         </div>
