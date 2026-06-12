@@ -26,16 +26,22 @@ func buildTaskStatusText(lang string, snapshot domain.TaskSnapshot) string {
 		duration := calculateDuration(snapshot)
 		sizeStr := determineSizeString(snapshot)
 
+		playlistLine := ""
+		if snapshot.PlaylistCount > 0 {
+			playlistLine = fmt.Sprintf("\n📋 *Playlist:* \\[%d/%d\\]", snapshot.PlaylistIndex, snapshot.PlaylistCount)
+		}
+
 		text = fmt.Sprintf("%s\n\n"+
 			"📄 *Name:* `%s`\n"+
 			"📦 *Size:* `%s`\n"+
 			"⏱ *Time:* `%s`\n"+
-			"📁 *Path:* `%s`",
+			"📁 *Path:* `%s`%s",
 			i18n.T(lang, "status_completed"),
 			utils.EscapeMarkdownV2Code(snapshot.FileName),
 			utils.EscapeMarkdownV2Code(sizeStr),
 			utils.EscapeMarkdownV2Code(utils.FormatDuration(duration)),
-			utils.EscapeMarkdownV2Code(snapshot.RemotePath))
+			utils.EscapeMarkdownV2Code(snapshot.RemotePath),
+			playlistLine)
 	case domain.StatusFailed:
 		text = fmt.Sprintf("%s\n📄 `%s`\nError: `%s`",
 			i18n.T(lang, "status_failed"),
@@ -147,9 +153,15 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 		msgLine = "💬 *Status:* _Memproses file..._\n"
 	}
 
+	playlistInfo := ""
+	if taskSnapshot.PlaylistCount > 0 {
+		playlistInfo = fmt.Sprintf("📋 *Playlist:* \\[%d/%d\\]\n", taskSnapshot.PlaylistIndex, taskSnapshot.PlaylistCount)
+	}
+
 	return fmt.Sprintf(
 		"🏷️ *ID:* `%s` • %s *%s*\n"+
 			"%s\n"+
+			"%s"+
 			"%s"+
 			"📄 *File:* `%s`\n"+
 			"📦 *Size:* `%s / %s`\n"+
@@ -160,6 +172,7 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 		utils.EscapeMarkdownV2(i18n.T(lang, strings.ToLower(string(taskSnapshot.Status)))),
 		utils.EscapeMarkdownV2(bar),
 		msgLine,
+		playlistInfo,
 		utils.EscapeMarkdownV2Code(utils.TruncateString(taskSnapshot.FileName, 35)),
 		utils.EscapeMarkdownV2Code(utils.FormatBytes(processedSize)),
 		utils.EscapeMarkdownV2Code(totalSizeStr),
