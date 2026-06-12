@@ -7,7 +7,7 @@ import {
   Terminal,
   Bot,
   LogOut,
-  Github,
+  GitBranch,
   Users,
 } from 'lucide-react'
 
@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, tasksCount, onLogout }) =>
           className="p-5 bg-slate-50/50 dark:bg-zinc-900/40 rounded-[2rem] flex items-center space-x-4 border border-slate-100 dark:border-white/5 shadow-inner hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all group/credit cursor-pointer"
         >
           <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white shadow-lg group-hover/credit:scale-110 transition-transform">
-            <Github size={20} />
+            <GitBranch size={20} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">
