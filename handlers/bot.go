@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
 	"zee-mirror/internal/service"
@@ -18,8 +19,8 @@ type BotService struct {
 	*service.BotService
 }
 
-func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db *database.DB) *BotService {
+func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db *database.DB, sqlDB *sql.DB) *BotService {
 	return &BotService{
-		BotService: service.NewBotService(bot, cfg, db),
+		BotService: service.NewBotService(bot, cfg, db, sqlDB),
 	}
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -32,6 +33,7 @@ type BotService struct {
 	Notifications  *NotificationService
 	RcloneUploader *uploader.RcloneUploader
 	PathCache      sync.Map
+	SQLDB          *sql.DB
 }
 
 func (s *BotService) StorePath(path string) string {
@@ -52,7 +54,7 @@ func (s *BotService) GetPath(id string) (string, bool) {
 	return val.(string), true
 }
 
-func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullRepository) *BotService {
+func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullRepository, sqlDB *sql.DB) *BotService {
 	authService := NewAuthService(cfg, db, db)
 	mediaService := NewMediaService(cfg)
 
@@ -67,6 +69,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 		Settings:       NewSettings(),
 		BatchManager:   NewBatchManager(),
 		RcloneUploader: uploader.NewRcloneUploader(cfg),
+		SQLDB:          sqlDB,
 	}
 
 	ctx := context.Background()
@@ -88,7 +91,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 		s.UpdateSharedDashboard(chatID, forceNew)
 	}
 
-	tm := NewTaskManager(bot, cfg.MaxConcurrentDownloads, cfg.DownloadDir, cfg.RcloneDest, cfg.ConfigDir, processFunc, refreshFunc, db)
+	tm := NewTaskManager(bot, cfg.MaxConcurrentDownloads, cfg.DownloadDir, cfg.RcloneDest, cfg.ConfigDir, processFunc, refreshFunc, db, sqlDB)
 	tm.StopDuplicate = cfg.StopDuplicate
 	s.TaskManager = tm
 

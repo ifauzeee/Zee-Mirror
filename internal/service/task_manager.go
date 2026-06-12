@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -118,7 +119,7 @@ type TaskManager struct {
 	StopDuplicate        bool
 }
 
-func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository) *TaskManager {
+func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository, sqlDB *sql.DB) *TaskManager {
 	cfg := config.LoadConfig()
 
 	aria2Engine, _ := registry.CreateDownloadEngine("aria2", cfg)
@@ -128,7 +129,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		Tasks:                make(map[string]*Task),
 		Queue:                queue.NewPriorityQueue(),
 		QueueSignal:          make(chan struct{}, 1000),
-		RateLimiter:          queue.NewUserRateLimiter(5, 10),
+		RateLimiter:          queue.NewUserRateLimiterWithDB(5, 10, sqlDB),
 		MaxConcurrent:        maxConcurrent,
 		Semaphore:            make(chan struct{}, maxConcurrent),
 		DownloadDir:          downloadDir,
@@ -220,6 +221,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 
 	go tm.startAutoRefresh()
 	go tm.startCleanup()
+	go tm.startRateLimitPersist()
 
 	return tm
 }
@@ -291,6 +293,20 @@ func (tm *TaskManager) cleanupTerminalTasks() {
 
 	if len(toRemove) > 0 {
 		slog.Info("Cleaned up terminal tasks from memory", "count", len(toRemove))
+	}
+}
+
+func (tm *TaskManager) startRateLimitPersist() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-tm.ShutdownChan:
+			return
+		case <-ticker.C:
+			tm.RateLimiter.Persist()
+		}
 	}
 }
 

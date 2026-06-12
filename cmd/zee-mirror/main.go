@@ -89,7 +89,7 @@ func main() {
 	}
 	defer aria2Daemon.Stop()
 
-	botSvc := handlers.NewBotService(bot, cfg, db)
+	botSvc := handlers.NewBotService(bot, cfg, db, db.DB)
 
 	// Config hot-reload via SIGHUP
 	sighup := make(chan os.Signal, 1)
