@@ -325,6 +325,7 @@ func setupDownloadRoutes(r *router.Router) {
 	})
 	r.RegisterCommand("ytdlp", func(s *service.BotService, m *tgbotapi.Message) { download.HandleYTDLP(s, m, m.CommandArguments()) })
 	r.RegisterCommand("y", func(s *service.BotService, m *tgbotapi.Message) { download.HandleYTDLP(s, m, m.CommandArguments()) })
+	r.RegisterCommand("yt", func(s *service.BotService, m *tgbotapi.Message) { download.HandleYTDLP(s, m, m.CommandArguments()) })
 	r.RegisterCommand("ytdlpleech", func(s *service.BotService, m *tgbotapi.Message) {
 		download.HandleYTDLPLeech(s, m, m.CommandArguments())
 	})

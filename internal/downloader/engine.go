@@ -38,8 +38,13 @@ type DownloadEngine interface {
 	Download(ctx context.Context, task *domain.Task, outputDir string, onProgress func(ProgressUpdate)) error
 }
 
+type FormatInfo struct {
+	FPS  float64
+	Size int64
+}
+
 type FormatLister interface {
-	GetFormats(ctx context.Context, url string) (map[int]float64, error)
+	GetFormats(ctx context.Context, url string) (map[int]FormatInfo, error)
 	GetPlaylistMetadata(ctx context.Context, url string) (*PlaylistMetadata, error)
 	IsPlaylist(url string) bool
 }

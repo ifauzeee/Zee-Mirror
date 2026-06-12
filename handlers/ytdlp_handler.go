@@ -99,9 +99,6 @@ func (s *BotService) handleYTDLPGeneric(message *tgbotapi.Message, args string, 
 	}
 
 	fileName := name
-	if fileName == "" {
-		fileName = utils.GetFileNameFromURL(url)
-	}
 
 	task, err := s.TaskManager.CreateTask(taskType, url, fileName, message.Chat.ID, message.MessageID, replyID, message.From.ID, zip, false, password, quality, 0, subs, hardsub)
 	if err != nil {
@@ -161,10 +158,12 @@ func (s *BotService) showYTDLPQualityMenu(message *tgbotapi.Message, url, name s
 	_, _ = s.Bot.Send(editMsg)
 }
 
-func (s *BotService) getSortedHeights(resMap map[int]float64) []int {
+func (s *BotService) getSortedHeights(resMap map[int]downloader.FormatInfo) []int {
 	var heights []int
 	for h := range resMap {
-		heights = append(heights, h)
+		if h > 0 {
+			heights = append(heights, h)
+		}
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(heights)))
 	return heights
@@ -184,7 +183,7 @@ func (s *BotService) createYTDLPSession(url, name string, zip bool, password str
 	return sessionID
 }
 
-func (s *BotService) buildYTDLPKeyboard(sortedHeights []int, resMap map[int]float64, sessionID string) tgbotapi.InlineKeyboardMarkup {
+func (s *BotService) buildYTDLPKeyboard(sortedHeights []int, resMap map[int]downloader.FormatInfo, sessionID string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	for i := 0; i < len(sortedHeights); i += 2 {
 		var row []tgbotapi.InlineKeyboardButton
@@ -201,14 +200,24 @@ func (s *BotService) buildYTDLPKeyboard(sortedHeights []int, resMap map[int]floa
 		rows = append(rows, row)
 	}
 
+	audioLabel := "🎵 Audio Only"
+	if info, ok := resMap[0]; ok && info.Size > 0 {
+		audioLabel += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
+	}
+
+	bestLabel := "🚀 Kualitas Terbaik"
+	if info, ok := resMap[-1]; ok && info.Size > 0 {
+		bestLabel += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
+	}
+
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🎵 Audio Only", fmt.Sprintf("ytdlp_q:audio:%s", sessionID)),
-		tgbotapi.NewInlineKeyboardButtonData("🚀 Kualitas Terbaik", fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
+		tgbotapi.NewInlineKeyboardButtonData(audioLabel, fmt.Sprintf("ytdlp_q:audio:%s", sessionID)),
+		tgbotapi.NewInlineKeyboardButtonData(bestLabel, fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
 	))
 	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-func formatQualityLabel(height int, fps float64) string {
+func formatQualityLabel(height int, info downloader.FormatInfo) string {
 	var label string
 	switch height {
 	case 4320:
@@ -221,9 +230,14 @@ func formatQualityLabel(height int, fps float64) string {
 		label = fmt.Sprintf("%dp", height)
 	}
 
-	if fps > 30 {
-		label += fmt.Sprintf(" %dfps", int(fps))
+	if info.FPS > 30 {
+		label += fmt.Sprintf(" %dfps", int(info.FPS))
 	}
+	
+	if info.Size > 0 {
+		label += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
+	}
+	
 	return label
 }
 
@@ -263,9 +277,6 @@ func (s *BotService) HandleYTDLPQualityCallback(callback *tgbotapi.CallbackQuery
 		replyID = callback.Message.ReplyToMessage.MessageID
 	}
 	fileName := session.FileName
-	if fileName == "" {
-		fileName = utils.GetFileNameFromURL(session.URL)
-	}
 
 	if err := s.CheckQuota(callback.From.ID); err != nil {
 		_, _ = s.Bot.Send(tgbotapi.NewMessage(callback.Message.Chat.ID, service.GetErrorMessage("QUOTA EXCEEDED", err.Error())))

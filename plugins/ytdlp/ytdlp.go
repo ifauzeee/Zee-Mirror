@@ -40,12 +40,12 @@ func NewYTDLPEngine(configDir string) *YTDLPEngine {
 	}
 }
 
-func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float64, error) {
+func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]downloader.FormatInfo, error) {
 	args := []string{
 		"-j",
 		"--no-playlist",
 		"--no-check-certificate",
-		"--extractor-args", "youtube:player-client=web,mweb,tv",
+		"--extractor-args", "youtube:player-client=web_creator,android_vr,ios,android",
 		"--socket-timeout", "60",
 		"--add-header", "Accept-Language: en-US,en;q=0.9",
 		"--add-header", "Referer: https://www.youtube.com/",
@@ -65,8 +65,8 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 	if err != nil {
 		slog.Warn("YTDLP analysis first attempt failed, retrying with fallback clients...", "error", err)
 		for i, arg := range args {
-			if arg == "youtube:player-client=web,mweb,tv" {
-				args[i] = "youtube:player-client=web,tv"
+			if arg == "youtube:player-client=web_creator,android_vr,ios,android" {
+				args[i] = "youtube:player-client=web_creator,android_vr"
 				break
 			}
 		}
@@ -83,10 +83,13 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 
 	var data struct {
 		Formats []struct {
-			FormatID string  `json:"format_id"`
-			VCodec   string  `json:"vcodec"`
-			FPS      float64 `json:"fps"`
-			Height   int     `json:"height"`
+			FormatID       string  `json:"format_id"`
+			VCodec         string  `json:"vcodec"`
+			ACodec         string  `json:"acodec"`
+			FPS            float64 `json:"fps"`
+			Height         int     `json:"height"`
+			Filesize       int64   `json:"filesize"`
+			FilesizeApprox int64   `json:"filesize_approx"`
 		} `json:"formats"`
 	}
 
@@ -94,17 +97,61 @@ func (e *YTDLPEngine) GetFormats(ctx context.Context, url string) (map[int]float
 		return nil, err
 	}
 
-	resMap := make(map[int]float64)
+	var bestAudioSize int64
+	var bestVideoSize int64
+	for _, f := range data.Formats {
+		size := f.Filesize
+		if size == 0 {
+			size = f.FilesizeApprox
+		}
+		if f.VCodec == "none" && f.ACodec != "none" {
+			if size > bestAudioSize {
+				bestAudioSize = size
+			}
+		}
+	}
+
+	resMap := make(map[int]downloader.FormatInfo)
 	for _, f := range data.Formats {
 		if strings.HasPrefix(f.FormatID, "sb") {
 			continue
 		}
+		
+		size := f.Filesize
+		if size == 0 {
+			size = f.FilesizeApprox
+		}
+
 		if f.Height > 0 && f.VCodec != "" && f.VCodec != "none" {
-			if f.FPS > resMap[f.Height] {
-				resMap[f.Height] = f.FPS
+			totalSize := size
+			if f.ACodec == "none" {
+				if size > 0 && bestAudioSize > 0 {
+					totalSize = size + bestAudioSize
+				} else {
+					totalSize = 0
+				}
+			}
+			if totalSize > bestVideoSize {
+				bestVideoSize = totalSize
+			}
+
+			existing, ok := resMap[f.Height]
+			if !ok || f.FPS > existing.FPS || (f.FPS == existing.FPS && totalSize > existing.Size) {
+				resMap[f.Height] = downloader.FormatInfo{
+					FPS:  f.FPS,
+					Size: totalSize,
+				}
 			}
 		}
 	}
+	
+	if bestAudioSize > 0 {
+		resMap[0] = downloader.FormatInfo{Size: bestAudioSize}
+	}
+	if bestVideoSize > 0 {
+		resMap[-1] = downloader.FormatInfo{Size: bestVideoSize}
+	}
+
 	return resMap, nil
 }
 
@@ -113,7 +160,7 @@ func (e *YTDLPEngine) GetPlaylistMetadata(ctx context.Context, url string) (*dow
 		"--flat-playlist",
 		"-J",
 		"--no-check-certificate",
-		"--extractor-args", "youtube:player-client=web,mweb,tv",
+		"--extractor-args", "youtube:player-client=web_creator,android_vr,ios,android",
 		"--socket-timeout", "60",
 		"--js-runtime", "node",
 		"--remote-components", "ejs:github",
@@ -305,7 +352,7 @@ func (e *YTDLPEngine) buildYTDLPArgs(task *domain.Task, outputDir string) []stri
 		"--continue",
 		"--no-check-certificate",
 		"--ignore-errors",
-		"--extractor-args", "youtube:player-client=web,mweb,tv",
+		"--extractor-args", "youtube:player-client=web_creator,android_vr,ios,android",
 		"--socket-timeout", "120",
 		"--concurrent-fragments", "16",
 		"--buffer-size", "1M",
