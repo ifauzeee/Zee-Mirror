@@ -20,8 +20,9 @@ import (
 	"zee-mirror/internal/router"
 	"zee-mirror/plugins/torrent"
 
-	httpSwagger "github.com/swaggo/http-swagger"
 	_ "zee-mirror/docs" // import swagger generated docs
+
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
