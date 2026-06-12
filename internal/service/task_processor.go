@@ -13,6 +13,7 @@ import (
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/downloader"
 	"zee-mirror/internal/organizer"
+	"zee-mirror/plugins/registry"
 )
 
 func (s *BotService) processTask(task *Task) {
@@ -80,10 +81,18 @@ func (s *BotService) processTask(task *Task) {
 		url = fileURL
 	}
 
-	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/")) {
-		if s.Config.UserSessionString != "" {
-			slog.Info("Using Userbot engine for private link", "taskID", task.ID)
-			s.executeDownloadEngine(s.TaskManager.UserbotEngine, task)
+	if (task.Type == TypeMirror || task.Type == TypeLeech) && (strings.Contains(url, "/c/") || strings.Contains(url, "t.me/c/") || strings.Contains(url, "t.me/")) {
+		if engine, err := registry.CreateDownloadEngine("telegram", s.Config); err == nil {
+			slog.Info("Using Telegram plugin for link", "taskID", task.ID)
+			s.executeDownloadEngine(engine, task)
+			return
+		}
+	}
+
+	if (task.Type == TypeMirror || task.Type == TypeLeech) && strings.Contains(url, "mega.nz") {
+		if engine, err := registry.CreateDownloadEngine("mega", s.Config); err == nil {
+			slog.Info("Using Mega plugin for link", "taskID", task.ID)
+			s.executeDownloadEngine(engine, task)
 			return
 		}
 	}
