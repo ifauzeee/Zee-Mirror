@@ -332,13 +332,15 @@ func (u *UserBot) JoinChat(hash string) (string, error) {
 	}
 
 	var title string
-	if u, ok := res.(*tg.Updates); ok {
-		for _, chat := range u.Chats {
-			switch c := chat.(type) {
-			case *tg.Chat:
-				title = c.Title
-			case *tg.Channel:
-				title = c.Title
+	if result, ok := res.(*tg.MessagesChatInviteJoinResultOk); ok {
+		if u, ok := result.Updates.(*tg.Updates); ok {
+			for _, chat := range u.Chats {
+				switch c := chat.(type) {
+				case *tg.Chat:
+					title = c.Title
+				case *tg.Channel:
+					title = c.Title
+				}
 			}
 		}
 	}
