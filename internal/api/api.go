@@ -108,6 +108,7 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/users/add", auth(s.handleCreateUser))
 	mux.HandleFunc("/api/users/update", auth(s.handleUpdateUser))
 	mux.HandleFunc("/api/users/delete", auth(s.handleDeleteUser))
+	mux.HandleFunc("/api/tools/update", auth(s.handleUpdateTools))
 	mux.HandleFunc("/api/config", auth(s.handleConfig))
 	mux.HandleFunc("/api/config/reload", auth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -1002,6 +1003,30 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); encodeErr != nil {
 		slog.Debug("Failed to encode success response", "error", encodeErr)
 	}
+}
+
+func (s *Server) handleUpdateTools(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "yt-dlp", "-U")
+	output, err := cmd.CombinedOutput()
+
+	result := map[string]interface{}{
+		"success": err == nil,
+		"output":  string(output),
+	}
+	if err != nil {
+		result["error"] = err.Error()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 func (s *Server) handleGetTaskHistory(w http.ResponseWriter, r *http.Request) {
