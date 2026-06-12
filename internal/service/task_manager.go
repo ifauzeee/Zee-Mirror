@@ -117,6 +117,7 @@ type TaskManager struct {
 	MaxConcurrent        int
 	Semaphore            chan struct{}
 	StopDuplicate        bool
+	Scheduler            *Scheduler
 }
 
 func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository, sqlDB *sql.DB) *TaskManager {
@@ -222,6 +223,9 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 	go tm.startAutoRefresh()
 	go tm.startCleanup()
 	go tm.startRateLimitPersist()
+
+	tm.Scheduler = NewScheduler(db, tm)
+	tm.Scheduler.Start(context.Background())
 
 	return tm
 }
