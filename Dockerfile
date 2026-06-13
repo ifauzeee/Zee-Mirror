@@ -7,7 +7,7 @@ COPY dashboard/ ./
 RUN npm run build
 
 
-FROM golang:1.25.3-alpine AS builder
+FROM golang:1.25.11-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
 COPY go.mod go.sum* ./
