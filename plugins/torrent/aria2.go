@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 	"zee-mirror/internal/config"
@@ -179,7 +178,7 @@ func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map
 		options["load-cookies"] = cookiesPath
 	}
 
-	if task.FileName != "" && task.FileName != "unknown_file" && !isGenericName(task.FileName) {
+	if task.FileName != "" && task.FileName != "unknown_file" && !utils.IsGenericName(task.FileName) {
 		options["out"] = task.FileName
 	}
 
@@ -192,14 +191,4 @@ func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map
 	}
 
 	return options
-}
-
-func isGenericName(name string) bool {
-	uuidRegex := regexp.MustCompile(`^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
-	if uuidRegex.MatchString(name) {
-		return true
-	}
-
-	hexRegex := regexp.MustCompile(`^[a-fA-F0-9]{16,}$`)
-	return hexRegex.MatchString(name)
 }

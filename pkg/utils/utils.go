@@ -628,3 +628,12 @@ func BoolToEmoji(b bool) string {
 	}
 	return "❌"
 }
+
+func IsGenericName(name string) bool {
+	uuidRegex := regexp.MustCompile(`^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
+	if uuidRegex.MatchString(name) {
+		return true
+	}
+	hexRegex := regexp.MustCompile(`^[a-fA-F0-9]{16,}$`)
+	return hexRegex.MatchString(name)
+}

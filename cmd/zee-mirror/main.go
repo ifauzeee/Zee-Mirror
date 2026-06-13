@@ -35,7 +35,6 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/joho/godotenv"
 	_ "modernc.org/sqlite"
 
 	_ "zee-mirror/plugins/drive"
@@ -46,7 +45,6 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
 	cfg := config.LoadConfig()
 
 	_ = os.MkdirAll(cfg.ConfigDir, 0750)

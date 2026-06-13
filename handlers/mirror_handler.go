@@ -45,7 +45,7 @@ func (s *BotService) HandleMirror(message *tgbotapi.Message, args string) {
 	if url != "" {
 		if fileName == "" {
 			fileName = utils.GetFileNameFromURL(url)
-			if service.IsGenericName(fileName) {
+			if utils.IsGenericName(fileName) {
 				resolvedName := utils.ResolveFileName(url)
 				if resolvedName != "" {
 					fileName = resolvedName

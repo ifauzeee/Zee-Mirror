@@ -671,10 +671,6 @@ func (db *DB) UpdateStatus(ctx context.Context, taskID, status, errorMsg string)
 	return err
 }
 
-func (db *DB) SetTaskRecoverable(_ context.Context, _ string, _ bool) error {
-	return nil
-}
-
 func (db *DB) UpdateMD5(ctx context.Context, id, md5 string) error {
 	_, err := db.ExecContext(ctx, "UPDATE tasks SET md5=$1 WHERE id=$2", md5, id)
 	return err

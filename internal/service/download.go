@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -275,14 +274,4 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 	s.updateTaskStatus(task)
 
 	s.HandlePostDownload(task, outputDir)
-}
-
-func IsGenericName(name string) bool {
-	uuidRegex := regexp.MustCompile(`^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$`)
-	if uuidRegex.MatchString(name) {
-		return true
-	}
-
-	hexRegex := regexp.MustCompile(`^[a-fA-F0-9]{16,}$`)
-	return hexRegex.MatchString(name)
 }
