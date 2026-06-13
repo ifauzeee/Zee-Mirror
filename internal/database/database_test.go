@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) (*DB, string) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	db, err := NewDB(tempDir, "../../migrations")
+	db, err := NewDB("sqlite", tempDir, "", "../../migrations")
 	if err != nil {
 		_ = os.RemoveAll(tempDir)
 		t.Fatalf("failed to create test db: %v", err)

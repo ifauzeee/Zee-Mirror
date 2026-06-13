@@ -43,13 +43,6 @@ import (
 	_ "zee-mirror/plugins/ytdlp"
 )
 
-// @title Zee-Mirror REST API
-// @version 1.0
-// @description API untuk mengontrol bot Zee-Mirror, manage task, dan storage.
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name X-API-Key
-
 func main() {
 	_ = godotenv.Load()
 	cfg := config.LoadConfig()
@@ -64,7 +57,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := database.NewDB(cfg.ConfigDir, "migrations")
+	db, err := database.NewDB(cfg.DBDriver, cfg.ConfigDir, cfg.DatabaseURL, "migrations")
 	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		os.Exit(1)
@@ -91,7 +84,6 @@ func main() {
 
 	botSvc := handlers.NewBotService(bot, cfg, db, db.DB)
 
-	// Config hot-reload via SIGHUP
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)
 	go func() {

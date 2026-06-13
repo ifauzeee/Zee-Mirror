@@ -648,7 +648,6 @@ func (tm *TaskManager) worker(_ int) {
 				continue
 			}
 
-			// Acquire semaphore slot
 			tm.Semaphore <- struct{}{}
 
 			tm.Mu.Lock()
@@ -661,7 +660,6 @@ func (tm *TaskManager) worker(_ int) {
 			}
 			tm.Wg.Done()
 
-			// Release semaphore slot
 			<-tm.Semaphore
 
 			tm.Mu.Lock()

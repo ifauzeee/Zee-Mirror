@@ -22,7 +22,7 @@ import (
 	"zee-mirror/internal/router"
 	"zee-mirror/plugins/torrent"
 
-	_ "zee-mirror/docs" // import swagger generated docs
+	_ "zee-mirror/docs"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -286,13 +286,6 @@ func (s *Server) broadcastLoop() {
 	}
 }
 
-// @Summary Dapatkan statistik bot
-// @Description Dapatkan informasi statistik database dan jumlah user
-// @Security ApiKeyAuth
-// @Tags System
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Router /api/stats [get]
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	stats, _ := s.Service.DB.GetBotStats(ctx)
@@ -307,15 +300,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// @Summary Kelola Tasks
-// @Description Endpoint multi-fungsi untuk membuat (POST) task baru
-// @Security ApiKeyAuth
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param request body object true "Parameter Task"
-// @Success 201 {object} map[string]interface{}
-// @Router /api/tasks [post]
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var req struct {

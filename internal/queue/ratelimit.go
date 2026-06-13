@@ -62,16 +62,12 @@ func (rl *UserRateLimiter) loadFromDB() {
 		}
 
 		limiter := rate.NewLimiter(rl.rate, rl.burst)
-		// Restore tokens based on elapsed time since last fetch
 		elapsed := time.Since(rec.LastFetch).Seconds()
 		newTokens := rec.Tokens + elapsed*float64(rl.rate)
 		if newTokens > float64(rl.burst) {
 			newTokens = float64(rl.burst)
 		}
 		_ = newTokens
-		// Note: rate.Limiter doesn't expose a direct way to set token count.
-		// The limiter will start with full burst tokens, which is acceptable
-		// since we're restoring from DB on startup.
 		rl.limiters[rec.UserID] = limiter
 		count++
 	}
@@ -95,7 +91,6 @@ func (rl *UserRateLimiter) Allow(userID int64) bool {
 	return rl.getLimiter(userID).Allow()
 }
 
-// Persist saves all rate limit states to the database.
 func (rl *UserRateLimiter) Persist() {
 	if rl.db == nil {
 		return
@@ -106,7 +101,7 @@ func (rl *UserRateLimiter) Persist() {
 	for userID := range rl.limiters {
 		records = append(records, RateLimitRecord{
 			UserID:    userID,
-			Tokens:    float64(rl.burst), // Approximate: limiter doesn't expose token count
+			Tokens:    float64(rl.burst),
 			LastFetch: time.Now(),
 		})
 	}

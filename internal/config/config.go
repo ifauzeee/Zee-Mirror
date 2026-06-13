@@ -49,6 +49,8 @@ type Config struct {
 	StopDuplicate            bool
 	UseWebhook               bool
 	AutoCleanupDays          int
+	DBDriver                 string
+	DatabaseURL              string
 }
 
 func LoadConfig() *Config {
@@ -87,6 +89,8 @@ func LoadConfig() *Config {
 		RclonePacerBurst:         getEnv("RCLONE_PACER_BURST", "200"),
 		RcloneLogLevel:           getEnv("RCLONE_LOG_LEVEL", "NOTICE"),
 		AutoCleanupDays:          getEnvInt("AUTO_CLEANUP_DAYS", 30),
+		DBDriver:                 getEnv("DB_DRIVER", "sqlite"),
+		DatabaseURL:              os.Getenv("DATABASE_URL"),
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {
@@ -107,7 +111,6 @@ func LoadConfig() *Config {
 	return cfg
 }
 
-// currentConfig holds the active config atomically for safe concurrent access.
 var currentConfig atomic.Value
 
 func init() {
@@ -115,7 +118,6 @@ func init() {
 	currentConfig.Store(LoadConfig())
 }
 
-// Get returns the current active configuration.
 func Get() *Config {
 	val, ok := currentConfig.Load().(*Config)
 	if !ok || val == nil {
@@ -124,8 +126,6 @@ func Get() *Config {
 	return val
 }
 
-// Reload re-reads environment variables and .env, swaps the config atomically,
-// and returns the new config. Callers should use Get() to access the active config.
 func Reload() *Config {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		slog.Warn("Failed to load .env file", "error", err)
