@@ -207,15 +207,15 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 		}
 	}
 
-	md5Hex, err := calculateSHA256(task.LocalPath)
+	sha256Hex, err := calculateSHA256(task.LocalPath)
 	if err != nil {
-		slog.Warn("Failed to calculate MD5", "taskID", task.ID, "path", task.LocalPath, "error", err)
+		slog.Warn("Failed to calculate SHA256", "taskID", task.ID, "path", task.LocalPath, "error", err)
 	} else {
 		task.Update(func() {
-			task.MD5 = md5Hex
+			task.MD5 = sha256Hex
 		})
-		if updateErr := s.TaskManager.DB.UpdateMD5(context.Background(), task.ID, md5Hex); updateErr != nil {
-			slog.Warn("Failed to persist MD5", "taskID", task.ID, "error", updateErr)
+		if updateErr := s.TaskManager.DB.UpdateMD5(context.Background(), task.ID, sha256Hex); updateErr != nil {
+			slog.Warn("Failed to persist SHA256", "taskID", task.ID, "error", updateErr)
 		}
 	}
 

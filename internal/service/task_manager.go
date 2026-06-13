@@ -592,8 +592,8 @@ func (tm *TaskManager) CancelTask(taskID string) bool {
 		return false
 	}
 
-	err := task.SaveToDB()
-	return err == nil
+	_ = task.SaveToDB()
+	return true
 }
 
 func (t *Task) Cancel(status TaskStatus) bool {

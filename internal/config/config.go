@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -189,16 +189,16 @@ func getEnvBool(key string, fallback bool) bool {
 	return b
 }
 
-func (c *Config) Validate() bool {
+func (c *Config) Validate() error {
 	if len(c.BotTokens) == 0 {
-		log.Fatal("❌ Tidak ada token bot! Set BOT_TOKEN atau BOT_TOKENS")
+		return fmt.Errorf("BOT_TOKEN or BOT_TOKENS must be set")
 	}
 	if c.OwnerID == 0 {
-		log.Fatal("❌ OWNER_ID tidak ditemukan! Set environment variable OWNER_ID")
+		return fmt.Errorf("OWNER_ID must be set")
 	}
 	if c.RcloneDest == "" {
-		log.Println("⚠️ RCLONE_DEST tidak di-set, menggunakan default: gdrive:/MirrorBot")
+		slog.Warn("RCLONE_DEST not set, using default: gdrive:/MirrorBot")
 		c.RcloneDest = "gdrive:/MirrorBot"
 	}
-	return true
+	return nil
 }

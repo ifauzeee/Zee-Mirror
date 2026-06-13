@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,7 +22,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	if s.Service.Config.WebhookSecret != "" {
 		secretHeader := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
-		if secretHeader != s.Service.Config.WebhookSecret {
+		if subtle.ConstantTimeCompare([]byte(secretHeader), []byte(s.Service.Config.WebhookSecret)) != 1 {
 			slog.Warn("Webhook request with invalid secret token", "remote", r.RemoteAddr)
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return

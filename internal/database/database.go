@@ -265,7 +265,7 @@ func (db *DB) Delete(ctx context.Context, id int64) error {
 
 type TaskRecord = domain.TaskRecord
 
-const taskColumns = "id, gid, type, status, url, file_name, local_path, remote_path, remote_url, total_size, downloaded_size, uploaded_size, chat_id, user_id, created_at, completed_at, zip, unzip, password, error, retries, quality"
+const taskColumns = "id, gid, type, status, url, file_name, local_path, remote_path, remote_url, total_size, downloaded_size, uploaded_size, chat_id, user_id, created_at, completed_at, zip, unzip, password, error, retries, quality, md5"
 
 func (db *DB) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]TaskRecord, error) {
 	query := "SELECT " + taskColumns + " FROM tasks WHERE 1=1"
@@ -308,7 +308,7 @@ func (db *DB) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]TaskRe
 		err := rows.Scan(
 			&t.ID, &t.GID, &t.Type, &t.Status, &t.URL, &t.FileName, &t.LocalPath, &t.RemotePath, &t.RemoteURL,
 			&t.TotalSize, &t.DownloadedSize, &t.UploadedSize, &t.ChatID, &t.UserID, &t.CreatedAt,
-			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount, &t.Quality,
+			&t.CompletedAt, &t.Zip, &t.Unzip, &t.Password, &t.Error, &t.RetryCount, &t.Quality, &t.MD5,
 		)
 		if err != nil {
 			slog.Error("Error scanning task in ListTasks", "error", err)
@@ -327,7 +327,7 @@ func (db *DB) GetCompletedTaskByURL(ctx context.Context, url, quality string) (*
 	`, url, quality).Scan(
 		&tr.ID, &tr.GID, &tr.Type, &tr.Status, &tr.URL, &tr.FileName, &tr.LocalPath, &tr.RemotePath, &tr.RemoteURL,
 		&tr.TotalSize, &tr.DownloadedSize, &tr.UploadedSize, &tr.ChatID, &tr.UserID,
-		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount, &tr.Quality,
+		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount, &tr.Quality, &tr.MD5,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -427,7 +427,7 @@ func (db *DB) GetTaskByID(ctx context.Context, id string) (*TaskRecord, error) {
 	`, id).Scan(
 		&tr.ID, &tr.GID, &tr.Type, &tr.Status, &tr.URL, &tr.FileName, &tr.LocalPath, &tr.RemotePath, &tr.RemoteURL,
 		&tr.TotalSize, &tr.DownloadedSize, &tr.UploadedSize, &tr.ChatID, &tr.UserID,
-		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount, &tr.Quality,
+		&tr.CreatedAt, &tr.CompletedAt, &tr.Zip, &tr.Unzip, &tr.Password, &tr.Error, &tr.RetryCount, &tr.Quality, &tr.MD5,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

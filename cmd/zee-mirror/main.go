@@ -55,8 +55,8 @@ func main() {
 
 	slog.Info("Starting Zee-Mirror Bot...")
 
-	if !cfg.Validate() {
-		slog.Error("Invalid configuration")
+	if err := cfg.Validate(); err != nil {
+		slog.Error("Invalid configuration", "error", err)
 		os.Exit(1)
 	}
 

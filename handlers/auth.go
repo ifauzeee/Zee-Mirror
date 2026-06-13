@@ -361,20 +361,24 @@ func (s *BotService) HandleSetExpire(message *tgbotapi.Message, args string) {
 	}
 
 	if len(remainingArgs) < 1 {
-		s.reply(message, service.GetErrorMessage("ALREADY AUTHORIZED", "Anda sudah memiliki akses."))
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Gunakan: /setexpire ID <days> atau reply dengan <days>\\."))
 		return
 	}
 
-	if s.Config.AuthPassword != "" && args != s.Config.AuthPassword {
+	if s.Config.AuthPassword != "" && remainingArgs[0] != s.Config.AuthPassword {
 		s.reply(message, service.GetErrorMessage("ACCESS DENIED", "Password salah."))
 		return
 	}
 
-	days := 30
+	days, err := strconv.Atoi(remainingArgs[0])
+	if err != nil || days <= 0 {
+		s.reply(message, service.GetErrorMessage("INVALID FORMAT", "Jumlah hari harus berupa angka positif\\."))
+		return
+	}
+
 	expiresAt := time.Now().AddDate(0, 0, days)
 	ctx := context.Background()
-	err := s.DB.SetExpiration(ctx, targetID, expiresAt)
-	if err != nil {
+	if err := s.DB.SetExpiration(ctx, targetID, expiresAt); err != nil {
 		s.reply(message, service.GetErrorMessage("DATABASE ERROR", fmt.Sprintf("Gagal menyimpan masa aktif: %v", err)))
 		return
 	}

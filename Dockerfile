@@ -7,7 +7,7 @@ COPY dashboard/ ./
 RUN npm run build
 
 
-FROM golang:1.25.11-alpine AS builder
+FROM golang:1.24.0-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /build
 COPY go.mod go.sum* ./
@@ -56,9 +56,10 @@ WORKDIR /app
 COPY --from=builder /build/zee-mirror /app/zee-mirror
 COPY --from=builder /build/migrations /app/migrations
 COPY --from=dashboard-builder /dist /app/dist
-RUN chmod +x /app/zee-mirror
+RUN chmod +x /app/zee-mirror && \
+    chown -R botuser:botgroup /app
 
-USER root
+USER botuser
 
 ENV BOT_TOKEN="" \
     OWNER_ID="" \

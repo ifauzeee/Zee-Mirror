@@ -142,9 +142,9 @@ func (s *Server) Start() {
 
 	mux.HandleFunc("/api/ws", s.handleWebsocket)
 
-	mux.HandleFunc("/api/torrent/session", s.handleTorrentSession)
-	mux.HandleFunc("/api/torrent/files", s.handleTorrentFiles)
-	mux.HandleFunc("/api/torrent/start", s.handleTorrentStart)
+	mux.HandleFunc("/api/torrent/session", auth(s.handleTorrentSession))
+	mux.HandleFunc("/api/torrent/files", auth(s.handleTorrentFiles))
+	mux.HandleFunc("/api/torrent/start", auth(s.handleTorrentStart))
 
 	if s.Service.Config.UseWebhook {
 		mux.HandleFunc("/api/telegram/webhook", s.handleWebhook)
@@ -170,9 +170,14 @@ func (s *Server) Start() {
 	addr := fmt.Sprintf(":%d", s.Port)
 	slog.Info("Web Dashboard API starting", "addr", addr)
 
+	allowedOrigin := s.Service.Config.DashboardURL
+	if allowedOrigin == "" || allowedOrigin == "127.0.0.1" {
+		allowedOrigin = "*"
+	}
+
 	s.httpServer = &http.Server{
 		Addr:              addr,
-		Handler:           securityHeaders(globalMiddleware(mux)),
+		Handler:           securityHeaders(globalMiddleware(mux, allowedOrigin)),
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -268,9 +273,9 @@ func (rl *apiRateLimiter) Cleanup() {
 
 var globalRateLimiter = newAPIRateLimiter(60, time.Minute)
 
-func globalMiddleware(next http.Handler) http.Handler {
+func globalMiddleware(next http.Handler, allowedOrigin string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
 		if r.Method == "OPTIONS" {
@@ -508,6 +513,13 @@ func (s *Server) handleSystem(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleExplorer(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	fullPath := filepath.Join(s.Service.Config.DownloadDir, path)
+
+	cleanBase, _ := filepath.Abs(s.Service.Config.DownloadDir)
+	cleanTarget, _ := filepath.Abs(fullPath)
+	if !strings.HasPrefix(cleanTarget, cleanBase) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
 
 	if r.Method == http.MethodDelete {
 		if path == "" || path == "/" || path == "." {
@@ -947,8 +959,29 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+
+		sensitiveKeys := map[string]bool{
+			"BOT_TOKEN": true, "OWNER_ID": true, "TELEGRAM_API_HASH": true,
+			"TELEGRAM_API_ID": true, "USER_SESSION_STRING": true, "APP_HASH": true,
+			"VIKING_USER_HASH": true, "WEB_DASHBOARD_TOKEN": true,
+		}
+		lines := strings.Split(string(data), "\n")
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			parts := strings.SplitN(trimmed, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				if sensitiveKeys[key] {
+					lines[i] = key + "=***REDACTED***"
+				}
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		if encodeErr := json.NewEncoder(w).Encode(map[string]string{"config": string(data)}); encodeErr != nil {
+		if encodeErr := json.NewEncoder(w).Encode(map[string]string{"config": strings.Join(lines, "\n")}); encodeErr != nil {
 			slog.Error("Failed to encode config response", "error", encodeErr)
 		}
 	case http.MethodPost:
@@ -1004,7 +1037,19 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	destDir := filepath.Join(s.Service.Config.DownloadDir, path)
 	_ = os.MkdirAll(destDir, 0750)
 
-	destPath := filepath.Join(destDir, handler.Filename)
+	cleanBase, _ := filepath.Abs(s.Service.Config.DownloadDir)
+	cleanDestDir, _ := filepath.Abs(destDir)
+	if !strings.HasPrefix(cleanDestDir, cleanBase) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	safeFilename := filepath.Base(handler.Filename)
+	if safeFilename == "." || safeFilename == "/" || safeFilename == ".." {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+	destPath := filepath.Join(destDir, safeFilename)
 	dst, err := os.Create(destPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
