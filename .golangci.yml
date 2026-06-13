@@ -1,4 +1,7 @@
 linters-settings:
+  errcheck:
+    exclude-functions:
+      - (*database/sql.Tx).Rollback
   govet:
     enable-all: true
   gocyclo:
