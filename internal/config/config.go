@@ -25,6 +25,7 @@ type Config struct {
 	SentryDSN                string
 	RedisURL                 string
 	BotToken                 string
+	BotTokens                []string
 	DashboardURL             string
 	AppHash                  string
 	RcloneTransfers          string
@@ -114,6 +115,17 @@ func LoadConfig() *Config {
 		}
 	}
 
+	if botTokens := os.Getenv("BOT_TOKENS"); botTokens != "" {
+		for _, t := range strings.Split(botTokens, ",") {
+			t = strings.TrimSpace(t)
+			if t != "" {
+				cfg.BotTokens = append(cfg.BotTokens, t)
+			}
+		}
+	} else if cfg.BotToken != "" {
+		cfg.BotTokens = []string{cfg.BotToken}
+	}
+
 	return cfg
 }
 
@@ -178,8 +190,8 @@ func getEnvBool(key string, fallback bool) bool {
 }
 
 func (c *Config) Validate() bool {
-	if c.BotToken == "" {
-		log.Fatal("❌ BOT_TOKEN tidak ditemukan! Set environment variable BOT_TOKEN")
+	if len(c.BotTokens) == 0 {
+		log.Fatal("❌ Tidak ada token bot! Set BOT_TOKEN atau BOT_TOKENS")
 	}
 	if c.OwnerID == 0 {
 		log.Fatal("❌ OWNER_ID tidak ditemukan! Set environment variable OWNER_ID")

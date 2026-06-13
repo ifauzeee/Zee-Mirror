@@ -66,13 +66,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	bot, err := initBot(cfg)
-	if err != nil {
-		slog.Error("Failed to create bot", "error", err)
+	bots, err := service.InitBots(cfg.BotTokens, cfg.TelegramAPI)
+	if err != nil || len(bots) == 0 {
+		slog.Error("Failed to initialize any bot instances", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("Authorized on account", "username", bot.Self.UserName)
+	primaryBot := bots[0].Bot
+	slog.Info("Authorized on account", "username", primaryBot.Self.UserName, "totalBots", len(bots))
 
 	ub := userbot.GetInstance(cfg)
 	if err := ub.Start(); err != nil {
@@ -88,7 +89,7 @@ func main() {
 	redisClient := cache.NewRedisClient(cfg.RedisURL)
 	defer redisClient.Close()
 
-	botSvc := handlers.NewBotService(bot, cfg, db, db.DB, redisClient)
+	botSvc := handlers.NewBotService(primaryBot, cfg, db, db.DB, redisClient)
 
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)
@@ -154,7 +155,9 @@ func main() {
 
 		if err := apiServer.SetupWebhook(); err != nil {
 			slog.Error("Failed to setup webhook, falling back to polling", "error", err)
-			startPolling(ctx, bot, botSvc, r)
+			for _, bi := range bots {
+				startPolling(ctx, bi.Bot, botSvc, r)
+			}
 		} else {
 			slog.Info("✅ Webhook mode active. Waiting for updates from Telegram...")
 			<-ctx.Done()
@@ -164,9 +167,11 @@ func main() {
 			}
 		}
 	} else {
-		slog.Info("📡 Starting in LONG POLLING mode")
+		slog.Info("📡 Starting in LONG POLLING mode", "botCount", len(bots))
 		_ = apiServer.RemoveWebhook()
-		startPolling(ctx, bot, botSvc, r)
+		for _, bi := range bots {
+			startPolling(ctx, bi.Bot, botSvc, r)
+		}
 	}
 
 	slog.Info("Initiating global shutdown sequence...")

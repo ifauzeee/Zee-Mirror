@@ -1,0 +1,17 @@
+apiVersion: v2
+name: zee-mirror
+description: Zee-Mirror Telegram Bot - Helm chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - telegram
+  - mirror
+  - bot
+  - download
+home: https://github.com/ifauzeee/Zee-Mirror
+sources:
+  - https://github.com/ifauzeee/Zee-Mirror
+maintainers:
+  - name: ifauzeee
+    email: ifauzee@users.noreply.github.com

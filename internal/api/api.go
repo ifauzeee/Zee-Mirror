@@ -138,6 +138,7 @@ func (s *Server) Start() {
 		}
 	}))
 	mux.HandleFunc("/api/explorer/upload", auth(s.handleUpload))
+	mux.HandleFunc("/api/explorer/preview", auth(s.handlePreview))
 
 	mux.HandleFunc("/api/ws", s.handleWebsocket)
 
@@ -1023,6 +1024,75 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "Upload successful", "file": handler.Filename}); err != nil {
 		slog.Error("Failed to encode upload response", "error", err)
 	}
+}
+
+var previewMimeTypes = map[string]string{
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".png":  "image/png",
+	".gif":  "image/gif",
+	".webp": "image/webp",
+	".svg":  "image/svg+xml",
+	".bmp":  "image/bmp",
+	".mp4":  "video/mp4",
+	".webm": "video/webm",
+	".mkv":  "video/x-matroska",
+	".pdf":  "application/pdf",
+	".txt":  "text/plain; charset=utf-8",
+	".log":  "text/plain; charset=utf-8",
+	".json": "application/json",
+	".csv":  "text/csv; charset=utf-8",
+}
+
+func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		http.Error(w, "Path required", http.StatusBadRequest)
+		return
+	}
+
+	fullPath := filepath.Join(s.Service.Config.DownloadDir, path)
+
+	cleanBase, _ := filepath.Abs(s.Service.Config.DownloadDir)
+	cleanTarget, _ := filepath.Abs(fullPath)
+	if !strings.HasPrefix(cleanTarget, cleanBase) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	file, err := os.Open(fullPath)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil || stat.IsDir() {
+		http.Error(w, "Invalid file", http.StatusBadRequest)
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(fullPath))
+	mimeType, ok := previewMimeTypes[ext]
+	if !ok {
+		mimeType = "application/octet-stream"
+	}
+
+	buf := make([]byte, 512)
+	_, _ = file.Read(buf)
+	file.Seek(0, io.SeekStart)
+
+	detectedMime := http.DetectContentType(buf)
+	if detectedMime != "application/octet-stream" {
+		mimeType = detectedMime
+	}
+
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
 }
 
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {

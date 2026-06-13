@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zee-mirror.fullname" . }}
+  labels:
+    {{- include "zee-mirror.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "zee-mirror.name" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "zee-mirror.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: false
+      containers:
+        - name: zee-mirror
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: false
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "zee-mirror.fullname" . }}-config
+            - secretRef:
+                name: {{ include "zee-mirror.fullname" . }}-secret
+          volumeMounts:
+            - name: data
+              mountPath: /app/config
+            - name: downloads
+              mountPath: /app/downloads
+            - name: rclone
+              mountPath: /app/config/rclone.conf
+              subPath: rclone.conf
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "zee-mirror.fullname" . }}-data
+        - name: downloads
+          persistentVolumeClaim:
+            claimName: {{ include "zee-mirror.fullname" . }}-downloads
+        - name: rclone
+          configMap:
+            name: {{ include "zee-mirror.fullname" . }}-rclone
+            optional: true

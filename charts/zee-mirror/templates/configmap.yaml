@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zee-mirror.fullname" . }}-config
+  labels:
+    {{- include "zee-mirror.labels" . | nindent 4 }}
+data:
+  DOWNLOAD_DIR: {{ .Values.config.downloadDir | quote }}
+  CONFIG_DIR: {{ .Values.config.configDir | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  DB_DRIVER: {{ .Values.config.dbDriver | quote }}
+  DASHBOARD_PORT_INTERNAL: "{{ .Values.service.port }}"
+  RCLONE_DEST: {{ .Values.config.rcloneDest | quote }}
+  MAX_CONCURRENT_DOWNLOADS: "{{ .Values.config.maxConcurrentDownloads }}"
+  STOP_DUPLICATE: "{{ .Values.config.stopDuplicate }}"
+  WEB_DASHBOARD_TOKEN: {{ .Values.config.dashboardToken | quote }}

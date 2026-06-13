@@ -1,0 +1,52 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/ifauzeee/zee-mirror
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  host: mirror.example.com
+  tls:
+    enabled: true
+    secretName: zee-mirror-tls
+
+config:
+  botToken: ""
+  ownerID: ""
+  dashboardToken: zee-mirror-secret
+  logLevel: info
+  logFormat: json
+  rcloneDest: "gdrive:/Zee-Mirror"
+  downloadDir: /app/downloads
+  configDir: /app/config
+  dbDriver: postgres
+  databaseURL: ""
+  redisURL: ""
+  sentryDSN: ""
+  maxConcurrentDownloads: 3
+  stopDuplicate: false
+
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 500m
+  limits:
+    memory: 2Gi
+    cpu: 2
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
