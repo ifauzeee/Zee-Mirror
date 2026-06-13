@@ -18,7 +18,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver
 )
 
 type DB struct {
@@ -129,7 +129,7 @@ func (db *DB) RunMigrations(migrationsDir string) error {
 		if absErr == nil {
 			migrateDir = strings.ReplaceAll(absMigrateDir, "\\", "/")
 		}
-		if _, err := os.Stat(migrateDir); os.IsNotExist(err) {
+		if _, statErr := os.Stat(migrateDir); os.IsNotExist(statErr) {
 			return fmt.Errorf("postgres migrations directory not found: %s", migrateDir)
 		}
 	}

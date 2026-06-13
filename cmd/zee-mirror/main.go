@@ -266,27 +266,6 @@ func getEnvOrDefault(key, fallback string) string {
 	return fallback
 }
 
-func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {
-	var bot *tgbotapi.BotAPI
-	var err error
-
-	if cfg.TelegramAPI != "" {
-		bot, err = tgbotapi.NewBotAPIWithAPIEndpoint(cfg.BotToken, cfg.TelegramAPI)
-		if err == nil {
-			slog.Info("Using custom API endpoint", "endpoint", cfg.TelegramAPI)
-		}
-	} else {
-		bot, err = tgbotapi.NewBotAPI(cfg.BotToken)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	bot.Debug = (cfg.LogLevel == "debug")
-	return bot, nil
-}
-
 func startPolling(ctx context.Context, bot *tgbotapi.BotAPI, botSvc *handlers.BotService, r *router.Router) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60

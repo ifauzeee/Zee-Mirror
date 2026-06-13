@@ -11,7 +11,7 @@ import (
 )
 
 type RedisClient struct {
-	client *redis.Client
+	client  *redis.Client
 	enabled bool
 }
 

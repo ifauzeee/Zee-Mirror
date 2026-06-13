@@ -24,10 +24,10 @@ import (
 	"zee-mirror/internal/router"
 	"zee-mirror/plugins/torrent"
 
-	_ "zee-mirror/docs"
+	_ "zee-mirror/docs" // swagger docs init
 
-	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/getsentry/sentry-go"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -217,15 +217,15 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 type contextKey string
 
 type apiRateLimiter struct {
-	mu       sync.Mutex
 	requests map[string]*rateEntry
 	limit    int
 	window   time.Duration
+	mu       sync.Mutex
 }
 
 type rateEntry struct {
-	count   int
 	resetAt time.Time
+	count   int
 }
 
 func newAPIRateLimiter(limit int, window time.Duration) *apiRateLimiter {
@@ -1081,7 +1081,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 
 	buf := make([]byte, 512)
 	_, _ = file.Read(buf)
-	file.Seek(0, io.SeekStart)
+	_, _ = file.Seek(0, io.SeekStart)
 
 	detectedMime := http.DetectContentType(buf)
 	if detectedMime != "application/octet-stream" {
