@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"zee-mirror/handlers"
@@ -49,6 +50,7 @@ func main() {
 
 	_ = os.MkdirAll(cfg.ConfigDir, 0750)
 	setupLogger(cfg)
+	initSentry(cfg)
 
 	slog.Info("Starting Zee-Mirror Bot...")
 
@@ -176,6 +178,7 @@ func main() {
 	ub.Stop()
 	aria2Daemon.Stop()
 
+	sentry.Flush(5 * time.Second)
 	slog.Info("Zee-Mirror Bot has been gracefully shut down.")
 }
 
@@ -204,7 +207,15 @@ func setupLogger(cfg *config.Config) {
 		level = slog.LevelInfo
 	}
 
-	handler := slog.NewTextHandler(multi, &slog.HandlerOptions{Level: level})
+	opts := &slog.HandlerOptions{Level: level}
+
+	var handler slog.Handler
+	if strings.ToLower(cfg.LogFormat) == "json" {
+		handler = slog.NewJSONHandler(multi, opts)
+	} else {
+		handler = slog.NewTextHandler(multi, opts)
+	}
+
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
@@ -218,7 +229,32 @@ func setupLogger(cfg *config.Config) {
 
 	_, _ = fmt.Fprintln(multi, banner)
 
-	slog.Info("Logging to file enabled: zee-mirror.log")
+	slog.Info("Logging to file enabled", "format", cfg.LogFormat)
+}
+
+func initSentry(cfg *config.Config) {
+	if cfg.SentryDSN == "" {
+		return
+	}
+
+	if err := sentry.Init(sentry.ClientOptions{
+		Dsn:              cfg.SentryDSN,
+		Environment:      getEnvOrDefault("APP_ENV", "production"),
+		Release:          getEnvOrDefault("APP_RELEASE", "unknown"),
+		TracesSampleRate: 0.2,
+	}); err != nil {
+		slog.Warn("Failed to initialize Sentry", "error", err)
+		return
+	}
+
+	slog.Info("Sentry error tracking initialized")
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func initBot(cfg *config.Config) (*tgbotapi.BotAPI, error) {

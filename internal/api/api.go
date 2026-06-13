@@ -3,6 +3,7 @@ package api
 import (
 	"compress/gzip"
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"zee-mirror/handlers"
 	"zee-mirror/internal/config"
@@ -25,6 +27,7 @@ import (
 	_ "zee-mirror/docs"
 
 	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/getsentry/sentry-go"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -61,7 +64,7 @@ func (s *Server) Start() {
 			apiKey := r.Header.Get("X-API-Key")
 			expectedKey := s.Service.Config.DashboardToken
 
-			if apiKey != expectedKey {
+			if subtle.ConstantTimeCompare([]byte(apiKey), []byte(expectedKey)) != 1 {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				if err := json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"}); err != nil {
@@ -168,7 +171,7 @@ func (s *Server) Start() {
 
 	s.httpServer = &http.Server{
 		Addr:              addr,
-		Handler:           globalMiddleware(mux),
+		Handler:           securityHeaders(globalMiddleware(mux)),
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -177,6 +180,14 @@ func (s *Server) Start() {
 
 	go s.Hub.Run()
 	go s.broadcastLoop()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			globalRateLimiter.Cleanup()
+		}
+	}()
 
 	go func() {
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -204,6 +215,58 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 
 type contextKey string
 
+type apiRateLimiter struct {
+	mu       sync.Mutex
+	requests map[string]*rateEntry
+	limit    int
+	window   time.Duration
+}
+
+type rateEntry struct {
+	count   int
+	resetAt time.Time
+}
+
+func newAPIRateLimiter(limit int, window time.Duration) *apiRateLimiter {
+	return &apiRateLimiter{
+		requests: make(map[string]*rateEntry),
+		limit:    limit,
+		window:   window,
+	}
+}
+
+func (rl *apiRateLimiter) Allow(key string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	entry, exists := rl.requests[key]
+	if !exists || now.After(entry.resetAt) {
+		rl.requests[key] = &rateEntry{count: 1, resetAt: now.Add(rl.window)}
+		return true
+	}
+
+	if entry.count >= rl.limit {
+		return false
+	}
+
+	entry.count++
+	return true
+}
+
+func (rl *apiRateLimiter) Cleanup() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	now := time.Now()
+	for k, v := range rl.requests {
+		if now.After(v.resetAt) {
+			delete(rl.requests, k)
+		}
+	}
+}
+
+var globalRateLimiter = newAPIRateLimiter(60, time.Minute)
+
 func globalMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -229,6 +292,23 @@ func globalMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		if !globalRateLimiter.Allow(r.RemoteAddr) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", "60")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":"rate limit exceeded","retry_after":60}`))
+			return
+		}
+
+		defer func() {
+			if panicked := recover(); panicked != nil {
+				sentry.CurrentHub().Recover(panicked)
+				sentry.Flush(2 * time.Second)
+				slog.Error("API panic recovered", "path", r.URL.Path, "panic", panicked)
+				http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			}
+		}()
+
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			w.Header().Set("Content-Encoding", "gzip")
 			gz := gzip.NewWriter(w)
@@ -239,6 +319,17 @@ func globalMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		next.ServeHTTP(w, r)
 	})
 }

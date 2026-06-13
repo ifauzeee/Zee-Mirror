@@ -21,6 +21,8 @@ type Config struct {
 	ConfigDir                string
 	DashboardToken           string
 	LogLevel                 string
+	LogFormat                string
+	SentryDSN                string
 	BotToken                 string
 	DashboardURL             string
 	AppHash                  string
@@ -64,6 +66,8 @@ func LoadConfig() *Config {
 		DashboardToken:           getEnv("WEB_DASHBOARD_TOKEN", "zee-mirror-secret"),
 		DashboardPort:            getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
+		LogFormat:                getEnv("LOG_FORMAT", "text"),
+		SentryDSN:                os.Getenv("SENTRY_DSN"),
 		SmartAutoOrganization:    getEnvBool("SMART_AUTO_ORGANIZATION", false),
 		IndexURL:                 os.Getenv("INDEX_URL"),
 		DashboardURL:             getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
