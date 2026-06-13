@@ -24,28 +24,42 @@ type BotService struct {
 	SettingsRepo   repository.SettingsRepository
 	DB             repository.FullRepository
 	UserRepo       repository.UserRepository
-	TaskManager    *TaskManager
+	Settings       *Settings
 	Bot            *tgbotapi.BotAPI
 	Auth           *AuthService
 	Media          *MediaService
 	BatchManager   *BatchManager
-	Settings       *Settings
+	TaskManager    *TaskManager
 	Config         *config.Config
 	Notifications  *NotificationService
 	RcloneUploader *uploader.RcloneUploader
 	SQLDB          *sql.DB
 	Redis          *cache.RedisClient
+	pathCacheClean chan struct{}
 	PathCache      sync.Map
 }
 
 func (s *BotService) StorePath(path string) string {
 	id := uuid.New().String()[:12]
 	s.PathCache.Store(id, path)
-	go func() {
-		time.Sleep(1 * time.Hour)
-		s.PathCache.Delete(id)
-	}()
 	return id
+}
+
+func (s *BotService) startPathCacheCleanup() {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.pathCacheClean:
+			return
+		case <-ticker.C:
+			s.PathCache.Range(func(key, _ any) bool {
+				s.PathCache.Delete(key)
+				return true
+			})
+		}
+	}
 }
 
 func (s *BotService) GetPath(id string) (string, bool) {
@@ -73,7 +87,10 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 		RcloneUploader: uploader.NewRcloneUploader(cfg),
 		SQLDB:          sqlDB,
 		Redis:          redis,
+		pathCacheClean: make(chan struct{}),
 	}
+
+	go s.startPathCacheCleanup()
 
 	ctx := context.Background()
 	if val, err := db.Get(ctx, "auto_delete_messages"); err == nil {

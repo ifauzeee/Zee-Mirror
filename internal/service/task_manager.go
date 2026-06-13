@@ -244,7 +244,12 @@ func (tm *TaskManager) startAutoRefresh() {
 		case <-tm.ShutdownChan:
 			return
 		case <-ticker.C:
-			tm.refreshActiveDashboards()
+			if tm.StatusMu.TryLock() {
+				if len(tm.LastStatusMsg) > 0 {
+					tm.refreshActiveDashboards()
+				}
+				tm.StatusMu.Unlock()
+			}
 		}
 	}
 }
@@ -297,6 +302,31 @@ func (tm *TaskManager) cleanupTerminalTasks() {
 
 	for _, id := range toRemove {
 		delete(tm.Tasks, id)
+	}
+	tm.Mu.Unlock()
+
+	tm.StatusMu.Lock()
+	for chatID, msgID := range tm.LastStatusMsg {
+		if _, exists := tm.Tasks[fmt.Sprintf("%d", msgID)]; !exists {
+			delete(tm.LastStatusMsg, chatID)
+			delete(tm.StatusPages, chatID)
+			delete(tm.LastDashUpdateAt, chatID)
+			delete(tm.LastDashProgressSum, chatID)
+			delete(tm.LastTasksCount, chatID)
+		}
+	}
+	tm.StatusMu.Unlock()
+
+	tm.Mu.Lock()
+	for gid := range tm.YTDLPSessions {
+		if _, exists := tm.Tasks[gid]; !exists {
+			delete(tm.YTDLPSessions, gid)
+		}
+	}
+	for infoHash := range tm.TorrentSessions {
+		if _, exists := tm.Tasks[infoHash]; !exists {
+			delete(tm.TorrentSessions, infoHash)
+		}
 	}
 	tm.Mu.Unlock()
 
