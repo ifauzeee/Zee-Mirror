@@ -124,13 +124,15 @@ func (s *Server) Start() {
 		s.Service.TaskManager.Mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":                   "ok",
 			"message":                  "Config reloaded successfully",
 			"max_concurrent_downloads": newCfg.MaxConcurrentDownloads,
 			"stop_duplicate":           newCfg.StopDuplicate,
 			"log_level":                newCfg.LogLevel,
-		})
+		}); err != nil {
+			slog.Error("Failed to encode config reload response", "error", err)
+		}
 	}))
 	mux.HandleFunc("/api/explorer/upload", auth(s.handleUpload))
 
@@ -1026,7 +1028,9 @@ func (s *Server) handleUpdateTools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		slog.Error("Failed to encode git status response", "error", err)
+	}
 }
 
 func (s *Server) handleGetTaskHistory(w http.ResponseWriter, r *http.Request) {

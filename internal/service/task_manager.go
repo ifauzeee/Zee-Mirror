@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
@@ -734,14 +734,14 @@ func (t *Task) UpdateFromUploadProgress(up uploader.ProgressUpdate) {
 	})
 }
 
-func calculateMD5(filePath string) (string, error) {
+func calculateSHA256(filePath string) (string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 
-	h := md5.New()
+	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}

@@ -207,7 +207,7 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 		}
 	}
 
-	md5Hex, err := calculateMD5(task.LocalPath)
+	md5Hex, err := calculateSHA256(task.LocalPath)
 	if err != nil {
 		slog.Warn("Failed to calculate MD5", "taskID", task.ID, "path", task.LocalPath, "error", err)
 	} else {

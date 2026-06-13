@@ -120,7 +120,11 @@ func (rl *UserRateLimiter) Persist() {
 		slog.Warn("Failed to begin rate limit persist transaction", "error", err)
 		return
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && rbErr != sql.ErrTxDone {
+			slog.Warn("Failed to rollback rate limit persist transaction", "error", rbErr)
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO rate_limits (user_id, tokens, last_fetch, updated_at)
