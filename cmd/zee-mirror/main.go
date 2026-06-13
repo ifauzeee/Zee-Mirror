@@ -24,6 +24,7 @@ import (
 	"zee-mirror/handlers/search"
 	"zee-mirror/handlers/storage"
 	"zee-mirror/internal/api"
+	"zee-mirror/internal/cache"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/database"
 	"zee-mirror/internal/metrics"
@@ -84,7 +85,10 @@ func main() {
 	}
 	defer aria2Daemon.Stop()
 
-	botSvc := handlers.NewBotService(bot, cfg, db, db.DB)
+	redisClient := cache.NewRedisClient(cfg.RedisURL)
+	defer redisClient.Close()
+
+	botSvc := handlers.NewBotService(bot, cfg, db, db.DB, redisClient)
 
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)

@@ -23,6 +23,7 @@ type Config struct {
 	LogLevel                 string
 	LogFormat                string
 	SentryDSN                string
+	RedisURL                 string
 	BotToken                 string
 	DashboardURL             string
 	AppHash                  string
@@ -68,6 +69,7 @@ func LoadConfig() *Config {
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		LogFormat:                getEnv("LOG_FORMAT", "text"),
 		SentryDSN:                os.Getenv("SENTRY_DSN"),
+		RedisURL:                 os.Getenv("REDIS_URL"),
 		SmartAutoOrganization:    getEnvBool("SMART_AUTO_ORGANIZATION", false),
 		IndexURL:                 os.Getenv("INDEX_URL"),
 		DashboardURL:             getEnv("WEB_DASHBOARD_URL", "127.0.0.1"),
