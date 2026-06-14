@@ -41,6 +41,45 @@ var (
 	SearchMu       sync.RWMutex
 )
 
+const (
+	searchSessionCleanupInterval = 30 * time.Minute
+	searchSessionMaxAge          = 1 * time.Hour
+)
+
+func StartSearchSessionCleanup(shutdown <-chan struct{}) {
+	ticker := time.NewTicker(searchSessionCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-shutdown:
+			return
+		case <-ticker.C:
+			cleanupSearchSessions()
+		}
+	}
+}
+
+func cleanupSearchSessions() {
+	cutoff := time.Now().Add(-searchSessionMaxAge)
+
+	SearchMu.Lock()
+	var toRemove []string
+	for id, session := range SearchSessions {
+		if session.CreatedAt.Before(cutoff) {
+			toRemove = append(toRemove, id)
+		}
+	}
+	for _, id := range toRemove {
+		delete(SearchSessions, id)
+	}
+	SearchMu.Unlock()
+
+	if len(toRemove) > 0 {
+		slog.Debug("Search session cleanup completed", "removed", len(toRemove))
+	}
+}
+
 func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string) {
 	if !s.IsAuthorized(message.From.ID) {
 		return

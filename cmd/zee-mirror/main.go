@@ -88,6 +88,7 @@ func main() {
 	defer redisClient.Close()
 
 	botSvc := handlers.NewBotService(primaryBot, cfg, db, db.DB, redisClient)
+	go search.StartSearchSessionCleanup(botSvc.TaskManager.ShutdownChan)
 
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)
