@@ -123,9 +123,7 @@ type TaskManager struct {
 	StopDuplicate        bool
 }
 
-func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rcloneDest, configDir string, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository, sqlDB *sql.DB) *TaskManager {
-	cfg := config.LoadConfig()
-
+func NewTaskManager(bot *tgbotapi.BotAPI, cfg *config.Config, processTaskFunc func(*Task), refreshDashboardFunc func(int64, bool), db repository.TaskRepository, sqlDB *sql.DB) *TaskManager {
 	aria2Engine, _ := registry.CreateDownloadEngine("aria2", cfg)
 	ytdlpEngine, _ := registry.CreateMediaDownloader("ytdlp", cfg)
 
@@ -134,11 +132,11 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		Queue:                queue.NewPriorityQueue(),
 		QueueSignal:          make(chan struct{}, 1000),
 		RateLimiter:          queue.NewUserRateLimiterWithDB(5, 10, sqlDB),
-		MaxConcurrent:        maxConcurrent,
-		Semaphore:            make(chan struct{}, maxConcurrent),
-		DownloadDir:          downloadDir,
-		RcloneDest:           rcloneDest,
-		ConfigDir:            configDir,
+		MaxConcurrent:        cfg.MaxConcurrentDownloads,
+		Semaphore:            make(chan struct{}, cfg.MaxConcurrentDownloads),
+		DownloadDir:          cfg.DownloadDir,
+		RcloneDest:           cfg.RcloneDest,
+		ConfigDir:            cfg.ConfigDir,
 		YTDLPSessions:        make(map[string]*YTDLPSession),
 		TorrentSessions:      make(map[string]*TorrentSession),
 		ShutdownChan:         make(chan struct{}),
@@ -221,7 +219,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, maxConcurrent int, downloadDir, rclone
 		}
 	}
 
-	for i := 0; i < maxConcurrent; i++ {
+	for i := 0; i < cfg.MaxConcurrentDownloads; i++ {
 		go tm.worker(i)
 	}
 

@@ -255,11 +255,11 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 }
 
 func showSearchResults(s *service.BotService, chatID int64, messageID int, sessionID string) {
-	SearchMu.RLock()
+	SearchMu.Lock()
 	session, exists := SearchSessions[sessionID]
-	SearchMu.RUnlock()
 
 	if !exists {
+		SearchMu.Unlock()
 		s.SendOrEditMessage(chatID, messageID, "❌ Sesi pencarian telah berakhir. Silakan cari ulang.", nil)
 		return
 	}
@@ -275,16 +275,21 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 		session.Page = totalPages - 1
 	}
 
-	start := session.Page * perPage
+	page := session.Page
+	start := page * perPage
 	end := start + perPage
 	if end > totalItems {
 		end = totalItems
 	}
 
-	visibleItems := session.Results[start:end]
+	visibleItems := make([]Result, end-start)
+	copy(visibleItems, session.Results[start:end])
+	provider := session.Provider
+	query := session.Query
+	SearchMu.Unlock()
 
-	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", utils.EscapeMarkdownV2(session.Provider), utils.EscapeMarkdownV2Code(session.Query))
-	text += fmt.Sprintf("📄 Halaman %d/%d\n\n", session.Page+1, totalPages)
+	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", utils.EscapeMarkdownV2(provider), utils.EscapeMarkdownV2Code(query))
+	text += fmt.Sprintf("📄 Halaman %d/%d\n\n", page+1, totalPages)
 
 	var rows [][]tgbotapi.InlineKeyboardButton
 	var numberKeyRow []tgbotapi.InlineKeyboardButton
@@ -308,9 +313,9 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 
 	var navRow []tgbotapi.InlineKeyboardButton
 	if totalPages > 1 {
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("t_page:%d:%s", session.Page-1, sessionID)))
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d/%d", session.Page+1, totalPages), "ignore"))
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("t_page:%d:%s", session.Page+1, sessionID)))
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("t_page:%d:%s", page-1, sessionID)))
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d/%d", page+1, totalPages), "ignore"))
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("t_page:%d:%s", page+1, sessionID)))
 	}
 	rows = append(rows, navRow)
 
@@ -327,7 +332,7 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 
 	if _, err := s.Bot.Send(editMsg); err != nil {
 		slog.Warn("Search results markdown error, using fallback", "error", err)
-		fallbackText := fmt.Sprintf("🔍 Hasil Pencarian (%s): %s\n\nHalaman %d/%d\n\n", session.Provider, session.Query, session.Page+1, totalPages)
+		fallbackText := fmt.Sprintf("🔍 Hasil Pencarian (%s): %s\n\nHalaman %d/%d\n\n", provider, query, page+1, totalPages)
 		for i, item := range visibleItems {
 			fallbackText += fmt.Sprintf("%d. %s\nSize: %s | Seeds: %s\n\n", start+i+1, item.Title, item.Size, item.Seeders)
 		}
@@ -348,14 +353,13 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 
 		SearchMu.RLock()
 		session, exists := SearchSessions[sessionID]
-		SearchMu.RUnlock()
-
 		if !exists {
+			SearchMu.RUnlock()
 			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
 			return
 		}
-
 		query := session.Query
+		SearchMu.RUnlock()
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🌟 Solid (Umum)", fmt.Sprintf("t_search:solid:%s", query)),
@@ -412,19 +416,22 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 
 		SearchMu.RLock()
 		session, exists := SearchSessions[sessionID]
-		SearchMu.RUnlock()
-
-		if !exists {
-			_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
-			return
-		}
-
-		if index < 0 || index >= len(session.Results) {
+		if !exists || index < 0 || index >= len(session.Results) {
+			SearchMu.RUnlock()
+			if !exists {
+				_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi berakhir"))
+			}
 			return
 		}
 
 		item := session.Results[index]
 		cleanMagnet := CleanMagnetLink(item.Magnet)
+		title := item.Title
+		size := item.Size
+		seeders := item.Seeders
+		source := item.Source
+		page := session.Page
+		SearchMu.RUnlock()
 
 		text := fmt.Sprintf("📄 *Detail Torrent*\n\n"+
 			"*Judul:* `%s`\n"+
@@ -433,16 +440,16 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			"*Source:* `%s`\n\n"+
 			"🧲 *Magnet Link:*\n`%s`\n\n"+
 			"Klik link di atas untuk menyalin atau reply dengan /mirror",
-			utils.EscapeMarkdownV2Code(item.Title),
-			utils.EscapeMarkdownV2Code(item.Size),
-			utils.EscapeMarkdownV2Code(item.Seeders),
-			utils.EscapeMarkdownV2Code(item.Source),
+			utils.EscapeMarkdownV2Code(title),
+			utils.EscapeMarkdownV2Code(size),
+			utils.EscapeMarkdownV2Code(seeders),
+			utils.EscapeMarkdownV2Code(source),
 			utils.EscapeMarkdownV2Code(cleanMagnet),
 		)
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_page:%d:%s", session.Page, sessionID)),
+				tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_page:%d:%s", page, sessionID)),
 				tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", fmt.Sprintf("t_close:%s", sessionID)),
 			),
 		)
@@ -453,7 +460,7 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 
 		if _, err := s.Bot.Send(editMsg); err != nil {
 			slog.Warn("Search item detail markdown error, using fallback", "error", err)
-			fallbackText := fmt.Sprintf("Detail Torrent:\n\n%s\nSize: %s\nMagnet:\n%s", item.Title, item.Size, cleanMagnet)
+			fallbackText := fmt.Sprintf("Detail Torrent:\n\n%s\nSize: %s\nMagnet:\n%s", title, size, cleanMagnet)
 			fallbackEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fallbackText)
 			fallbackEdit.ReplyMarkup = &keyboard
 			_, _ = s.Bot.Send(fallbackEdit)

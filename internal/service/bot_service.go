@@ -111,7 +111,7 @@ func NewBotService(bot *tgbotapi.BotAPI, cfg *config.Config, db repository.FullR
 		s.UpdateSharedDashboard(chatID, forceNew)
 	}
 
-	tm := NewTaskManager(bot, cfg.MaxConcurrentDownloads, cfg.DownloadDir, cfg.RcloneDest, cfg.ConfigDir, processFunc, refreshFunc, db, sqlDB)
+	tm := NewTaskManager(bot, cfg, processFunc, refreshFunc, db, sqlDB)
 	tm.StopDuplicate = cfg.StopDuplicate
 	s.TaskManager = tm
 
