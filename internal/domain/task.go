@@ -55,6 +55,8 @@ type Task struct {
 	Dest              string
 	Dest2             string
 	RemoteURL         string
+	TelegramFileID    string
+	TelegramFilePath  string
 	Error             string
 	Password          string
 	Quality           string
@@ -147,6 +149,8 @@ type TaskSnapshot struct {
 	Dest              string        `json:"dest,omitempty"`
 	Dest2             string        `json:"dest2,omitempty"`
 	RemoteURL         string        `json:"remoteURL"`
+	TelegramFileID    string        `json:"telegramFileID,omitempty"`
+	TelegramFilePath  string        `json:"telegramFilePath,omitempty"`
 	Error             string        `json:"error"`
 	Password          string        `json:"password"`
 	Quality           string        `json:"quality"`
@@ -191,6 +195,8 @@ func (t *Task) GetSnapshot() TaskSnapshot {
 		Dest:              t.Dest,
 		Dest2:             t.Dest2,
 		RemoteURL:         t.RemoteURL,
+		TelegramFileID:    t.TelegramFileID,
+		TelegramFilePath:  t.TelegramFilePath,
 		TotalSize:         t.TotalSize,
 		DownloadedSize:    t.DownloadedSize,
 		UploadedSize:      t.UploadedSize,
