@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"zee-mirror/pkg/i18n"
@@ -16,6 +17,7 @@ import (
 )
 
 var lastStatusText = make(map[int64]string)
+var sendMsgMu sync.Mutex
 
 func (s *BotService) HandleStatus(message *tgbotapi.Message) {
 	s.UpdateSharedDashboard(message.Chat.ID, true)
@@ -247,6 +249,9 @@ func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup
 }
 
 func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbotapi.InlineKeyboardMarkup, forceNew bool) {
+	sendMsgMu.Lock()
+	defer sendMsgMu.Unlock()
+
 	s.TaskManager.Mu.RLock()
 	lastMsgID, exists := s.TaskManager.LastStatusMsg[chatID]
 	s.TaskManager.Mu.RUnlock()
