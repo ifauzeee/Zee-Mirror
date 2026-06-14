@@ -856,8 +856,24 @@ func (s *Server) handleGetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type userWithStats struct {
+		domain.User
+		UsedTasks     int   `json:"usedTasks"`
+		UsedBandwidth int64 `json:"usedBandwidth"`
+	}
+
+	var result []userWithStats
+	for _, u := range users {
+		stats, _ := s.Service.DB.GetUserTodayStats(ctx, u.ID)
+		result = append(result, userWithStats{
+			User:          u,
+			UsedTasks:     stats.TotalTasks,
+			UsedBandwidth: stats.TotalBandwidth,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(users); err != nil {
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		slog.Error("Failed to encode users response", "error", err)
 	}
 }
