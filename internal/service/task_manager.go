@@ -780,12 +780,14 @@ func (t *Task) SetProgress(progress float64) {
 	})
 }
 
-func (t *Task) CompleteTelegramUpload(msgID int, uploadedSize int64) {
+func (t *Task) CompleteTelegramUpload(msgID int, uploadedSize int64, fileID, filePath string) {
 	t.Update(func() {
 		t.ResultMessageID = msgID
 		t.Progress = 100
 		t.UploadedSize = uploadedSize
 		t.RemotePath = "telegram"
+		t.TelegramFileID = fileID
+		t.TelegramFilePath = filePath
 	})
 }
 

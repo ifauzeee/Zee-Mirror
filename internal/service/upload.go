@@ -87,7 +87,30 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 	}
 	metrics.UploadDuration.WithLabelValues("telegram", "success").Observe(time.Since(startTime).Seconds())
 
-	task.CompleteTelegramUpload(sentMsg.MessageID, info.Size())
+	var fileID, tgFilePath string
+	switch {
+	case sentMsg.Document != nil:
+		fileID = sentMsg.Document.FileID
+	case sentMsg.Video != nil:
+		fileID = sentMsg.Video.FileID
+	case sentMsg.Audio != nil:
+		fileID = sentMsg.Audio.FileID
+	case sentMsg.Animation != nil:
+		fileID = sentMsg.Animation.FileID
+	default:
+		if len(sentMsg.Photo) > 0 {
+			fileID = sentMsg.Photo[0].FileID
+		}
+	}
+	if fileID != "" {
+		if tgFile, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID}); err == nil {
+			tgFilePath = tgFile.FilePath
+		} else {
+			slog.Warn("Failed to get Telegram file path", "error", err, "fileID", fileID)
+		}
+	}
+
+	task.CompleteTelegramUpload(sentMsg.MessageID, info.Size(), fileID, tgFilePath)
 
 	return nil
 }
