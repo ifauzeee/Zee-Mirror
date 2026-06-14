@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 
+	"zee-mirror/internal/domain"
 	"zee-mirror/internal/organizer"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -13,6 +14,20 @@ const (
 	BtnTextCloudLink = "☁️ Cloud Link"
 	BtnTextIndexURL  = "🌐 Index URL"
 )
+
+func isLeechType(t TaskType) bool {
+	return t == TypeLeech || t == TypeYTDLPLeech
+}
+
+func addLeechDownloadButton(keyboard tgbotapi.InlineKeyboardMarkup, snapshot domain.TaskSnapshot, botToken string) tgbotapi.InlineKeyboardMarkup {
+	if isLeechType(snapshot.Type) && snapshot.TelegramFilePath != "" {
+		row := tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonURL("📥 Download File", buildTelegramFileURL(botToken, snapshot.TelegramFilePath)),
+		)
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, row)
+	}
+	return keyboard
+}
 
 func (s *BotService) updateTaskStatus(task *Task) {
 	snapshot := task.GetSnapshot()
@@ -55,11 +70,13 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 			if s.Config.IndexURL != "" {
 				btnText = BtnTextIndexURL
 			}
-			photo.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 				),
 			)
+			k := addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
+			photo.ReplyMarkup = &k
 		}
 		sentMsg, sendErr := s.Bot.Send(photo)
 		if sendErr == nil {
@@ -97,7 +114,8 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 				),
 			)
-			editCaption.ReplyMarkup = &keyboard
+			k := addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
+			editCaption.ReplyMarkup = &k
 		}
 
 		if _, err := s.Bot.Send(editCaption); err == nil {
@@ -116,7 +134,8 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 				),
 			)
-			editText.ReplyMarkup = &keyboard
+			k := addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
+			editText.ReplyMarkup = &k
 		}
 
 		if _, err := s.Bot.Send(editText); err == nil {
@@ -139,7 +158,7 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 				tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
 			),
 		)
-		msg.ReplyMarkup = keyboard
+		msg.ReplyMarkup = addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
 	}
 
 	if sentMsg, err := s.Bot.Send(msg); err == nil {

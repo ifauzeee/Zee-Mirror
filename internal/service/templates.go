@@ -271,3 +271,7 @@ func GetSettingsKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 		),
 	)
 }
+
+func buildTelegramFileURL(botToken, filePath string) string {
+	return "https://api.telegram.org/file/bot" + botToken + "/" + filePath
+}
