@@ -114,6 +114,7 @@ func (s *BotService) processTask(task *Task) {
 }
 
 func (s *BotService) executeDownloadEngine(engine downloader.DownloadEngine, task *Task) {
+	slog.Info("Starting download engine", "taskID", task.ID, "type", task.Type, "url", task.URL)
 	task.SetStatus(StatusDownloading)
 	task.Update(func() {
 		task.StartedAt = time.Now()

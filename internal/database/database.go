@@ -36,16 +36,20 @@ func NewDB(driverName, configDir, dsn, migrationsDir string) (*DB, error) {
 	case "postgres":
 		return newPostgresDB(dsn, migrationsDir)
 	default:
-		return newSQLiteDB(configDir, migrationsDir)
+		return newSQLiteDB(configDir, dsn, migrationsDir)
 	}
 }
 
-func newSQLiteDB(configDir, migrationsDir string) (*DB, error) {
-	if err := os.MkdirAll(configDir, 0750); err != nil {
-		return nil, err
+func newSQLiteDB(configDir, dsn, migrationsDir string) (*DB, error) {
+	dbPath := dsn
+	if dbPath == "" {
+		dbPath = filepath.Join(configDir, "zee-mirror.db")
 	}
 
-	dbPath := filepath.Join(configDir, "zee-mirror.db")
+	dbDir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dbDir, 0750); err != nil {
+		return nil, err
+	}
 	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err

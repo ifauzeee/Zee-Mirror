@@ -256,24 +256,57 @@ func (s *BotService) HandleCreateTaskError(chatID int64, messageID int, err erro
 	}
 }
 func (s *BotService) GetFileWithFallback(fileID string) (tgbotapi.File, bool, error) {
-	tgFile, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
-	if err != nil && s.Config.TelegramAPI != "" {
-		slog.Warn("Failed to get file from local TG API, retrying with official API...", "error", err, "fileID", fileID)
+	type result struct {
+		file tgbotapi.File
+		err  error
+	}
 
+	type offResult struct {
+		file tgbotapi.File
+		err  error
+	}
+
+	done := make(chan result, 1)
+	go func() {
+		tgFile, err := s.Bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+		done <- result{file: tgFile, err: err}
+	}()
+
+	select {
+	case <-time.After(60 * time.Second):
+		slog.Warn("GetFile timed out from local TG API", "fileID", fileID)
+	case res := <-done:
+		if res.err == nil {
+			return res.file, false, nil
+		}
+		if s.Config.TelegramAPI == "" {
+			return res.file, false, res.err
+		}
+		slog.Warn("Failed to get file from local TG API, retrying with official API...", "error", res.err, "fileID", fileID)
+	}
+
+	offDone := make(chan offResult, 1)
+	go func() {
 		offBot, offErr := tgbotapi.NewBotAPI(s.Bot.Token)
 		if offErr != nil {
-			return tgFile, false, err
+			offDone <- offResult{err: offErr}
+			return
 		}
-
 		offFile, offErr := offBot.GetFile(tgbotapi.FileConfig{FileID: fileID})
-		if offErr != nil {
-			return tgFile, false, err
-		}
+		offDone <- offResult{file: offFile, err: offErr}
+	}()
 
-		slog.Info("Successfully retrieved file info from official API", "fileID", fileID, "path", offFile.FilePath)
-		return offFile, true, nil
+	select {
+	case <-time.After(60 * time.Second):
+		slog.Warn("GetFile timed out from official TG API", "fileID", fileID)
+		return tgbotapi.File{}, false, fmt.Errorf("timeout resolving Telegram file: %s", fileID)
+	case offRes := <-offDone:
+		if offRes.err != nil {
+			return tgbotapi.File{}, false, offRes.err
+		}
+		slog.Info("Successfully retrieved file info from official API", "fileID", fileID, "path", offRes.file.FilePath)
+		return offRes.file, true, nil
 	}
-	return tgFile, false, err
 }
 func (s *BotService) GetUserLanguage(userID int64) string {
 	user, err := s.DB.GetByID(context.Background(), userID)

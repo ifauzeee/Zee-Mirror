@@ -3,6 +3,8 @@ package service
 import (
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -15,6 +17,10 @@ type BotInstance struct {
 
 func InitBots(tokens []string, telegramAPI string) ([]*BotInstance, error) {
 	var instances []*BotInstance
+
+	httpClient := &http.Client{
+		Timeout: 90 * time.Second,
+	}
 
 	for i, token := range tokens {
 		token := token
@@ -34,6 +40,7 @@ func InitBots(tokens []string, telegramAPI string) ([]*BotInstance, error) {
 			continue
 		}
 
+		bot.Client = httpClient
 		bot.Debug = false
 
 		instances = append(instances, &BotInstance{

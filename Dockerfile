@@ -49,7 +49,7 @@ COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
 RUN chmod 755 /usr/bin/rclone
 
 RUN addgroup -S botgroup && adduser -D -G botgroup botuser
-RUN mkdir -p /app/downloads /app/config /home/botuser/.cache/yt-dlp && \
+RUN mkdir -p /app/downloads /app/config /app/data /home/botuser/.cache/yt-dlp && \
     chown -R botuser:botgroup /app /home/botuser
 
 WORKDIR /app
