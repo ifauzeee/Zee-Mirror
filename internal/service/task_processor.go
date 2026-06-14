@@ -147,6 +147,8 @@ func (s *BotService) executeDownloadEngine(engine downloader.DownloadEngine, tas
 		}
 	})
 
+	slog.Info("Download engine returned", "taskID", task.ID, "error", err)
+
 	if err != nil {
 		if task.Status == StatusCancelled || errors.Is(err, context.Canceled) {
 			slog.Info("Task interrupted or cancelled", "taskID", task.ID)
@@ -154,6 +156,14 @@ func (s *BotService) executeDownloadEngine(engine downloader.DownloadEngine, tas
 			return
 		}
 		if s.TaskManager.IsShuttingDown() {
+			return
+		}
+		categorizedErr := domain.CategorizeError(err)
+		if !domain.IsRetryable(categorizedErr) {
+			slog.Info("Non-retryable error, skipping retries", "taskID", task.ID, "error", err)
+			task.SetError(categorizedErr.Error())
+			s.updateTaskStatus(task)
+			s.cleanupTask(task)
 			return
 		}
 		if s.retryTask(task, err.Error()) {
@@ -174,12 +184,14 @@ func (s *BotService) executeDownloadEngine(engine downloader.DownloadEngine, tas
 }
 
 func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
+	slog.Info("HandlePostDownload called", "taskID", task.ID, "status", task.Status)
 	if task.Status == StatusCancelled {
 		s.cleanupTask(task)
 		return
 	}
 
 	task.LocalPath = findDownloadedFile(outputDir, task.Quality)
+	slog.Info("findDownloadedFile result", "taskID", task.ID, "localPath", task.LocalPath, "outputDir", outputDir)
 	if task.LocalPath == "" {
 		if task.Error == "" {
 			task.SetError("Downloaded file not found")
@@ -222,10 +234,13 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 
 	switch task.Type {
 	case TypeLeech, TypeYTDLPLeech:
+		slog.Info("Starting Telegram upload", "taskID", task.ID)
 		err = s.UploadToTelegram(task)
 	case TypeViking:
+		slog.Info("Starting Viking upload", "taskID", task.ID)
 		err = s.UploadToViking(task)
 	default:
+		slog.Info("Starting rclone upload", "taskID", task.ID, "localPath", task.LocalPath)
 		err = s.UploadWithRclone(task)
 	}
 

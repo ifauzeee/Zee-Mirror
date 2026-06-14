@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"html"
 	"net/url"
 	"os"
 	"strings"
@@ -143,7 +144,7 @@ func GetWelcomeMessage(lang, userName string) string {
 }
 
 func GetStatusHeader() string {
-	return fmt.Sprintf("📊 *STATUS TASK AKTIF*\n%s\n\n", LineSeparator)
+	return fmt.Sprintf("📊 <b>STATUS TASK AKTIF</b>\n%s\n\n", LineSeparator)
 }
 
 func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) string {
@@ -162,37 +163,37 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 
 	msgLine := ""
 	if taskSnapshot.ProcessingMessage != "" {
-		msgLine = fmt.Sprintf("💬 *Status:* _%s_\n", utils.EscapeMarkdownV2(taskSnapshot.ProcessingMessage))
+		msgLine = fmt.Sprintf("💬 <b>Status:</b> <i>%s</i>\n", html.EscapeString(taskSnapshot.ProcessingMessage))
 	} else if taskSnapshot.Status == domain.StatusDownloading && taskSnapshot.Progress >= 100 {
-		msgLine = "💬 *Status:* _Memproses file..._\n"
+		msgLine = "💬 <b>Status:</b> <i>Memproses file...</i>\n"
 	}
 
 	playlistInfo := ""
 	if taskSnapshot.PlaylistCount > 0 {
-		playlistInfo = fmt.Sprintf("📋 *Playlist:* \\[%d/%d\\]\n", taskSnapshot.PlaylistIndex, taskSnapshot.PlaylistCount)
+		playlistInfo = fmt.Sprintf("📋 <b>Playlist:</b> [%d/%d]\n", taskSnapshot.PlaylistIndex, taskSnapshot.PlaylistCount)
 	}
 
 	return fmt.Sprintf(
-		"🏷️ *ID:* `%s` • %s *%s*\n"+
+		"🏷️ <b>ID:</b> <code>%s</code> • %s <b>%s</b>\n"+
 			"%s\n"+
 			"%s"+
 			"%s"+
-			"📄 *File:* `%s`\n"+
-			"📦 *Size:* `%s / %s`\n"+
-			"⚡ *Speed:* `%s` • ⏱️ *ETA:* `%s`\n"+
-			"🚫 *Cancel:* /cancel\\_%s\n",
-		utils.EscapeMarkdownV2Code(taskSnapshot.ID),
+			"📄 <b>File:</b> <code>%s</code>\n"+
+			"📦 <b>Size:</b> <code>%s / %s</code>\n"+
+			"⚡ <b>Speed:</b> <code>%s</code> • ⏱️ <b>ETA:</b> <code>%s</code>\n"+
+			"🚫 <b>Cancel:</b> /cancel_%s\n",
+		html.EscapeString(taskSnapshot.ID),
 		emoji,
-		utils.EscapeMarkdownV2(i18n.T(lang, strings.ToLower(string(taskSnapshot.Status)))),
-		utils.EscapeMarkdownV2(bar),
+		html.EscapeString(i18n.T(lang, strings.ToLower(string(taskSnapshot.Status)))),
+		bar,
 		msgLine,
 		playlistInfo,
-		utils.EscapeMarkdownV2Code(utils.TruncateString(taskSnapshot.FileName, 35)),
-		utils.EscapeMarkdownV2Code(utils.FormatBytes(processedSize)),
-		utils.EscapeMarkdownV2Code(totalSizeStr),
-		utils.EscapeMarkdownV2Code(utils.FormatSpeed(taskSnapshot.Speed)),
-		utils.EscapeMarkdownV2Code(utils.FormatDuration(taskSnapshot.ETA)),
-		utils.EscapeMarkdownV2(taskSnapshot.ID),
+		html.EscapeString(utils.TruncateString(taskSnapshot.FileName, 35)),
+		html.EscapeString(utils.FormatBytes(processedSize)),
+		html.EscapeString(totalSizeStr),
+		html.EscapeString(utils.FormatSpeed(taskSnapshot.Speed)),
+		html.EscapeString(utils.FormatDuration(taskSnapshot.ETA)),
+		html.EscapeString(taskSnapshot.ID),
 	)
 }
 

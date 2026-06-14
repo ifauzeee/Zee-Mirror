@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"html"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -70,7 +72,9 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 			msg := tgbotapi.NewMessage(chatID, i18n.T(lang, "no_active_tasks"))
 			msg.ParseMode = MarkdownV2
 			sentMsg, err := s.Bot.Send(msg)
-			if err == nil {
+			if err != nil {
+				slog.Error("Failed to send no_active_tasks message", "error", err, "chatID", chatID)
+			} else {
 				s.AutoDeleteMessage(chatID, sentMsg.MessageID, 30*time.Second)
 			}
 		}
@@ -95,9 +99,9 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 
 	shouldUpdate := forceNew ||
 		totalTasks != lastCount ||
-		time.Since(lastUpdateAt) >= 1*time.Second ||
-		(currentProgressSum-lastProgressSum) >= 1.0 ||
-		(lastProgressSum-currentProgressSum) >= 1.0
+		time.Since(lastUpdateAt) >= 3*time.Second ||
+		(currentProgressSum-lastProgressSum) >= 5.0 ||
+		(lastProgressSum-currentProgressSum) >= 5.0
 
 	if !shouldUpdate {
 		tm.Mu.Unlock()
@@ -176,13 +180,13 @@ func (s *BotService) buildStatusDashboardText(lang string, tasks []*Task, batche
 			visibleBatchesCount++
 			batch.Mu.RLock()
 			emoji := utils.StatusEmoji(string(batch.Status))
-			batchID := utils.EscapeMarkdownV2(batch.ID)
-			text += fmt.Sprintf("📦 *Batch:* `%s` • %s *%s*\n"+
-				"📈 *Progres:* `%.1f%%` \\(%d/%d\\)\n"+
-				"🚫 *Cancel:* /cancel\\_%s\n\n",
+			batchID := html.EscapeString(batch.ID)
+			text += fmt.Sprintf("📦 <b>Batch:</b> <code>%s</code> • %s <b>%s</b>\n"+
+				"📈 <b>Progres:</b> <code>%.1f%%</code> (%d/%d)\n"+
+				"🚫 <b>Cancel:</b> /cancel_%s\n\n",
 				batchID,
 				emoji,
-				utils.EscapeMarkdownV2(utils.FormatStatus(string(batch.Status))),
+				html.EscapeString(utils.FormatStatus(string(batch.Status))),
 				batch.Progress,
 				batch.Completed,
 				len(batch.SubTasks),
@@ -199,13 +203,13 @@ func (s *BotService) buildStatusDashboardText(lang string, tasks []*Task, batche
 	totalPages := calculateTotalPages(totalTasks)
 	text += CompactSeparator + "\n"
 	if totalPages > 1 {
-		text += fmt.Sprintf("📄 *Halaman:* %d/%d • ", page+1, totalPages)
+		text += fmt.Sprintf("📄 <b>Halaman:</b> %d/%d • ", page+1, totalPages)
 	}
 
 	if len(batches) > 0 {
-		text += fmt.Sprintf("_Active: %d batches, %d regular tasks_", len(batches), visibleTasksCount)
+		text += fmt.Sprintf("<i>Active: %d batches, %d regular tasks</i>", len(batches), visibleTasksCount)
 	} else {
-		text += fmt.Sprintf("_Total: %d task aktif_", visibleTasksCount)
+		text += fmt.Sprintf("<i>Total: %d task aktif</i>", visibleTasksCount)
 	}
 
 	return text
@@ -259,8 +263,9 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 			return
 		}
 
+		slog.Debug("Editing dashboard message", "chatID", chatID, "msgID", lastMsgID, "text", text)
 		editMsg := tgbotapi.NewEditMessageText(chatID, lastMsgID, text)
-		editMsg.ParseMode = MarkdownV2
+		editMsg.ParseMode = "HTML"
 		editMsg.ReplyMarkup = &keyboard
 		if _, err := s.Bot.Send(editMsg); err == nil {
 			lastStatusText[chatID] = text
@@ -268,22 +273,30 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 		} else if strings.Contains(err.Error(), "message is not modified") {
 			lastStatusText[chatID] = text
 			return
+		} else {
+			slog.Warn("Failed to edit status message, falling back to new message", "error", err, "chatID", chatID)
 		}
 	}
 
 	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = MarkdownV2
+	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = keyboard
 	sentMsg, err := s.Bot.Send(msg)
-	if err == nil {
-		s.TaskManager.Mu.Lock()
-		s.TaskManager.LastStatusMsg[chatID] = sentMsg.MessageID
-		s.TaskManager.Mu.Unlock()
-		lastStatusText[chatID] = text
-
-		key := fmt.Sprintf("dashboard_msg_%d", chatID)
-		_ = s.SettingsRepo.Set(context.Background(), key, fmt.Sprintf("%d", sentMsg.MessageID))
+	if err != nil {
+		logText := text
+		if len(logText) > 500 {
+			logText = logText[:500]
+		}
+		slog.Error("Failed to send status dashboard message", "error", err, "chatID", chatID, "text", logText)
+		return
 	}
+	s.TaskManager.Mu.Lock()
+	s.TaskManager.LastStatusMsg[chatID] = sentMsg.MessageID
+	s.TaskManager.Mu.Unlock()
+	lastStatusText[chatID] = text
+
+	key := fmt.Sprintf("dashboard_msg_%d", chatID)
+	_ = s.SettingsRepo.Set(context.Background(), key, fmt.Sprintf("%d", sentMsg.MessageID))
 }
 
 func (s *BotService) HandleCancel(message *tgbotapi.Message, args string) {

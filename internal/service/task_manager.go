@@ -720,9 +720,7 @@ func (t *Task) UpdateFromProgressUpdate(up downloader.ProgressUpdate) {
 		if up.Speed != 0 {
 			t.Speed = up.Speed
 		}
-		if up.Progress != 0 {
-			t.Progress = up.Progress
-		}
+		t.Progress = up.Progress
 		if up.Connections != 0 {
 			t.Connections = up.Connections
 		}
@@ -756,6 +754,9 @@ func (t *Task) UpdateFromUploadProgress(up uploader.ProgressUpdate) {
 		}
 		if up.ETA > 0 {
 			t.ETA = up.ETA
+		}
+		if up.Error != "" {
+			t.Error = up.Error
 		}
 	})
 }

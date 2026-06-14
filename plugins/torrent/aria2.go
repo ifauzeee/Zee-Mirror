@@ -96,6 +96,14 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 					task.GID = gid
 					continue
 				}
+				finalUpdate := downloader.ProgressUpdate{
+					Downloaded: utils.ParseBytesString(status.TotalLength),
+					Total:      utils.ParseBytesString(status.TotalLength),
+					Progress:   100,
+					Speed:      0,
+					ETA:        0,
+				}
+				onProgress(finalUpdate)
 				return nil
 			}
 
@@ -125,8 +133,8 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 }
 
 func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map[string]interface{} {
-	connections := "16"
-	split := "32"
+	connections := "4"
+	split := "4"
 
 	if task.TotalSize > 0 {
 		switch {

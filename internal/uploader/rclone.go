@@ -31,6 +31,7 @@ type ProgressUpdate struct {
 	Progress     float64
 	Speed        int64
 	ETA          time.Duration
+	Error        string
 }
 
 type FileUploader interface {
@@ -132,14 +133,47 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 	}
 
 	done := make(chan struct{})
+	progressDone := make(chan struct{})
+	lastActivity := time.Now()
+	var activityMu sync.Mutex
 
-	go r.estimateUploadProgress(totalSize, onProgress, done)
+	go r.estimateUploadProgress(totalSize, onProgress, progressDone)
 
-	go r.parseRcloneProgress(task.ID, stderrPipe, onProgress)
-	go r.parseRcloneProgress(task.ID, stdoutPipe, onProgress)
+	wrappedOnProgress := func(up ProgressUpdate) {
+		activityMu.Lock()
+		lastActivity = time.Now()
+		activityMu.Unlock()
+		onProgress(up)
+	}
+
+	go r.parseRcloneProgress(task.ID, stderrPipe, wrappedOnProgress)
+	go r.parseRcloneProgress(task.ID, stdoutPipe, wrappedOnProgress)
+
+	progressTimeout := 3 * time.Minute
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				activityMu.Lock()
+				stuckFor := time.Since(lastActivity)
+				activityMu.Unlock()
+				if stuckFor > progressTimeout {
+					slog.Error("Rclone upload stuck - no progress for too long, cancelling", "taskID", task.ID, "stuckFor", stuckFor)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
 
 	err = cmd.Wait()
 	close(done)
+	close(progressDone)
 
 	if err != nil {
 		metrics.UploadDuration.WithLabelValues("rclone", "failed").Observe(time.Since(startTime).Seconds())
@@ -619,8 +653,18 @@ func (r *RcloneUploader) parseRcloneProgress(taskID string, reader io.ReadCloser
 		}
 
 		lineCount++
-		if lineCount <= 10 {
+		if lineCount <= 20 {
 			slog.Info("Rclone raw output", "taskID", taskID, "line", line)
+		}
+
+		lowerLine := strings.ToLower(line)
+		if strings.Contains(lowerLine, "token expired") ||
+			strings.Contains(lowerLine, "invalid_grant") ||
+			strings.Contains(lowerLine, "unauthorized") ||
+			strings.Contains(lowerLine, "token_has_expired") ||
+			strings.Contains(lowerLine, "oauth2") && strings.Contains(lowerLine, "error") {
+			slog.Error("Rclone auth error detected", "taskID", taskID, "line", line)
+			onProgress(ProgressUpdate{Error: "Rclone token expired! Refresh token dengan: docker exec -it zee-mirror-bot rclone config"})
 		}
 
 		allMatches := segmentRegex.FindAllStringSubmatch(line, -1)
