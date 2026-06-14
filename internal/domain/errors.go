@@ -17,6 +17,7 @@ var (
 	ErrInvalidQuality = errors.New("invalid media quality")
 	ErrTaskCancelled  = errors.New("task was cancelled")
 	ErrTaskFailed     = errors.New("task execution failed")
+	ErrLinkExpired    = errors.New("link expired or invalid")
 
 	ErrNetwork  = errors.New("network error")
 	ErrStorage  = errors.New("storage error")
@@ -65,6 +66,16 @@ func (e *QuotaError) Unwrap() error {
 	return ErrQuota
 }
 
+func IsRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrLinkExpired) || errors.Is(err, ErrNotFound) || errors.Is(err, ErrAuth) || errors.Is(err, ErrInvalidInput) {
+		return false
+	}
+	return true
+}
+
 func CategorizeError(err error) error {
 	if err == nil {
 		return nil
@@ -80,6 +91,8 @@ func CategorizeError(err error) error {
 	errMsg := strings.ToLower(err.Error())
 
 	switch {
+	case strings.Contains(errMsg, "status=618"), strings.Contains(errMsg, "link expired"), strings.Contains(errMsg, "token expired"):
+		return fmt.Errorf("%w: %v", ErrLinkExpired, err)
 	case strings.Contains(errMsg, "404"), strings.Contains(errMsg, "not found"):
 		return fmt.Errorf("%w: %v", ErrNotFound, err)
 	case strings.Contains(errMsg, "403"), strings.Contains(errMsg, "unauthorized"), strings.Contains(errMsg, "forbidden"):
@@ -113,6 +126,9 @@ func GetUserMessage(err error) string {
 	}
 	if errors.Is(err, ErrNotFound) {
 		return "🔍 File atau resource tidak ditemukan."
+	}
+	if errors.Is(err, ErrLinkExpired) {
+		return "🔗 Link sudah kedaluwarsa atau tidak valid. Silakan gunakan link baru."
 	}
 	if errors.Is(err, ErrInvalidInput) {
 		return "❓ Input tidak valid. Periksa kembali perintah Anda."

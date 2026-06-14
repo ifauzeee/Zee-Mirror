@@ -30,18 +30,15 @@ func (d *Aria2Daemon) Start() error {
 	slog.Info("Starting aria2c daemon...")
 
 	sessionPath := filepath.Join(d.ConfigDir, "aria2.session")
-	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
-		_ = os.WriteFile(sessionPath, []byte(""), 0600)
-	}
+	_ = os.WriteFile(sessionPath, []byte(""), 0600)
 
 	args := []string{
 		"--enable-rpc",
 		"--rpc-listen-all=false",
 		"--rpc-listen-port=6800",
-		"--input-file=" + sessionPath,
 		"--save-session=" + sessionPath,
 		"--save-session-interval=60",
-		"--max-concurrent-downloads=10",
+		"--max-concurrent-downloads=3",
 		"--check-certificate=false",
 	}
 

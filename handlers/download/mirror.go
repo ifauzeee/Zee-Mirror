@@ -70,9 +70,19 @@ func HandleMirror(s *service.BotService, message *tgbotapi.Message, args string)
 				task.Dest2 = parts[1]
 			}
 		}
+		slog.Info("Mirror task created", "taskID", task.ID, "url", url)
+
+		confirmMsg := tgbotapi.NewMessage(message.Chat.ID,
+			service.GetSuccessMessage("TASK QUEUED",
+				fmt.Sprintf("Task: `%s`\nFile: `%s`",
+					task.ID, utils.EscapeMarkdownV2(fileName))))
+		confirmMsg.ParseMode = tgbotapi.ModeMarkdownV2
+		if _, err := s.Bot.Send(confirmMsg); err != nil {
+			slog.Error("Failed to send mirror confirmation", "error", err, "taskID", task.ID)
+		}
+
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.HandleAutoDelete(task)
-		slog.Info("Mirror task created", "taskID", task.ID, "url", url)
 		return
 	}
 
@@ -139,9 +149,19 @@ func HandleLeech(s *service.BotService, message *tgbotapi.Message, args string) 
 				task.Dest2 = parts[1]
 			}
 		}
+		slog.Info("Leech task created", "taskID", task.ID, "url", url)
+
+		confirmMsg := tgbotapi.NewMessage(message.Chat.ID,
+			service.GetSuccessMessage("TASK QUEUED",
+				fmt.Sprintf("Task: `%s`\nFile: `%s`",
+					task.ID, utils.EscapeMarkdownV2(fileName))))
+		confirmMsg.ParseMode = tgbotapi.ModeMarkdownV2
+		if _, err := s.Bot.Send(confirmMsg); err != nil {
+			slog.Error("Failed to send leech confirmation", "error", err, "taskID", task.ID)
+		}
+
 		s.UpdateSharedDashboard(message.Chat.ID, true)
 		s.HandleAutoDelete(task)
-		slog.Info("Leech task created", "taskID", task.ID, "url", url)
 	}
 }
 
