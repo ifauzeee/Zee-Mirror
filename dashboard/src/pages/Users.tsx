@@ -216,15 +216,40 @@ const Users: React.FC<UsersProps> = ({ apiToken }) => {
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex flex-col items-center gap-1">
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                          Tasks: {user.maxDailyTasks === -1 ? '∞' : user.maxDailyTasks}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          BW:{' '}
-                          {user.maxDailyBandwidth === -1
-                            ? '∞'
-                            : formatBytes(user.maxDailyBandwidth)}
-                        </span>
+                        {user.maxDailyTasks === -1 ? (
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                            Tasks: {user.usedTasks ?? 0} / ∞
+                          </span>
+                        ) : (
+                          <div className="flex flex-col items-center gap-0.5 w-full">
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                              Tasks: {user.usedTasks ?? 0} / {user.maxDailyTasks}
+                            </span>
+                            <div className="w-24 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary rounded-full transition-all"
+                                style={{ width: `${Math.min(100, ((user.usedTasks ?? 0) / user.maxDailyTasks) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {user.maxDailyBandwidth === -1 ? (
+                          <span className="text-[10px] font-bold text-slate-400">
+                            BW: {formatBytes(user.usedBandwidth ?? 0)} / ∞
+                          </span>
+                        ) : (
+                          <div className="flex flex-col items-center gap-0.5 w-full">
+                            <span className="text-[10px] font-bold text-slate-400">
+                              BW: {formatBytes(user.usedBandwidth ?? 0)} / {formatBytes(user.maxDailyBandwidth)}
+                            </span>
+                            <div className="w-24 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-indigo-500 rounded-full transition-all"
+                                style={{ width: `${Math.min(100, ((user.usedBandwidth ?? 0) / user.maxDailyBandwidth) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-6">

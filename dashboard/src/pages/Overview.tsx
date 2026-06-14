@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   Activity,
   Download,
@@ -13,7 +14,7 @@ import TaskRow from '../components/Task/TaskRow'
 import HealthBar from '../components/Stats/HealthBar'
 import StatusItem from '../components/Stats/StatusItem'
 import { formatBytes } from '../utils/format'
-import { Task, Stats, SystemMetrics } from '../types'
+import { Task, Stats, SystemMetrics, User } from '../types'
 
 interface OverviewProps {
   tasks: Task[]
@@ -21,9 +22,18 @@ interface OverviewProps {
   system: SystemMetrics
   onCancelTask: (id: string) => void
   setActiveTab: (tab: string) => void
+  apiToken: string
 }
 
-const Overview: React.FC<OverviewProps> = ({ tasks, stats, system, onCancelTask, setActiveTab }) => {
+const Overview: React.FC<OverviewProps> = ({ tasks, stats, system, onCancelTask, setActiveTab, apiToken }) => {
+  const [users, setUsers] = useState<User[]>([])
+  useEffect(() => {
+    if (!apiToken) return
+    fetch('/api/users', { headers: { 'X-API-Key': apiToken } })
+      .then(res => res.json())
+      .then(data => setUsers(data || []))
+      .catch(() => {})
+  }, [apiToken])
   return (
     <div className="space-y-16 relative z-10 animate-in fade-in zoom-in-95 duration-1000">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -55,6 +65,35 @@ const Overview: React.FC<OverviewProps> = ({ tasks, stats, system, onCancelTask,
           subLabel="Secure Edge Points"
           color="green"
         />
+      </div>
+
+      {/* Quota summary card */}
+      <div className="bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl rounded-3xl border border-slate-200 dark:border-white/5 shadow-2xl shadow-black/5 p-8">
+        <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight mb-6">
+          Today's Quota Usage
+        </h3>
+        <div className="space-y-4">
+          {users.filter(u => u.maxDailyTasks !== -1 || u.maxDailyBandwidth !== -1).length > 0 ? (
+            users.filter(u => u.maxDailyTasks !== -1 || u.maxDailyBandwidth !== -1).map((user) => (
+              <div key={user.id} className="space-y-2">
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-slate-600 dark:text-slate-300">{user.username || `User ${user.id}`}</span>
+                  <span className="text-slate-400">
+                    Tasks: {user.usedTasks ?? 0}/{user.maxDailyTasks === -1 ? '∞' : user.maxDailyTasks}
+                    {user.maxDailyBandwidth !== -1 && ` • BW: ${formatBytes(user.usedBandwidth ?? 0)}/${formatBytes(user.maxDailyBandwidth)}`}
+                  </span>
+                </div>
+                {user.maxDailyTasks !== -1 && (
+                  <div className="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.min(100, ((user.usedTasks ?? 0) / user.maxDailyTasks) * 100)}%` }} />
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-slate-400">All users have unlimited quota.</p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">

@@ -34,6 +34,8 @@ export interface User {
     maxDailyTasks: number
     maxDailyBandwidth: number
     expiresAt?: { Valid: boolean; Time: string }
+    usedTasks?: number
+    usedBandwidth?: number
 }
 
 export interface FileItem {

@@ -264,6 +264,7 @@ const App = () => {
               system={system}
               onCancelTask={cancelTask}
               setActiveTab={() => { }}
+              apiToken={apiToken}
             />
           ),
         },
