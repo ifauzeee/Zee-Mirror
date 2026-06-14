@@ -55,6 +55,15 @@ func (tr *TaskRecovery) RecoverIncompleteTasks() error {
 			continue
 		}
 
+		tr.TaskManager.Mu.RLock()
+		_, alreadyExists := tr.TaskManager.Tasks[record.ID]
+		tr.TaskManager.Mu.RUnlock()
+		if alreadyExists {
+			slog.Info("Skipping already loaded task", "taskID", record.ID)
+			skipped++
+			continue
+		}
+
 		task := tr.createTaskFromRecord(record)
 		if task == nil {
 			skipped++

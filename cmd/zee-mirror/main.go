@@ -302,19 +302,33 @@ func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, botSvc
 					_, _ = botSvc.Bot.Send(msg)
 					continue
 				}
-				go r.HandleMessage(update.Message)
-			} else if update.CallbackQuery != nil {
-				data := update.CallbackQuery.Data
-				isHelp := strings.HasPrefix(data, "help:")
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Error("PANIC in message handler", "recover", r, "user", update.Message.From.ID, "text", update.Message.Text)
+					}
+				}()
+				r.HandleMessage(update.Message)
+			}()
+		} else if update.CallbackQuery != nil {
+			data := update.CallbackQuery.Data
+			isHelp := strings.HasPrefix(data, "help:")
 
-				if !botSvc.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
-					slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
+			if !botSvc.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
+				slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
 
-					cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
-					_, _ = botSvc.Bot.Request(cb)
-					continue
-				}
-				go r.HandleCallback(update.CallbackQuery)
+				cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
+				_, _ = botSvc.Bot.Request(cb)
+				continue
+			}
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Error("PANIC in callback handler", "recover", r, "user", update.CallbackQuery.From.ID, "data", data)
+					}
+				}()
+				r.HandleCallback(update.CallbackQuery)
+			}()
 			}
 		}
 	}
