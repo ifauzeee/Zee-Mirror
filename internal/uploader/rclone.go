@@ -136,8 +136,13 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 	progressDone := make(chan struct{})
 	lastActivity := time.Now()
 	var activityMu sync.Mutex
+	var estimateWg sync.WaitGroup
 
-	go r.estimateUploadProgress(totalSize, onProgress, progressDone)
+	estimateWg.Add(1)
+	go func() {
+		defer estimateWg.Done()
+		r.estimateUploadProgress(totalSize, onProgress, progressDone)
+	}()
 
 	wrappedOnProgress := func(up ProgressUpdate) {
 		activityMu.Lock()
@@ -174,6 +179,7 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 	err = cmd.Wait()
 	close(done)
 	close(progressDone)
+	estimateWg.Wait()
 
 	if err != nil {
 		metrics.UploadDuration.WithLabelValues("rclone", "failed").Observe(time.Since(startTime).Seconds())

@@ -242,11 +242,11 @@ func (tm *TaskManager) startAutoRefresh() {
 		case <-tm.ShutdownChan:
 			return
 		case <-ticker.C:
-			if tm.StatusMu.TryLock() {
-				if len(tm.LastStatusMsg) > 0 {
-					tm.refreshActiveDashboards()
-				}
-				tm.StatusMu.Unlock()
+			tm.Mu.RLock()
+			hasActive := len(tm.LastStatusMsg) > 0
+			tm.Mu.RUnlock()
+			if hasActive {
+				tm.refreshActiveDashboards()
 			}
 		}
 	}

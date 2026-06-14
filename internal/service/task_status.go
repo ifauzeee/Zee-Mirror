@@ -33,7 +33,7 @@ func (s *BotService) updateTaskStatus(task *Task) {
 	snapshot := task.GetSnapshot()
 
 	if snapshot.Status != StatusCompleted && snapshot.Status != StatusFailed && snapshot.Status != StatusCancelled {
-		s.UpdateSharedDashboard(snapshot.ChatID, false)
+		s.UpdateSharedDashboardNonBlocking(snapshot.ChatID, false, true)
 		return
 	}
 

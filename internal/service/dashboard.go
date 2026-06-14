@@ -22,8 +22,17 @@ func (s *BotService) HandleStatus(message *tgbotapi.Message) {
 }
 
 func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
-	s.TaskManager.StatusMu.Lock()
-	defer s.TaskManager.StatusMu.Unlock()
+	s.UpdateSharedDashboardNonBlocking(chatID, forceNew, false)
+}
+
+func (s *BotService) UpdateSharedDashboardNonBlocking(chatID int64, forceNew bool, nonBlocking bool) {
+	if nonBlocking {
+		if !s.TaskManager.StatusMu.TryLock() {
+			return
+		}
+	} else {
+		s.TaskManager.StatusMu.Lock()
+	}
 
 	tm := s.TaskManager
 	tm.Mu.RLock()
@@ -67,6 +76,8 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 			_ = s.SettingsRepo.Set(context.Background(), fmt.Sprintf("dashboard_msg_%d", chatID), "")
 		}
 		tm.Mu.Unlock()
+		s.TaskManager.StatusMu.Unlock()
+
 		if forceNew {
 			lang := s.GetUserLanguage(chatID)
 			msg := tgbotapi.NewMessage(chatID, i18n.T(lang, "no_active_tasks"))
@@ -105,6 +116,7 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 
 	if !shouldUpdate {
 		tm.Mu.Unlock()
+		s.TaskManager.StatusMu.Unlock()
 		return
 	}
 
@@ -117,6 +129,9 @@ func (s *BotService) UpdateSharedDashboard(chatID int64, forceNew bool) {
 	text := s.buildStatusDashboardText(lang, tasks, batches, page)
 	totalPages := (totalTasks + 4) / 5
 	keyboard := buildNavigationKeyboard(page, totalPages)
+
+	// Release StatusMu BEFORE sending Telegram message to prevent deadlock
+	s.TaskManager.StatusMu.Unlock()
 
 	s.sendStatusMessage(chatID, text, keyboard, forceNew)
 }
