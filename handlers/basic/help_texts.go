@@ -1,8 +1,30 @@
 package basic
 
-import "zee-mirror/internal/service"
+import (
+	"sort"
+	"strings"
+	"zee-mirror/internal/service"
+)
 
-func getHelpMirror() string {
+type HelpCommandEntry struct {
+	Name        string
+	Aliases     []string
+	Description string
+	Category    string
+	Emoji       string
+}
+
+var registeredCommands []HelpCommandEntry
+
+func SetRegisteredCommands(commands []HelpCommandEntry) {
+	registeredCommands = commands
+}
+
+func GetRegisteredCommands() []HelpCommandEntry {
+	return registeredCommands
+}
+
+func GetHelpMirror() string {
 	return service.HelpDetailMessage(
 		"📥 MIRROR",
 		"Upload file dari URL langsung ke Google Drive\\.\nFile akan disimpan di cloud storage tanpa menyimpan di server\\.",
@@ -12,7 +34,7 @@ func getHelpMirror() string {
 	)
 }
 
-func getHelpLeech() string {
+func GetHelpLeech() string {
 	return service.HelpDetailMessage(
 		"📤 LEECH",
 		"Download file dari URL ke server bot\\.\nFile akan dikirim langsung ke chat Telegram setelah selesai\\.",
@@ -22,7 +44,7 @@ func getHelpLeech() string {
 	)
 }
 
-func getHelpYTDLP() string {
+func GetHelpYTDLP() string {
 	return service.HelpDetailMessage(
 		"🎬 YT-DLP MIRROR",
 		"Download video/audio dari 1000\\+ situs langsung ke Drive\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
@@ -32,7 +54,7 @@ func getHelpYTDLP() string {
 	)
 }
 
-func getHelpYTDLPLeech() string {
+func GetHelpYTDLPLeech() string {
 	return service.HelpDetailMessage(
 		"🎬 YT-DLP LEECH",
 		"Download video/audio dari 1000\\+ situs langsung ke Telegram\\.\nSupport: YouTube, TikTok, Twitter/X, Instagram, Facebook, Vimeo, dll\\.",
@@ -42,7 +64,7 @@ func getHelpYTDLPLeech() string {
 	)
 }
 
-func getHelpViking() string {
+func GetHelpViking() string {
 	return service.HelpDetailMessage(
 		"⚔️ VIKING FILE",
 		"Download dari URL dan upload ke ViKiNG FiLE\\.\nSupport anonymous upload atau user upload jika hash di-set\\.",
@@ -52,7 +74,7 @@ func getHelpViking() string {
 	)
 }
 
-func getHelpTorrent() string {
+func GetHelpTorrent() string {
 	return service.HelpDetailMessage(
 		"🧲 TORRENT",
 		"Download file via magnet link atau file torrent \\(\\.torrent\\)\\.\nBot akan otomatis mendeteksi jika Anda mengirim magnet link tanpa command\\.",
@@ -62,7 +84,7 @@ func getHelpTorrent() string {
 	)
 }
 
-func getHelpClone() string {
+func GetHelpClone() string {
 	return service.HelpDetailMessage(
 		"📋 CLONE",
 		"Clone/salin file atau folder dari Google Drive ke Drive tujuan\\.",
@@ -72,7 +94,7 @@ func getHelpClone() string {
 	)
 }
 
-func getHelpBatch() string {
+func GetHelpBatch() string {
 	return service.HelpDetailMessage(
 		"📦 BATCH",
 		"Download multiple URLs sekaligus dalam satu batch\\.",
@@ -82,7 +104,7 @@ func getHelpBatch() string {
 	)
 }
 
-func getHelpSearch() string {
+func GetHelpSearch() string {
 	return service.HelpDetailMessage(
 		"🔍 SEARCH",
 		"Cari torrent dari berbagai sumber/tracker\\.",
@@ -92,7 +114,7 @@ func getHelpSearch() string {
 	)
 }
 
-func getHelpStatus() string {
+func GetHelpStatus() string {
 	return service.HelpDetailMessage(
 		"📊 STATUS",
 		"Melihat semua task yang sedang aktif \\(download/upload\\)\\.",
@@ -102,7 +124,7 @@ func getHelpStatus() string {
 	)
 }
 
-func getHelpStats() string {
+func GetHelpStats() string {
 	return service.HelpDetailMessage(
 		"📈 STATS",
 		"Melihat statistik penggunaan bot\\.",
@@ -112,7 +134,7 @@ func getHelpStats() string {
 	)
 }
 
-func getHelpSystem() string {
+func GetHelpSystem() string {
 	return service.HelpDetailMessage(
 		"🖥️ SYSTEM",
 		"Melihat informasi lengkap sistem server\\.",
@@ -122,7 +144,7 @@ func getHelpSystem() string {
 	)
 }
 
-func getHelpHealth() string {
+func GetHelpHealth() string {
 	return service.HelpDetailMessage(
 		"🏥 HEALTH",
 		"Mengecek kesehatan semua komponen bot\\.",
@@ -132,7 +154,7 @@ func getHelpHealth() string {
 	)
 }
 
-func getHelpLogs() string {
+func GetHelpLogs() string {
 	return service.HelpDetailMessage(
 		"📜 LOGS",
 		"Melihat log aktivitas bot\\.",
@@ -142,7 +164,7 @@ func getHelpLogs() string {
 	)
 }
 
-func getHelpPing() string {
+func GetHelpPing() string {
 	return service.HelpDetailMessage(
 		"🏓 PING",
 		"Mengecek latency/response time bot\\.",
@@ -152,7 +174,7 @@ func getHelpPing() string {
 	)
 }
 
-func getHelpSpeed() string {
+func GetHelpSpeed() string {
 	return service.HelpDetailMessage(
 		"🚀 SPEED",
 		"Test kecepatan internet server\\.",
@@ -162,7 +184,7 @@ func getHelpSpeed() string {
 	)
 }
 
-func getHelpLs() string {
+func GetHelpLs() string {
 	return service.HelpDetailMessage(
 		"📂 LIST (LS / DIR)",
 		"Melihat isi folder di cloud storage\\.\nPerintah ini mendukung navigasi interaktif melalui tombol\\.",
@@ -172,7 +194,7 @@ func getHelpLs() string {
 	)
 }
 
-func getHelpMkdir() string {
+func GetHelpMkdir() string {
 	return service.HelpDetailMessage(
 		"📁 MKDIR",
 		"Membuat folder baru di cloud storage\\.",
@@ -182,7 +204,7 @@ func getHelpMkdir() string {
 	)
 }
 
-func getHelpRm() string {
+func GetHelpRm() string {
 	return service.HelpDetailMessage(
 		"🗑️ REMOVE (RM)",
 		"Menghapus file atau folder di cloud storage\\.",
@@ -192,7 +214,7 @@ func getHelpRm() string {
 	)
 }
 
-func getHelpMv() string {
+func GetHelpMv() string {
 	return service.HelpDetailMessage(
 		"📦 MOVE (MV)",
 		"Memindahkan file/folder ke lokasi lain atau ganti nama\\.",
@@ -202,7 +224,7 @@ func getHelpMv() string {
 	)
 }
 
-func getHelpShare() string {
+func GetHelpShare() string {
 	return service.HelpDetailMessage(
 		"🔗 SHARE",
 		"Membuat link berbagi untuk file/folder\\.",
@@ -212,7 +234,7 @@ func getHelpShare() string {
 	)
 }
 
-func getHelpFind() string {
+func GetHelpFind() string {
 	return service.HelpDetailMessage(
 		"🔍 FIND",
 		"Mencari file di cloud storage secara rekursif\\.",
@@ -222,7 +244,7 @@ func getHelpFind() string {
 	)
 }
 
-func getHelpExtractAudio() string {
+func GetHelpExtractAudio() string {
 	return service.HelpDetailMessage(
 		"🎵 EXTRACT AUDIO",
 		"Mengekstrak audio dari file video\\.",
@@ -232,7 +254,7 @@ func getHelpExtractAudio() string {
 	)
 }
 
-func getHelpCompress() string {
+func GetHelpCompress() string {
 	return service.HelpDetailMessage(
 		"🗜️ COMPRESS",
 		"Mengkompresi ukuran file video dengan FFmpeg\\.",
@@ -242,7 +264,7 @@ func getHelpCompress() string {
 	)
 }
 
-func getHelpThumbnail() string {
+func GetHelpThumbnail() string {
 	return service.HelpDetailMessage(
 		"🖼️ THUMBNAIL",
 		"Generate thumbnail dari video pada detik tertentu\\.",
@@ -252,7 +274,7 @@ func getHelpThumbnail() string {
 	)
 }
 
-func getHelpScreenshots() string {
+func GetHelpScreenshots() string {
 	return service.HelpDetailMessage(
 		"📸 SCREENSHOTS",
 		"Membuat multiple screenshot dari video secara otomatis\\.",
@@ -262,7 +284,7 @@ func getHelpScreenshots() string {
 	)
 }
 
-func getHelpSubtitle() string {
+func GetHelpSubtitle() string {
 	return service.HelpDetailMessage(
 		"💬 SOFT-SUB (SUBTITLE)",
 		"Embed subtitle track ke dalam container video \\(Soft-sub\\)\\.\nSubtitle bisa di-on/off saat nonton.",
@@ -272,7 +294,7 @@ func getHelpSubtitle() string {
 	)
 }
 
-func getHelpHardsub() string {
+func GetHelpHardsub() string {
 	return service.HelpDetailMessage(
 		"🔥 HARD-SUB (BURN SUBTITLE)",
 		"Membakar subtitle permanen ke dalam gambar video \\(Hard-sub\\)\\.\nSubtitle akan menempel selamanya di video dan tidak bisa dimatikan.",
@@ -282,7 +304,7 @@ func getHelpHardsub() string {
 	)
 }
 
-func getHelpRescale() string {
+func GetHelpRescale() string {
 	return service.HelpDetailMessage(
 		"📐 RESCALE (TRANSCODE)",
 		"Mengubah resolusi/dimensi video \\(Transcoding\\)\\.",
@@ -292,7 +314,7 @@ func getHelpRescale() string {
 	)
 }
 
-func getHelpConvert() string {
+func GetHelpConvert() string {
 	return service.HelpDetailMessage(
 		"🔄 CONVERT",
 		"Konversi format file video/audio tanpa mengganti kualitas \\(Remux\\)\\.",
@@ -302,7 +324,7 @@ func getHelpConvert() string {
 	)
 }
 
-func getHelpMediaInfo() string {
+func GetHelpMediaInfo() string {
 	return service.HelpDetailMessage(
 		"ℹ️ MEDIA INFO",
 		"Melihat informasi detail teknis file media menggunakan ffprobe\\.",
@@ -312,7 +334,7 @@ func getHelpMediaInfo() string {
 	)
 }
 
-func getHelpCancel() string {
+func GetHelpCancel() string {
 	return service.HelpDetailMessage(
 		"❌ CANCEL",
 		"Membatalkan task tertentu\\.",
@@ -322,7 +344,7 @@ func getHelpCancel() string {
 	)
 }
 
-func getHelpCancelAll() string {
+func GetHelpCancelAll() string {
 	return service.HelpDetailMessage(
 		"🚫 CANCEL ALL",
 		"Membatalkan SEMUA task yang sedang berjalan\\.",
@@ -332,7 +354,7 @@ func getHelpCancelAll() string {
 	)
 }
 
-func getHelpStorages() string {
+func GetHelpStorages() string {
 	return service.HelpDetailMessage(
 		"📋 STORAGES",
 		"Melihat daftar cloud storage yang tersedia\\.",
@@ -342,7 +364,7 @@ func getHelpStorages() string {
 	)
 }
 
-func getHelpSetStorage() string {
+func GetHelpSetStorage() string {
 	return service.HelpDetailMessage(
 		"⚙️ SET STORAGE",
 		"Mengatur storage aktif untuk proses Mirror/Clone\\.",
@@ -352,7 +374,7 @@ func getHelpSetStorage() string {
 	)
 }
 
-func getHelpAuthorize() string {
+func GetHelpAuthorize() string {
 	return service.HelpDetailMessage(
 		"✅ AUTHORIZE",
 		"Menambahkan user baru yang diizinkan menggunakan bot\\.",
@@ -362,7 +384,7 @@ func getHelpAuthorize() string {
 	)
 }
 
-func getHelpUnauthorize() string {
+func GetHelpUnauthorize() string {
 	return service.HelpDetailMessage(
 		"❌ UNAUTHORIZE",
 		"Menghapus akses user dari bot\\.",
@@ -372,7 +394,7 @@ func getHelpUnauthorize() string {
 	)
 }
 
-func getHelpUsers() string {
+func GetHelpUsers() string {
 	return service.HelpDetailMessage(
 		"👥 USERS",
 		"Melihat daftar semua user yang terdaftar di database\\.",
@@ -382,7 +404,7 @@ func getHelpUsers() string {
 	)
 }
 
-func getHelpSetAlertChannel() string {
+func GetHelpSetAlertChannel() string {
 	return service.HelpDetailMessage(
 		"🚨 SET ALERT CHANNEL",
 		"Mengatur channel untuk notifikasi log error/penting\\.",
@@ -392,7 +414,7 @@ func getHelpSetAlertChannel() string {
 	)
 }
 
-func getHelpSetLogChannel() string {
+func GetHelpSetLogChannel() string {
 	return service.HelpDetailMessage(
 		"📜 SET LOG CHANNEL",
 		"Mengatur channel khusus untuk dump log aktivitas\\.",
@@ -402,7 +424,7 @@ func getHelpSetLogChannel() string {
 	)
 }
 
-func getHelpRecover() string {
+func GetHelpRecover() string {
 	return service.HelpDetailMessage(
 		"🔄 RECOVER",
 		"Memulihkan task yang terhenti akibat restart bot\\.",
@@ -412,7 +434,7 @@ func getHelpRecover() string {
 	)
 }
 
-func getHelpRecoveryStatus() string {
+func GetHelpRecoveryStatus() string {
 	return service.HelpDetailMessage(
 		"📊 RECOVERY STATUS",
 		"Melihat statistik task yang bisa dipulihkan\\.",
@@ -422,7 +444,7 @@ func getHelpRecoveryStatus() string {
 	)
 }
 
-func getHelpSettings() string {
+func GetHelpSettings() string {
 	return service.HelpDetailMessage(
 		"⚙️ SETTINGS",
 		"Mengatur preferensi dan konfigurasi bot\\.",
@@ -433,55 +455,78 @@ func getHelpSettings() string {
 }
 
 func getHelpAllCommands() string {
-	content := "📋 *DAFTAR SELURUH PERINTAH BOT*\n\n" +
-		"📥 *DOWNLOAD*\n" +
-		"• `/mirror` \\(/m\\) ─ Mirror ke Drive\n" +
-		"• `/leech` \\(/l\\) ─ Leech ke Telegram\n" +
-		"• `/ytdlp` \\(/y\\) ─ YT\\-DLP Mirror\n" +
-		"• `/ytdlpleech` \\(/yl\\) ─ YT\\-DLP Leech\n" +
-		"• `/viking` \\(/v\\) ─ Viking File\n" +
-		"• `/torrent` \\(/t\\) ─ Torrent Download\n" +
-		"• `/clone` \\(/cl\\) ─ Clone GDrive\n" +
-		"• `/batch` ─ Batch Download\n" +
-		"• `/search` ─ Cari Torrent\n\n" +
-		"📊 *MONITOR and SYSTEM*\n" +
-		"• `/status` \\(/st\\) ─ Status Aktif\n" +
-		"• `/stats` ─ Statistik Bot\n" +
-		"• `/system` ─ Info System\n" +
-		"• `/health` ─ Cek Kesehatan\n" +
-		"• `/logs` ─ Lihat Log Bot\n" +
-		"• `/ping` ─ Cek Latency\n" +
-		"• `/speed` ─ Test Kecepatan\n\n" +
-		"📁 *STORAGE and FILES*\n" +
-		"• `/ls` / `/dir` ─ List File Drive\n" +
-		"• `/mkdir` ─ Buat Folder\n" +
-		"• `/rm` ─ Hapus File atau Folder\n" +
-		"• `/mv` ─ Pindah atau Rename\n" +
-		"• `/share` ─ Share Link\n" +
-		"• `/find` ─ Cari File Drive\n" +
-		"• `/storages` ─ Daftar Storage\n" +
-		"• `/setstorage` ─ Aktifkan Storage\n\n" +
-		"🎞️ *MEDIA TOOLS*\n" +
-		"• `/extractaudio` ─ Ambil Audio\n" +
-		"• `/compress` ─ Kompres Video\n" +
-		"• `/thumbnail` ─ Buat Thumb\n" +
-		"• `/screenshots` ─ Screenshot\n" +
-		"• `/subtitle` ─ Soft\\-sub \\(Embed Sub\\)\n" +
-		"• `/hardsub` ─ Hard\\-sub \\(Burn Sub\\)\n" +
-		"• `/rescale` ─ Ubah Resolusi\n" +
-		"• `/convert` ─ Ganti Format\n" +
-		"• `/mediainfo` ─ Detail Media\n\n" +
-		"👑 *ADMINISTRATION*\n" +
-		"• `/authorize` ─ Beri Akses\n" +
-		"• `/unauthorize` ─ Cabut Akses\n" +
-		"• `/users` ─ Daftar User\n" +
-		"• `/setlogchannel` ─ Set Log\n" +
-		"• `/setalertchannel` ─ Set Alert\n\n" +
-		"🛠️ *GENERAL*\n" +
-		"• `/settings` ─ Menu Pengaturan\n" +
-		"• `/recover` ─ Pulihkan Task\n" +
-		"• `/cancel` \\(/c\\) ─ Batal Task ID\n" +
-		"• `/cancelall` ─ Batal Semua"
+	return GenerateAllCommandsHelp(registeredCommands)
+}
 
-	return service.ProfessionalMessage("ALL COMMANDS", content)
+func escapeMarkdownV2(text string) string {
+	specialChars := []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
+	result := text
+	for _, ch := range specialChars {
+		result = strings.ReplaceAll(result, ch, "\\"+ch)
+	}
+	return result
+}
+
+func GenerateAllCommandsHelp(commands []HelpCommandEntry) string {
+	if len(commands) == 0 {
+		return service.ProfessionalMessage("ALL COMMANDS", "📋 *DAFTAR SELURUH PERINTAH BOT*\n\nTidak ada command yang terdaftar\\.")
+	}
+
+	categoryOrder := []string{"download", "monitor", "files", "media", "task", "storage", "admin", "recovery", "general"}
+	categoryNames := map[string]string{
+		"download": "📥 DOWNLOAD",
+		"monitor":  "📊 MONITOR & SYSTEM",
+		"files":    "📁 STORAGE & FILES",
+		"media":    "🎞️ MEDIA TOOLS",
+		"task":     "📋 TASK MANAGEMENT",
+		"storage":  "💾 STORAGE",
+		"admin":    "👑 ADMINISTRATION",
+		"recovery": "🔧 RECOVERY",
+		"general":  "🛠️ GENERAL",
+	}
+
+	byCategory := make(map[string][]HelpCommandEntry)
+	for _, cmd := range commands {
+		byCategory[cmd.Category] = append(byCategory[cmd.Category], cmd)
+	}
+
+	for cat := range byCategory {
+		sort.Slice(byCategory[cat], func(i, j int) bool {
+			return byCategory[cat][i].Name < byCategory[cat][j].Name
+		})
+	}
+
+	var sb strings.Builder
+	sb.WriteString("📋 *DAFTAR SELURUH PERINTAH BOT*\n")
+
+	for _, cat := range categoryOrder {
+		cmds, ok := byCategory[cat]
+		if !ok || len(cmds) == 0 {
+			continue
+		}
+		sb.WriteString("\n")
+		sb.WriteString(categoryNames[cat])
+		sb.WriteString("\n")
+		for _, cmd := range cmds {
+			sb.WriteString("• `/")
+			sb.WriteString(cmd.Name)
+			sb.WriteString("`")
+			if len(cmd.Aliases) > 0 {
+				sb.WriteString(" \\(")
+				for i, alias := range cmd.Aliases {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString("/")
+					sb.WriteString(alias)
+				}
+				sb.WriteString("\\)")
+			}
+			sb.WriteString(" ─ ")
+			sb.WriteString(escapeMarkdownV2(cmd.Description))
+			sb.WriteString("\n")
+		}
+	}
+
+	return service.ProfessionalMessage("ALL COMMANDS", sb.String())
 }

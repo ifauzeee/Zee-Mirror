@@ -2,6 +2,7 @@ package router
 
 import (
 	"log/slog"
+	"sort"
 	"strings"
 
 	"zee-mirror/handlers"
@@ -13,6 +14,15 @@ import (
 type CommandHandler func(s *service.BotService, msg *tgbotapi.Message)
 type CallbackHandler func(s *service.BotService, cb *tgbotapi.CallbackQuery)
 
+type CommandInfo struct {
+	Name        string
+	Aliases     []string
+	Description string
+	Category    string
+	Emoji       string
+	DetailedFn  func() string
+}
+
 type Router struct {
 	service          *service.BotService
 	commands         map[string]CommandHandler
@@ -20,6 +30,7 @@ type Router struct {
 	defaultCommand   CommandHandler
 	magnetHandler    CommandHandler
 	callbackPrefixes map[string]CallbackHandler
+	commandInfos     map[string]*CommandInfo
 }
 
 func NewRouter(service *service.BotService) *Router {
@@ -28,11 +39,44 @@ func NewRouter(service *service.BotService) *Router {
 		commands:         make(map[string]CommandHandler),
 		callbacks:        make(map[string]CallbackHandler),
 		callbackPrefixes: make(map[string]CallbackHandler),
+		commandInfos:     make(map[string]*CommandInfo),
 	}
 }
 
 func (r *Router) RegisterCommand(name string, handler CommandHandler) {
 	r.commands[name] = handler
+}
+
+func (r *Router) RegisterCommandWithInfo(info CommandInfo, handler CommandHandler) {
+	r.commands[info.Name] = handler
+	for _, alias := range info.Aliases {
+		r.commands[alias] = handler
+	}
+	r.commandInfos[info.Name] = &info
+}
+
+func (r *Router) GetCommandsByCategory() map[string][]CommandInfo {
+	result := make(map[string][]CommandInfo)
+	for _, info := range r.commandInfos {
+		result[info.Category] = append(result[info.Category], *info)
+	}
+	for cat := range result {
+		sort.Slice(result[cat], func(i, j int) bool {
+			return result[cat][i].Name < result[cat][j].Name
+		})
+	}
+	return result
+}
+
+func (r *Router) GetAllCommandsFlat() []CommandInfo {
+	var result []CommandInfo
+	for _, info := range r.commandInfos {
+		result = append(result, *info)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+	return result
 }
 
 func (r *Router) RegisterCallback(prefix string, handler CallbackHandler) {
