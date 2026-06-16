@@ -73,6 +73,9 @@ func main() {
 	primaryBot := bots[0].Bot
 	slog.Info("Authorized on account", "username", primaryBot.Self.UserName, "totalBots", len(bots))
 
+	// Remove registered commands to hide the native "Menu" button
+	_, _ = primaryBot.Request(tgbotapi.DeleteMyCommandsConfig{})
+
 	ub := userbot.GetInstance(cfg)
 	if err := ub.Start(); err != nil {
 		slog.Warn("Userbot failed to start", "error", err)
