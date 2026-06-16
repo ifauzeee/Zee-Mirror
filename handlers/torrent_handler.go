@@ -55,18 +55,6 @@ func (s *BotService) HandleTorrent(message *tgbotapi.Message, args string) {
 func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, name string, zip, unzip bool, password string, replyID int) {
 	sessionID := s.createTorrentSession(url, name, zip, unzip, password, message.Chat.ID, message.MessageID, replyID, message.From.ID)
 
-	baseURL := s.Config.DashboardURL
-	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-		baseURL = "http://" + baseURL
-	}
-
-	dashboardURL := ""
-	if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") {
-		dashboardURL = fmt.Sprintf("%s:%d/torrent-select/%s", baseURL, s.Config.DashboardPort, sessionID)
-	} else {
-		dashboardURL = fmt.Sprintf("%s/torrent-select/%s", baseURL, sessionID)
-	}
-
 	lang := s.GetUserLanguage(message.From.ID)
 	text := i18n.T(lang, "torrent_menu_text")
 

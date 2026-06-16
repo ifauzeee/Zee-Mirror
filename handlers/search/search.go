@@ -372,7 +372,6 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 		size := item.Size
 		seeders := item.Seeders
 		source := item.Source
-		page := session.Page
 		SearchMu.RUnlock()
 
 		text := fmt.Sprintf("📄 *Detail Torrent*\n\n"+

@@ -380,14 +380,6 @@ func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuer
 		return
 	}
 
-	relPath := ""
-	if strings.Contains(path, ":") {
-		parts := strings.SplitN(path, ":", 2)
-		if len(parts) > 1 {
-			relPath = "/"
-		}
-	}
-
 	text := s.FormatDriveFileList("/", files)
 
 	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
