@@ -17,11 +17,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"zee-mirror/handlers"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/metrics"
 	"zee-mirror/internal/router"
+	"zee-mirror/internal/service"
 	"zee-mirror/plugins/torrent"
 
 	_ "zee-mirror/docs" // swagger docs init
@@ -37,14 +37,14 @@ import (
 )
 
 type Server struct {
-	Service    *handlers.BotService
+	Service    *service.BotService
 	Hub        *Hub
 	Router     *router.Router
 	httpServer *http.Server
 	Port       int
 }
 
-func NewServer(service *handlers.BotService, port int) *Server {
+func NewServer(service *service.BotService, port int) *Server {
 	return &Server{
 		Service: service,
 		Port:    port,

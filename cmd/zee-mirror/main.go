@@ -15,7 +15,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"zee-mirror/handlers"
 	"zee-mirror/handlers/admin"
 	"zee-mirror/handlers/basic"
 	"zee-mirror/handlers/download"
@@ -90,7 +89,7 @@ func main() {
 	redisClient := cache.NewRedisClient(cfg.RedisURL)
 	defer redisClient.Close()
 
-	botSvc := handlers.NewBotService(primaryBot, cfg, db, db.DB, redisClient)
+	botSvc := service.NewBotService(primaryBot, cfg, db, db.DB, redisClient)
 	go search.StartSearchSessionCleanup(botSvc.TaskManager.ShutdownChan)
 
 	sighup := make(chan os.Signal, 1)
@@ -110,15 +109,15 @@ func main() {
 
 	apiServer := api.NewServer(botSvc, cfg.DashboardPort)
 
-	r := router.NewRouter(botSvc.BotService)
+	r := router.NewRouter(botSvc)
 	setupRoutes(r)
 
-	r.RegisterMagnetHandler(func(_ *service.BotService, m *tgbotapi.Message) {
+	r.RegisterMagnetHandler(func(s *service.BotService, m *tgbotapi.Message) {
 		text := m.Text
 		if text == "" {
 			text = m.Caption
 		}
-		botSvc.HandleTorrent(m, text)
+		download.HandleTorrent(s, m, text)
 	})
 
 	apiServer.SetRouter(r)
@@ -126,7 +125,7 @@ func main() {
 
 	go func() {
 		time.Sleep(2 * time.Second)
-		recovery := service.NewTaskRecovery(db, botSvc.TaskManager, botSvc.BotService)
+		recovery := service.NewTaskRecovery(db, botSvc.TaskManager, botSvc)
 		if err := recovery.RecoverIncompleteTasks(); err != nil {
 			slog.Warn("Failed to auto-recover tasks", "error", err)
 		}
@@ -268,7 +267,7 @@ func getEnvOrDefault(key, fallback string) string {
 	return fallback
 }
 
-func startPolling(ctx context.Context, bot *tgbotapi.BotAPI, botSvc *handlers.BotService, r *router.Router) {
+func startPolling(ctx context.Context, bot *tgbotapi.BotAPI, botSvc *service.BotService, r *router.Router) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
@@ -283,7 +282,7 @@ func startPolling(ctx context.Context, bot *tgbotapi.BotAPI, botSvc *handlers.Bo
 	processUpdates(ctx, updates, botSvc, r)
 }
 
-func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, botSvc *handlers.BotService, r *router.Router) {
+func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, botSvc *service.BotService, r *router.Router) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -374,7 +373,7 @@ func setupBasicRoutes(r *router.Router) {
 		Category: "general", Emoji: "⚙️",
 		DetailedFn: basic.GetHelpSettings,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleSettings(m)
+		s.HandleSettings(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -400,14 +399,14 @@ func setupBasicRoutes(r *router.Router) {
 		Description: "Set language preference",
 		Category: "general", Emoji: "🌐",
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleLanguage(m)
+		s.HandleLanguage(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "schedule", Description: "Schedule a task",
 		Category: "general", Emoji: "📅",
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleSchedule(m, m.CommandArguments())
+		basic.HandleSchedule(s, m, m.CommandArguments())
 	})
 }
 
@@ -418,7 +417,7 @@ func setupDownloadRoutes(r *router.Router) {
 		Category: "download", Emoji: "📥",
 		DetailedFn: basic.GetHelpMirror,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleMirror(m, m.CommandArguments())
+		download.HandleMirror(s, m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -434,7 +433,7 @@ func setupDownloadRoutes(r *router.Router) {
 		Category: "download", Emoji: "⚔️",
 		DetailedFn: basic.GetHelpViking,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleViking(m, m.CommandArguments())
+		s.HandleViking(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -466,7 +465,7 @@ func setupDownloadRoutes(r *router.Router) {
 		Category: "download", Emoji: "📋",
 		DetailedFn: basic.GetHelpClone,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleClone(m, m.CommandArguments())
+		s.HandleClone(m, m.CommandArguments())
 	})
 }
 
@@ -477,7 +476,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "monitor", Emoji: "📊",
 		DetailedFn: basic.GetHelpStatus,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleStatus(m)
+		s.HandleStatus(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -486,7 +485,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "task", Emoji: "❌",
 		DetailedFn: basic.GetHelpCancel,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleCancel(m, m.CommandArguments())
+		s.HandleCancel(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -495,7 +494,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "task", Emoji: "🚫",
 		DetailedFn: basic.GetHelpCancelAll,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleCancelAll(m)
+		s.HandleCancelAll(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -511,7 +510,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "download", Emoji: "📦",
 		DetailedFn: basic.GetHelpBatch,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleBatch(m, m.CommandArguments())
+		s.HandleBatch(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -520,7 +519,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "admin", Emoji: "✅",
 		DetailedFn: basic.GetHelpAuthorize,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleAuthorize(m, m.CommandArguments())
+		admin.HandleAuth(s, m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -529,7 +528,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "admin", Emoji: "❌",
 		DetailedFn: basic.GetHelpUnauthorize,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleUnauthorize(m, m.CommandArguments())
+		admin.HandleUnauth(s, m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -569,25 +568,25 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "admin", Emoji: "🚨",
 		DetailedFn: basic.GetHelpSetAlertChannel,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleSetAlertChannel(m, m.CommandArguments())
+		s.HandleSetAlertChannel(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: handlers.CmdSystem,
+		Name: service.CmdSystem,
 		Description: "System info (CPU, RAM, disk)",
 		Category: "monitor", Emoji: "🖥️",
 		DetailedFn: basic.GetHelpSystem,
 	}, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleSystem(s, m) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: handlers.CmdHealth,
+		Name: service.CmdHealth,
 		Description: "Health check all components",
 		Category: "monitor", Emoji: "🏥",
 		DetailedFn: basic.GetHelpHealth,
 	}, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleHealth(s, m) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: handlers.CmdLogs,
+		Name: service.CmdLogs,
 		Description: "View bot logs",
 		Category: "monitor", Emoji: "📜",
 		DetailedFn: basic.GetHelpLogs,
@@ -599,7 +598,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "recovery", Emoji: "🔄",
 		DetailedFn: basic.GetHelpRecover,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleRecover(m)
+		s.HandleRecover(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -608,7 +607,7 @@ func setupAdminRoutes(r *router.Router) {
 		Category: "recovery", Emoji: "📊",
 		DetailedFn: basic.GetHelpRecoveryStatus,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
-		(&handlers.BotService{BotService: s}).HandleRecoveryStatus(m)
+		s.HandleRecoveryStatus(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
@@ -790,7 +789,7 @@ func setupCallbackRoutes(r *router.Router) {
 		if !ensureCallbackMessage(s, cb, "dashboard") {
 			return
 		}
-		(&handlers.BotService{BotService: s}).HandleDashboardCallback(cb)
+		basic.HandleDashboardCallback(s, cb)
 	})
 	r.RegisterCallback("help", func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
 		if !ensureCallbackMessage(s, cb, "help") {
@@ -802,7 +801,7 @@ func setupCallbackRoutes(r *router.Router) {
 		if !ensureCallbackMessage(s, cb, "refresh_status") {
 			return
 		}
-		(&handlers.BotService{BotService: s}).HandleRefreshStatusCallback(cb)
+		s.HandleRefreshStatusCallback(cb)
 	})
 
 	searchHandler := func(s *service.BotService, cb *tgbotapi.CallbackQuery) {
@@ -829,13 +828,13 @@ func setupCallbackRoutes(r *router.Router) {
 		parts := strings.Split(cb.Data, ":")
 		switch parts[0] {
 		case "ytdlp_q":
-			(&handlers.BotService{BotService: s}).HandleYTDLPQualityCallback(cb, parts)
+			download.YTDLPQualityCallbackHandler(s, cb, parts)
 		case "settings":
-			(&handlers.BotService{BotService: s}).HandleSettingsCallback(cb, parts)
+			s.HandleSettingsCallback(cb, parts)
 		case "batch":
-			(&handlers.BotService{BotService: s}).HandleBatchCallback(cb, parts)
+			s.HandleBatchCallback(cb, parts)
 		case "confirm":
-			(&handlers.BotService{BotService: s}).HandleConfirmCallback(cb, parts)
+			s.HandleConfirmCallback(cb, parts)
 		case "torrent_sel":
 			download.HandleTorrentSelectionCallback(s, cb, parts)
 		}
@@ -854,7 +853,7 @@ func setupCallbackRoutes(r *router.Router) {
 		switch parts[0] {
 		case "stats":
 			basic.HandleStatsCallback(s, cb, parts)
-		case handlers.CmdSystem:
+		case service.CmdSystem:
 			basic.HandleSystemCallback(s, cb, parts)
 		case "storage":
 			storage.HandleStorageCallback(s, cb, parts)
@@ -863,7 +862,7 @@ func setupCallbackRoutes(r *router.Router) {
 		}
 	}
 	r.RegisterCallback("stats", systemHandler)
-	r.RegisterCallback(handlers.CmdSystem, systemHandler)
+	r.RegisterCallback(service.CmdSystem, systemHandler)
 	r.RegisterCallback("storage", systemHandler)
 	r.RegisterCallback("drive", systemHandler)
 	r.RegisterCallback("dr", systemHandler)
@@ -888,7 +887,7 @@ func setupCallbackRoutes(r *router.Router) {
 			return
 		}
 		parts := strings.Split(cb.Data, ":")
-		(&handlers.BotService{BotService: s}).HandleMirrorWizardCallback(cb, parts)
+		download.HandleMirrorWizardCallback(s, cb, parts)
 	})
 }
 

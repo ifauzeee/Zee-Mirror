@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"zee-mirror/handlers"
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/repository/mocks"
@@ -33,8 +32,7 @@ func newTestServer(t *testing.T, token string) *Server {
 	mockRepo.On("GetActive", mock.Anything).Return([]domain.TaskRecord{}, nil).Maybe()
 
 	svc := service.NewBotService(bot, cfg, mockRepo, nil, nil)
-	bs := &handlers.BotService{BotService: svc}
-	return NewServer(bs, 0)
+	return NewServer(svc, 0)
 }
 
 func TestAuth_MissingToken(t *testing.T) {

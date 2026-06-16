@@ -1,4 +1,4 @@
-package handlers
+package basic
 
 import (
 	"context"
@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"zee-mirror/internal/domain"
+	"zee-mirror/internal/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
 )
 
-func (s *BotService) HandleSchedule(message *tgbotapi.Message, args string) {
+func HandleSchedule(s *service.BotService, message *tgbotapi.Message, args string) {
 	parts := strings.Fields(args)
 	if len(parts) < 3 {
 		s.Reply(message, "Usage: /schedule <type> <HH:MM> <url> [filename]\nType: mirror, zip, unzip, mp3, audio, video")

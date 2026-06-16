@@ -1,4 +1,4 @@
-package handlers
+package download
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ const (
 	PromptRename    = "✏️ Silakan kirim *Nama Baru* untuk file ini:"
 )
 
-func (s *BotService) HandleMirrorWizard(message *tgbotapi.Message) {
+func HandleMirrorWizard(s *service.BotService, message *tgbotapi.Message) {
 	text := service.ProfessionalMessage("MIRROR WIZARD",
 		"Selamat datang di Mirror Wizard\\.\n"+
 			"Silakan pilih metode input yang Anda inginkan\\.")
@@ -24,7 +24,7 @@ func (s *BotService) HandleMirrorWizard(message *tgbotapi.Message) {
 	_, _ = s.Bot.Send(msg)
 }
 
-func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery, parts []string) {
+func HandleMirrorWizardCallback(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
 	action := parts[1]
 
 	switch action {
@@ -37,7 +37,7 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 		_, _ = s.Bot.Request(tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID))
 
 	case "back_main":
-		s.HandleMirrorWizard(callback.Message)
+		HandleMirrorWizard(s, callback.Message)
 		text := service.ProfessionalMessage("MIRROR WIZARD",
 			"Selamat datang di Mirror Wizard\\.\n"+
 				"Silakan pilih metode input yang Anda inginkan\\.")
@@ -47,7 +47,7 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 		_, _ = s.Bot.Send(edit)
 
 	case "toggle_zip":
-		s.toggleWizardOption(callback, "zip")
+		toggleWizardOption(s, callback, "zip")
 
 	case "opt_rename":
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, PromptRename)
@@ -57,25 +57,25 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 		_, _ = s.Bot.Send(msg)
 
 	case "start":
-		s.executeWizardTask(callback)
+		executeWizardTask(s, callback)
 	}
 }
 
-func (s *BotService) HandleWizardInput(message *tgbotapi.Message) {
+func HandleWizardInput(s *service.BotService, message *tgbotapi.Message) {
 	replyText := message.ReplyToMessage.Text
 
 	if strings.Contains(replyText, "Silakan kirim URL") {
 		url := message.Text
 		if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "magnet") {
-			s.reply(message, "❌ URL tidak valid. Harap kirim link http/https atau magnet.")
+			s.Reply(message, "❌ URL tidak valid. Harap kirim link http/https atau magnet.")
 			return
 		}
 
-		s.showWizardOptionsMenu(message.Chat.ID, url, false)
+		showWizardOptionsMenu(s, message.Chat.ID, url, false)
 	}
 }
 
-func (s *BotService) showWizardOptionsMenu(chatID int64, url string, isZip bool) {
+func showWizardOptionsMenu(s *service.BotService, chatID int64, url string, isZip bool) {
 	cleanURL := utils.EscapeMarkdownV2(url)
 
 	text := fmt.Sprintf("⚙️ *Mirror Options*\n\n"+
@@ -92,7 +92,7 @@ func (s *BotService) showWizardOptionsMenu(chatID int64, url string, isZip bool)
 	_, _ = s.Bot.Send(msg)
 }
 
-func (s *BotService) toggleWizardOption(callback *tgbotapi.CallbackQuery, option string) {
+func toggleWizardOption(s *service.BotService, callback *tgbotapi.CallbackQuery, option string) {
 	text := callback.Message.Text
 	lines := strings.Split(text, "\n")
 	var url string
@@ -128,7 +128,7 @@ func (s *BotService) toggleWizardOption(callback *tgbotapi.CallbackQuery, option
 	_, _ = s.Bot.Send(edit)
 }
 
-func (s *BotService) executeWizardTask(callback *tgbotapi.CallbackQuery) {
+func executeWizardTask(s *service.BotService, callback *tgbotapi.CallbackQuery) {
 	text := callback.Message.Text
 	lines := strings.Split(text, "\n")
 	var url string
