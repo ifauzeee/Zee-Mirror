@@ -42,6 +42,7 @@ RUN apk add --no-cache \
     expect
 
 # Menggunakan --no-cache-dir dan memastikan download versi terbaru setiap build
+# Cache bust for yt-dlp: 2026-06-16
 RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli
 
 
