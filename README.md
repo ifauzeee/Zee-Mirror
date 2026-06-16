@@ -472,6 +472,13 @@ Both services share a Docker network (`zee-network`) and a named volume (`downlo
 - Reply to a `.torrent` file with `/torrent` to start downloading
 - The userbot can forward files from private channels if configured
 
+**Cookies Support (Gofile, YouTube, etc.):**
+To download from sites that require login or are strictly rate-limited (like **Gofile** or age-restricted YouTube videos):
+1. Extract your cookies from your browser using an extension like **Get cookies.txt LOCALLY**.
+2. Save the file as `cookies.txt`.
+3. Send the `cookies.txt` file directly to the bot in Telegram.
+4. The bot will automatically save and use these cookies for subsequent `/mirror`, `/leech`, and `/ytdlp` tasks!
+
 </details>
 
 <details>
