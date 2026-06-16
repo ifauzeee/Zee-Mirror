@@ -54,20 +54,7 @@ func (s *BotService) HandleStats(message *tgbotapi.Message) {
 }
 
 func (s *BotService) getStatsKeyboard() tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("👤 My Stats", "stats:my"),
-			tgbotapi.NewInlineKeyboardButtonData("📊 Today", "stats:today"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📈 Weekly", "stats:weekly"),
-			tgbotapi.NewInlineKeyboardButtonData("📉 Monthly", "stats:monthly"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "stats:refresh"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "stats:close"),
-		),
-	)
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func (s *BotService) formatStatsMessage(stats map[string]interface{}, userStats *UserStats, dailyStats *DailyStats, userDailyStats *DailyStats) string {
@@ -331,21 +318,8 @@ func (s *BotService) HandleStatsCallback(callback *tgbotapi.CallbackQuery, parts
 	}
 
 	if text != "" {
-		var keyboard tgbotapi.InlineKeyboardMarkup
-		if action == "refresh" {
-			keyboard = s.getStatsKeyboard()
-		} else {
-			keyboard = tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "stats:refresh"),
-					tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "stats:close"),
-				),
-			)
-		}
-
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		editMsg.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(editMsg)
 	}
 }

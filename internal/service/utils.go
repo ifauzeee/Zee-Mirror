@@ -73,7 +73,6 @@ func (s *BotService) EditMessage(chatID int64, msgID int, text string) {
 func (s *BotService) EditMessageWithMarkup(chatID int64, msgID int, text string, markup *tgbotapi.InlineKeyboardMarkup) {
 	editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
 	editMsg.ParseMode = MarkdownV2
-	editMsg.ReplyMarkup = markup
 	_, err := s.Bot.Send(editMsg)
 	if err != nil {
 		slog.Warn("Failed to edit message with markup", "error", err)

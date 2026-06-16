@@ -199,37 +199,7 @@ func createYTDLPSession(s *service.BotService, url, name string, zip bool, passw
 }
 
 func buildYTDLPKeyboard(sortedHeights []int, resMap map[int]downloader.FormatInfo, sessionID string) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-	for i := 0; i < len(sortedHeights); i += 2 {
-		var row []tgbotapi.InlineKeyboardButton
-
-		h1 := sortedHeights[i]
-		label1 := formatQualityLabel(h1, resMap[h1])
-		row = append(row, tgbotapi.NewInlineKeyboardButtonData(label1, fmt.Sprintf("ytdlp_q:%d:%s", h1, sessionID)))
-
-		if i+1 < len(sortedHeights) {
-			h2 := sortedHeights[i+1]
-			label2 := formatQualityLabel(h2, resMap[h2])
-			row = append(row, tgbotapi.NewInlineKeyboardButtonData(label2, fmt.Sprintf("ytdlp_q:%d:%s", h2, sessionID)))
-		}
-		rows = append(rows, row)
-	}
-
-	audioLabel := "🎵 Audio Only"
-	if info, ok := resMap[0]; ok && info.Size > 0 {
-		audioLabel += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
-	}
-
-	bestLabel := "🚀 Kualitas Terbaik"
-	if info, ok := resMap[-1]; ok && info.Size > 0 {
-		bestLabel += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
-	}
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData(audioLabel, fmt.Sprintf("ytdlp_q:audio:%s", sessionID)),
-		tgbotapi.NewInlineKeyboardButtonData(bestLabel, fmt.Sprintf("ytdlp_q:best:%s", sessionID)),
-	))
-	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func formatQualityLabel(height int, info downloader.FormatInfo) string {

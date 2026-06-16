@@ -342,7 +342,6 @@ func setupRoutes(r *router.Router) {
 	setupMediaRoutes(r)
 	setupCallbackRoutes(r)
 
-	// Initialize help system with registered commands
 	var helpCommands []basic.HelpCommandEntry
 	for _, cmd := range r.GetAllCommandsFlat() {
 		helpCommands = append(helpCommands, basic.HelpCommandEntry{

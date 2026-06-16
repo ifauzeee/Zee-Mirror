@@ -70,21 +70,8 @@ func (s *BotService) showTorrentSelectionMenu(message *tgbotapi.Message, url, na
 	lang := s.GetUserLanguage(message.From.ID)
 	text := i18n.T(lang, "torrent_menu_text")
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Select All", fmt.Sprintf("torrent_sel:all:%s", sessionID)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("torrent_sel:cancel:%s", sessionID)),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
 
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {

@@ -25,7 +25,9 @@ func StartHandler(s *service.BotService, message *tgbotapi.Message) {
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, welcomeText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
+	if len(keyboard.InlineKeyboard) > 0 {
+		msg.ReplyMarkup = keyboard
+	}
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
 		slog.Error("Error sending welcome message", "error", err)
@@ -41,7 +43,9 @@ func HelpHandler(s *service.BotService, message *tgbotapi.Message) {
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
+	if len(keyboard.InlineKeyboard) > 0 {
+		msg.ReplyMarkup = keyboard
+	}
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
 		slog.Error("Error sending help message", "error", err)

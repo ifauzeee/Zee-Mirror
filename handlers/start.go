@@ -26,7 +26,9 @@ func (s *BotService) HandleStart(message *tgbotapi.Message) {
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, welcomeText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
+	if len(keyboard.InlineKeyboard) > 0 {
+		msg.ReplyMarkup = keyboard
+	}
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
 		slog.Error("Error sending welcome message", "error", err)
@@ -41,7 +43,9 @@ func (s *BotService) HandleHelp(message *tgbotapi.Message) {
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, helpText)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
+	if len(keyboard.InlineKeyboard) > 0 {
+		msg.ReplyMarkup = keyboard
+	}
 
 	if sentMsg, err := s.Bot.Send(msg); err != nil {
 		slog.Error("Error sending help message", "error", err)
@@ -112,7 +116,9 @@ func (s *BotService) handleDashboardAction(callback *tgbotapi.CallbackQuery, act
 		kb := service.GetStartKeyboard(lang)
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, content)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		editMsg.ReplyMarkup = &kb
+		if len(kb.InlineKeyboard) > 0 {
+			editMsg.ReplyMarkup = &kb
+		}
 		_, _ = s.Bot.Send(editMsg)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	case CmdClose:
@@ -140,65 +146,14 @@ func (s *BotService) sendMediaMenu(callback *tgbotapi.CallbackQuery) {
 
 	text := service.ProfessionalMessage("MEDIA PROCESSING", content)
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📤 Extract Audio", "media:extract"),
-			tgbotapi.NewInlineKeyboardButtonData("🗜️ Compress", "media:compress"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🖼️ Thumbnail", "media:thumb"),
-			tgbotapi.NewInlineKeyboardButtonData("📸 Screenshots", "media:screens"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💬 Soft-sub", "media:subtitle"),
-			tgbotapi.NewInlineKeyboardButtonData("🔥 Hard-sub", "media:hardsub"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📐 Rescale", "media:rescale"),
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Convert", "media:convert"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("ℹ️ Media Info", "media:info"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Help", "help:main"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "help:close"),
-		),
-	)
-
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🎵 Media Menu"))
 }
 
 func (s *BotService) getModeKeyboard(action string) tgbotapi.InlineKeyboardMarkup {
-	backBtn := tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:download")
-
-	switch action {
-	case "mirror", "leech":
-		return tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📊 Status", "dashboard:status"),
-				backBtn,
-			),
-		)
-	case "batch":
-		return tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📋 Batch Status", "batch:status"),
-				backBtn,
-			),
-		)
-	default:
-		return tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				backBtn,
-				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dashboard:close"),
-			),
-		)
-	}
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func (s *BotService) getDashboardModeText(action string) string {
@@ -302,19 +257,8 @@ func (s *BotService) HandleStatusFromCallback(callback *tgbotapi.CallbackQuery) 
 		text += service.FormatTaskProfessional(lang, snapshot) + "\n"
 	}
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "refresh_status"),
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dashboard:close"),
-		),
-	)
-
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Updated"))
 }
@@ -328,16 +272,8 @@ func (s *BotService) HandlePingFromCallback(callback *tgbotapi.CallbackQuery) {
 	elapsed := time.Since(start)
 	text := fmt.Sprintf("🏓 *Pong\\!* `%v`", elapsed.Round(time.Millisecond))
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Re-Ping", "dashboard:ping"),
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-		),
-	)
-
 	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
-	finalEdit.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(finalEdit)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏓 Pong!"))
 }
@@ -364,16 +300,8 @@ func (s *BotService) HandleSpeedFromCallback(callback *tgbotapi.CallbackQuery) {
 			text = result.String()
 		}
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔄 Retest", "dashboard:speed"),
-				tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-			),
-		)
-
 		finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
-		finalEdit.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(finalEdit)
 	}()
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🚀 Testing speed..."))
@@ -412,30 +340,15 @@ func (s *BotService) HandleStoragesFromCallback(callback *tgbotapi.CallbackQuery
 	text.WriteString("💾 *Available Storage Providers*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
-	var rows [][]tgbotapi.InlineKeyboardButton
 	for _, p := range providers {
 		text.WriteString(fmt.Sprintf("%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type)))
-
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%s %s", p.Icon, p.Name),
-				fmt.Sprintf("storage:select:%s", p.Name),
-			),
-		))
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")
 	text.WriteString("*Current:* `" + utils.EscapeMarkdownV2(s.TaskManager.RcloneDest) + "`\n\n")
 
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:storage"),
-		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
-	))
-	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
-
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text.String())
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "💾 Storages"))
 }
@@ -444,24 +357,8 @@ func (s *BotService) HandleSystemFromCallback(callback *tgbotapi.CallbackQuery) 
 	stats := s.GetSystemStats()
 	text := s.FormatSystemStats(stats)
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "system:refresh"),
-			tgbotapi.NewInlineKeyboardButtonData("📊 Detailed", "system:detailed"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📈 Logs", "system:logs"),
-			tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
-		),
-	)
-
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🖥️ System"))
 }
@@ -492,15 +389,9 @@ func (s *BotService) HandleDriveListFromCallback(callback *tgbotapi.CallbackQuer
 	}
 
 	text := s.FormatDriveFileList("/", files)
-	keyboard := s.BuildDriveNavigationKeyboard(files, relPath)
-
-	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:files"),
-	))
 
 	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
-	finalEdit.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(finalEdit)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "📁 Drive List"))
 }

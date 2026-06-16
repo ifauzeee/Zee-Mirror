@@ -19,18 +19,8 @@ func (s *BotService) HandleMirrorWizard(message *tgbotapi.Message) {
 		"Selamat datang di Mirror Wizard\\.\n"+
 			"Silakan pilih metode input yang Anda inginkan\\.")
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔗 Input URL", "wizard:input_url"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Cancel", "dashboard:close"),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
 	_, _ = s.Bot.Send(msg)
 }
 
@@ -52,17 +42,8 @@ func (s *BotService) HandleMirrorWizardCallback(callback *tgbotapi.CallbackQuery
 			"Selamat datang di Mirror Wizard\\.\n"+
 				"Silakan pilih metode input yang Anda inginkan\\.")
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔗 Input URL", "wizard:input_url"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("✖️ Cancel", "dashboard:close"),
-			),
-		)
 		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		edit.ParseMode = tgbotapi.ModeMarkdownV2
-		edit.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(edit)
 
 	case "toggle_zip":
@@ -105,24 +86,8 @@ func (s *BotService) showWizardOptionsMenu(chatID int64, url string, isZip bool)
 		utils.BoolToEmoji(isZip),
 	)
 
-	zipState := "0"
-	if isZip {
-		zipState = "1"
-	}
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("📦 Zip: %s", utils.BoolToEmoji(isZip)), fmt.Sprintf("wizard:toggle_zip:%s", zipState)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🚀 Start Mirror", "wizard:start"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Cancel", "dashboard:close"),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
 	msg.DisableWebPagePreview = true
 	_, _ = s.Bot.Send(msg)
 }
@@ -157,24 +122,8 @@ func (s *BotService) toggleWizardOption(callback *tgbotapi.CallbackQuery, option
 		utils.BoolToEmoji(isZip),
 	)
 
-	zipState := "0"
-	if isZip {
-		zipState = "1"
-	}
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("📦 Zip: %s", utils.BoolToEmoji(isZip)), fmt.Sprintf("wizard:toggle_zip:%s", zipState)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🚀 Start Mirror", "wizard:start"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Cancel", "dashboard:close"),
-		),
-	)
-
 	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, newText)
 	edit.ParseMode = tgbotapi.ModeMarkdownV2
-	edit.ReplyMarkup = &keyboard
 	edit.DisableWebPagePreview = true
 	_, _ = s.Bot.Send(edit)
 }

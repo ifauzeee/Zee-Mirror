@@ -21,12 +21,6 @@ func (s *BotService) SendOrEditMessage(chatID int64, messageID int, text string,
 		editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 
-		if kb, ok := keyboard.(tgbotapi.InlineKeyboardMarkup); ok {
-			editMsg.ReplyMarkup = &kb
-		} else if kb, ok := keyboard.(*tgbotapi.InlineKeyboardMarkup); ok {
-			editMsg.ReplyMarkup = kb
-		}
-
 		if _, err := s.Bot.Send(editMsg); err == nil {
 			return
 		}
@@ -34,12 +28,6 @@ func (s *BotService) SendOrEditMessage(chatID int64, messageID int, text string,
 
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-
-	if kb, ok := keyboard.(tgbotapi.InlineKeyboardMarkup); ok {
-		msg.ReplyMarkup = kb
-	} else if kb, ok := keyboard.(*tgbotapi.InlineKeyboardMarkup); ok {
-		msg.ReplyMarkup = kb
-	}
 
 	if _, err := s.Bot.Send(msg); err != nil {
 		slog.Error("Failed to send message", "error", err)

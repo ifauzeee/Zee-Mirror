@@ -20,13 +20,7 @@ func isLeechType(t TaskType) bool {
 }
 
 func addLeechDownloadButton(keyboard tgbotapi.InlineKeyboardMarkup, snapshot domain.TaskSnapshot, botToken string) tgbotapi.InlineKeyboardMarkup {
-	if isLeechType(snapshot.Type) && snapshot.TelegramFilePath != "" {
-		row := tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("📥 Download File", buildTelegramFileURL(botToken, snapshot.TelegramFilePath)),
-		)
-		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, row)
-	}
-	return keyboard
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func (s *BotService) updateTaskStatus(task *Task) {
@@ -65,19 +59,6 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 		photo := tgbotapi.NewPhoto(snapshot.ChatID, tgbotapi.FilePath(thumb))
 		photo.Caption = text
 		photo.ParseMode = MarkdownV2
-		if snapshot.RemoteURL != "" {
-			btnText := BtnTextCloudLink
-			if s.Config.IndexURL != "" {
-				btnText = BtnTextIndexURL
-			}
-			keyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
-				),
-			)
-			k := addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
-			photo.ReplyMarkup = &k
-		}
 		sentMsg, sendErr := s.Bot.Send(photo)
 		if sendErr == nil {
 			task.Update(func() {
@@ -104,19 +85,6 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 	if msgID != 0 {
 		editCaption := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
 		editCaption.ParseMode = MarkdownV2
-		if snapshot.RemoteURL != "" {
-			btnText := BtnTextCloudLink
-			if s.Config.IndexURL != "" {
-				btnText = BtnTextIndexURL
-			}
-			keyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
-				),
-			)
-			k := addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
-			editCaption.ReplyMarkup = &k
-		}
 
 		if _, err := s.Bot.Send(editCaption); err == nil {
 			return
@@ -124,19 +92,6 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 
 		editText := tgbotapi.NewEditMessageText(snapshot.ChatID, msgID, text)
 		editText.ParseMode = MarkdownV2
-		if snapshot.RemoteURL != "" {
-			btnText := BtnTextCloudLink
-			if s.Config.IndexURL != "" {
-				btnText = BtnTextIndexURL
-			}
-			keyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
-				),
-			)
-			k := addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
-			editText.ReplyMarkup = &k
-		}
 
 		if _, err := s.Bot.Send(editText); err == nil {
 			return
@@ -147,19 +102,6 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 
 	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
 	msg.ParseMode = MarkdownV2
-
-	if snapshot.Status == StatusCompleted && snapshot.RemoteURL != "" {
-		btnText := BtnTextCloudLink
-		if s.Config.IndexURL != "" {
-			btnText = BtnTextIndexURL
-		}
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL(btnText, snapshot.RemoteURL),
-			),
-		)
-		msg.ReplyMarkup = addLeechDownloadButton(keyboard, snapshot, s.Bot.Token)
-	}
 
 	if sentMsg, err := s.Bot.Send(msg); err == nil {
 		task.Update(func() {

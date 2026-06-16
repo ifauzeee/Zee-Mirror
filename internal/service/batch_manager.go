@@ -596,16 +596,6 @@ func (s *BotService) sendBatchCompletionMessage(batch *BatchTask) {
 	msg := tgbotapi.NewMessage(batch.ChatID, text)
 	msg.ParseMode = MarkdownV2
 
-	if batch.RemoteURL != "" {
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL("📥 Download", batch.RemoteURL),
-				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "batch:close:none"),
-			),
-		)
-		msg.ReplyMarkup = keyboard
-	}
-
 	_, _ = s.Bot.Send(msg)
 }
 

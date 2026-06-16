@@ -100,30 +100,16 @@ func HandleStorages(s *service.BotService, message *tgbotapi.Message) {
 	text.WriteString("💾 *Available Storage Providers*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
-	var rows [][]tgbotapi.InlineKeyboardButton
 	for _, p := range providers {
 		text.WriteString(fmt.Sprintf("%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type)))
-
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%s %s", p.Icon, p.Name),
-				fmt.Sprintf("storage:select:%s", p.Name),
-			),
-		))
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")
 	text.WriteString("*Current:* `" + utils.EscapeMarkdownV2Code(s.TaskManager.RcloneDest) + "`\n\n")
 	text.WriteString("Pilih storage untuk upload\\:")
 
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
-	))
-	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text.String())
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
 	_, _ = s.Bot.Send(msg)
 }
 
@@ -154,25 +140,10 @@ func HandleStorageCallback(s *service.BotService, callback *tgbotapi.CallbackQue
 }
 
 func handleStorageSelect(s *service.BotService, callback *tgbotapi.CallbackQuery, storageName string) {
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📂 Browse", fmt.Sprintf("storage:browse:%s", storageName)),
-			tgbotapi.NewInlineKeyboardButtonData("ℹ️ Info", fmt.Sprintf("storage:info:%s", storageName)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅ Set as Default", fmt.Sprintf("storage:setdefault:%s", storageName)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "storage:list"),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
-		),
-	)
-
 	text := fmt.Sprintf("💾 *Storage: %s*\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n\nPilih aksi:", utils.EscapeMarkdownV2(storageName))
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 }
 
@@ -219,16 +190,8 @@ func handleStorageBrowse(s *service.BotService, callback *tgbotapi.CallbackQuery
 		text.WriteString(fmt.Sprintf("%s `%s`\n", icon, utils.EscapeMarkdownV2Code(utils.TruncateString(f.Name, 40))))
 	}
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", fmt.Sprintf("storage:select:%s", storageName)),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
-		),
-	)
-
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text.String())
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 }
 
@@ -262,16 +225,8 @@ func handleStorageInfo(s *service.BotService, callback *tgbotapi.CallbackQuery, 
 		}
 	}
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", fmt.Sprintf("storage:select:%s", storageName)),
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "storage:close:none"),
-		),
-	)
-
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text.String())
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(editMsg)
 }
 

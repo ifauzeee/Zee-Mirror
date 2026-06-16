@@ -132,7 +132,6 @@ func (s *BotService) UpdateSharedDashboardNonBlocking(chatID int64, forceNew boo
 	totalPages := (totalTasks + 4) / 5
 	keyboard := buildNavigationKeyboard(page, totalPages)
 
-	// Release StatusMu BEFORE sending Telegram message to prevent deadlock
 	s.TaskManager.StatusMu.Unlock()
 
 	s.sendStatusMessage(chatID, text, keyboard, forceNew)
@@ -233,19 +232,7 @@ func (s *BotService) buildStatusDashboardText(lang string, tasks []*Task, batche
 }
 
 func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-	navRow := tgbotapi.NewInlineKeyboardRow()
-
-	if page > 0 {
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("dashboard:page:%d", page-1)))
-	}
-	navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "refresh_status"))
-	if page < totalPages-1 {
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("dashboard:page:%d", page+1)))
-	}
-	rows = append(rows, navRow)
-
-	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbotapi.InlineKeyboardMarkup, forceNew bool) {
@@ -286,7 +273,6 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 		slog.Debug("Editing dashboard message", "chatID", chatID, "msgID", lastMsgID, "text", text)
 		editMsg := tgbotapi.NewEditMessageText(chatID, lastMsgID, text)
 		editMsg.ParseMode = "HTML"
-		editMsg.ReplyMarkup = &keyboard
 		if _, err := s.Bot.Send(editMsg); err == nil {
 			lastStatusText[chatID] = text
 			return
@@ -300,7 +286,6 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = keyboard
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
 		logText := text

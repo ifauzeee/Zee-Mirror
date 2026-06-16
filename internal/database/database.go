@@ -18,7 +18,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver
+	_ "github.com/jackc/pgx/v5/stdlib" 
 )
 
 type DB struct {

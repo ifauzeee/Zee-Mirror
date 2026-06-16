@@ -239,116 +239,11 @@ func formatDriveFileList(path string, files []service.DriveFile) string {
 }
 
 func buildDriveNavigationKeyboard(s *service.BotService, files []service.DriveFile, currentRelPath string) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-
-	folderCount := 0
-	for _, f := range files {
-		if f.IsDir && folderCount < 10 {
-			folderCount++
-			nextPath := f.Name
-			if currentRelPath != "" {
-				nextPath = strings.TrimSuffix(currentRelPath, "/") + "/" + f.Name
-			}
-			data := fmt.Sprintf("dr:c:%s", nextPath)
-			if len(data) > 60 {
-				id := s.StorePath(nextPath)
-				data = fmt.Sprintf("dr:c:id:%s", id)
-			}
-			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(
-					fmt.Sprintf("%d. %s %s", folderCount, IconFolder, utils.TruncateString(f.Name, 25)),
-					data,
-				),
-			))
-		}
-	}
-
-	fileCount := 0
-	for _, f := range files {
-		if !f.IsDir && fileCount < 10 {
-			fileCount++
-			filePath := f.Name
-			if currentRelPath != "" {
-				filePath = strings.TrimSuffix(currentRelPath, "/") + "/" + f.Name
-			}
-			data := fmt.Sprintf("dr:i:%s", filePath)
-			if len(data) > 60 {
-				id := s.StorePath(filePath)
-				data = fmt.Sprintf("dr:i:id:%s", id)
-			}
-			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(
-					fmt.Sprintf("%d. %s %s", fileCount, getFileIcon(f.Name), utils.TruncateString(f.Name, 25)),
-					data,
-				),
-			))
-		}
-	}
-
-	var navButtons []tgbotapi.InlineKeyboardButton
-	refreshData := fmt.Sprintf("dr:c:%s", currentRelPath)
-	if len(refreshData) > 60 {
-		id := s.StorePath(currentRelPath)
-		refreshData = fmt.Sprintf("dr:c:id:%s", id)
-	}
-	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", refreshData))
-	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("🏠 Home", "dr:h"))
-	navButtons = append(navButtons, tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"))
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(navButtons...))
-
-	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func buildSearchNavigationKeyboard(s *service.BotService, files []service.DriveFile) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-
-	maxShow := 20
-	count := 0
-	for i, f := range files {
-		if count >= maxShow {
-			break
-		}
-		count++
-
-		path := f.Path
-		if path == "" {
-			path = f.Name
-		}
-
-		action := "i"
-		if f.IsDir {
-			action = "c"
-		}
-
-		data := fmt.Sprintf("dr:%s:%s", action, path)
-		if len(data) > 60 {
-			id := s.StorePath(path)
-			data = fmt.Sprintf("dr:%s:id:%s", action, id)
-		}
-
-		var icon string
-		if f.IsDir {
-			icon = IconFolder
-		} else {
-			icon = getFileIcon(f.Name)
-		}
-
-		name := filepath.Base(f.Name)
-
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%d. %s %s", i+1, icon, utils.TruncateString(name, 25)),
-				data,
-			),
-		))
-	}
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"),
-	))
-
-	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func HandleDriveMkdir(s *service.BotService, message *tgbotapi.Message, args string) {
@@ -389,18 +284,10 @@ func HandleDriveDelete(s *service.BotService, message *tgbotapi.Message, args st
 
 	targetPath := s.TaskManager.RcloneDest + "/" + args
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅ Ya, Hapus", fmt.Sprintf("dr:df:%s", args)),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Batal", "dr:xf"),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID,
 		fmt.Sprintf("⚠️ *Konfirmasi Hapus*\n\nAnda yakin ingin menghapus:\n📁 `%s`\\?",
 			utils.EscapeMarkdownV2(targetPath)))
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
 	_, _ = s.Bot.Send(msg)
 }
 
@@ -726,7 +613,6 @@ func executeDelete(s *service.BotService, callback *tgbotapi.CallbackQuery, file
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID,
 		fmt.Sprintf("✅ *File Dihapus*\n\n📁 `%s`", utils.EscapeMarkdownV2(fileName)))
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}
 
 	_, _ = s.Bot.Send(editMsg)
 }
@@ -832,43 +718,7 @@ func buildFileInfoMessage(relPath string, file service.DriveFile) string {
 }
 
 func buildFileInfoKeyboard(s *service.BotService, relPath, cloudLink string) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-	if cloudLink != "" && utils.IsValidURL(cloudLink) {
-		btnText := BtnTextCloudLink
-		if s.Config.IndexURL != "" {
-			btnText = BtnTextIndexURL
-		}
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL(btnText, cloudLink),
-		))
-	}
-
-	dirPath := filepath.Dir(relPath)
-	if dirPath == "." || dirPath == "/" {
-		dirPath = ""
-	}
-
-	backData := fmt.Sprintf("dr:c:%s", dirPath)
-	if len(backData) > 60 {
-		id := s.StorePath(dirPath)
-		backData = fmt.Sprintf("dr:c:id:%s", id)
-	}
-
-	deleteData := fmt.Sprintf("dr:df:%s", relPath)
-	if len(deleteData) > 60 {
-		id := s.StorePath(relPath)
-		deleteData = fmt.Sprintf("dr:df:id:%s", id)
-	}
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 Back to Folder", backData),
-		tgbotapi.NewInlineKeyboardButtonData("🗑️ Delete", deleteData),
-	))
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "dr:x"),
-	))
-
-	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return tgbotapi.InlineKeyboardMarkup{}
 }
 
 func getFileIcon(filename string) string {

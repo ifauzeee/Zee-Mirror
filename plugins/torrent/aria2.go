@@ -136,7 +136,11 @@ func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map
 	connections := "4"
 	split := "4"
 
-	if task.TotalSize > 0 {
+	if noRangeRequestURL(task.URL) {
+		slog.Info("URL detected as non-range-request compatible, using single connection", "url", task.URL)
+		connections = "1"
+		split = "1"
+	} else if task.TotalSize > 0 {
 		switch {
 		case task.TotalSize < 50*1024*1024:
 			connections = "4"
@@ -199,4 +203,19 @@ func (e *Aria2Engine) buildAria2Options(task *domain.Task, outputDir string) map
 	}
 
 	return options
+}
+
+func noRangeRequestURL(url string) bool {
+	nonRangePatterns := []string{
+		"video-downloads.googleusercontent.com",
+		"drive.google.com/uc?",
+		"drive.google.com/uc&id=",
+	}
+
+	for _, pattern := range nonRangePatterns {
+		if strings.Contains(url, pattern) {
+			return true
+		}
+	}
+	return false
 }

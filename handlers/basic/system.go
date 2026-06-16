@@ -97,23 +97,8 @@ func HandleSystem(s *service.BotService, message *tgbotapi.Message) {
 	stats := s.GetSystemStats()
 	text := s.FormatSystemStats(stats)
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "system:refresh"),
-			tgbotapi.NewInlineKeyboardButtonData("📊 Detailed", "system:detailed"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📈 Logs", "system:logs"),
-			tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyMarkup = keyboard
 	_, _ = s.Bot.Send(msg)
 }
 
@@ -179,16 +164,8 @@ func HandlePingFromCallback(s *service.BotService, callback *tgbotapi.CallbackQu
 	elapsed := time.Since(start)
 	text := fmt.Sprintf("🏓 *Pong\\!* `%v`", elapsed.Round(time.Millisecond))
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Re-Ping", "dashboard:ping"),
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-		),
-	)
-
 	finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
-	finalEdit.ReplyMarkup = &keyboard
 	_, _ = s.Bot.Send(finalEdit)
 	_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🏓 Pong!"))
 }
@@ -218,13 +195,6 @@ func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			text = result.String()
 		}
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔄 Retest", "dashboard:speed"),
-				tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "help:monitor"),
-			),
-		)
-
 		var chartBytes []byte
 		if err == nil {
 			dlRe := regexp.MustCompile(`Download:\s+([0-9.]+)\s+Mbit/s`)
@@ -246,12 +216,10 @@ func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			msg := tgbotapi.NewPhoto(callback.Message.Chat.ID, tgbotapi.FileBytes{Name: "speedtest.png", Bytes: chartBytes})
 			msg.Caption = text
 			msg.ParseMode = tgbotapi.ModeMarkdownV2
-			msg.ReplyMarkup = keyboard
 			_, _ = s.Bot.Send(msg)
 		} else {
 			finalEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 			finalEdit.ParseMode = tgbotapi.ModeMarkdownV2
-			finalEdit.ReplyMarkup = &keyboard
 			_, _ = s.Bot.Send(finalEdit)
 		}
 	}()
@@ -271,23 +239,8 @@ func HandleSystemCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 		stats := s.GetSystemStats()
 		text := s.FormatSystemStats(stats)
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔄 Refresh", "system:refresh"),
-				tgbotapi.NewInlineKeyboardButtonData("📊 Detailed", "system:detailed"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📈 Logs", "system:logs"),
-				tgbotapi.NewInlineKeyboardButtonData("🧹 Cleanup", "system:cleanup"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("✖️ Close", "system:close"),
-			),
-		)
-
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		editMsg.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(editMsg)
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "🔄 Refreshed"))
 

@@ -211,38 +211,5 @@ func (s *BotService) formatSettingsMessage(userID int64) string {
 }
 
 func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
-	s.Settings.Mu.RLock()
-	defer s.Settings.Mu.RUnlock()
-
-	lang := s.GetUserLanguage(userID)
-	autoDeleteLabel := "🔕 " + i18n.T(lang, "settings_auto_delete") + ": OFF"
-	if s.Settings.AutoDeleteMessages {
-		autoDeleteLabel = "🔔 " + i18n.T(lang, "settings_auto_delete") + ": ON"
-	}
-
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(autoDeleteLabel, "settings:auto_delete"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📥 "+i18n.T(lang, "settings_set_mirror"), "settings:default_mirror"),
-			tgbotapi.NewInlineKeyboardButtonData("🔗 "+i18n.T(lang, "settings_set_leech"), "settings:default_leech"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📺 720p", "settings:quality_720"),
-			tgbotapi.NewInlineKeyboardButtonData("📺 1080p", "settings:quality_1080"),
-			tgbotapi.NewInlineKeyboardButtonData("📺 4K", "settings:quality_2160"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🇮🇩 Indonesia", "settings:lang_id"),
-			tgbotapi.NewInlineKeyboardButtonData("🇺🇸 English", "settings:lang_en"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🇯🇵 日本語", "settings:lang_ja"),
-			tgbotapi.NewInlineKeyboardButtonData("🇨🇳 简体中文", "settings:lang_zh"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), "help:back"),
-		),
-	)
+	return tgbotapi.InlineKeyboardMarkup{}
 }

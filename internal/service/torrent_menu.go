@@ -32,24 +32,8 @@ func (s *BotService) ShowTorrentSelectionMenu(message *tgbotapi.Message, url, na
 	lang := s.GetUserLanguage(message.From.ID)
 	text := i18n.T(lang, "torrent_menu_text")
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Select All", fmt.Sprintf("torrent_sel:all:%s", sessionID)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📂 Browse Files", fmt.Sprintf("torrent_sel:browse:%s:0", sessionID)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("torrent_sel:cancel:%s", sessionID)),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
-	msg.ReplyMarkup = keyboard
 
 	sentMsg, err := s.Bot.Send(msg)
 	if err != nil {
@@ -207,38 +191,11 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 	case "back":
 		s.TaskManager.Mu.Unlock()
 
-		baseURL := s.Config.DashboardURL
-		if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-			baseURL = "http://" + baseURL
-		}
-		dashboardURL := ""
-		if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") {
-			dashboardURL = fmt.Sprintf("%s:%d/torrent-select/%s", baseURL, s.Config.DashboardPort, sessionID)
-		} else {
-			dashboardURL = fmt.Sprintf("%s/torrent-select/%s", baseURL, sessionID)
-		}
-
 		lang := s.GetUserLanguage(callback.From.ID)
 		text := i18n.T(lang, "torrent_menu_text")
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📦 Select All", fmt.Sprintf("torrent_sel:all:%s", sessionID)),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📂 Browse Files", fmt.Sprintf("torrent_sel:browse:%s:0", sessionID)),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL("📋 Select Files (Web)", dashboardURL),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", fmt.Sprintf("torrent_sel:cancel:%s", sessionID)),
-			),
-		)
-
 		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		edit.ParseMode = MarkdownV2
-		edit.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(edit)
 
 	case "cancel":
@@ -279,64 +236,8 @@ func (s *BotService) ShowTorrentBrowseMenu(callback *tgbotapi.CallbackQuery, ses
 	lang := s.GetUserLanguage(callback.From.ID)
 	text := i18n.T(lang, "torrent_browse_title", len(files))
 
-	var rows [][]tgbotapi.InlineKeyboardButton
-	for i := offset; i < end; i++ {
-		file := files[i]
-
-		isChosen := false
-		for _, sIdx := range selected {
-			if sIdx == file.Index {
-				isChosen = true
-				break
-			}
-		}
-
-		icon := "⬜"
-		if isChosen {
-			icon = "✅"
-		}
-
-		btnText := fmt.Sprintf("%s %s (%s)", icon, file.Name, utils.FormatBytes(file.Size))
-		callbackData := fmt.Sprintf("torrent_sel:toggle:%d:%d:%s", file.Index, offset, sessionID)
-
-		if len(btnText) > 40 {
-			btnText = btnText[:37] + "..."
-		}
-
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(btnText, callbackData),
-		))
-	}
-
-	var navRow []tgbotapi.InlineKeyboardButton
-	if offset > 0 {
-		prevOffset := offset - limit
-		if prevOffset < 0 {
-			prevOffset = 0
-		}
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("torrent_sel:page:%d:%s", prevOffset, sessionID)))
-	}
-
-	if end < len(files) {
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("torrent_sel:page:%d:%s", end, sessionID)))
-	}
-
-	if len(navRow) > 0 {
-		rows = append(rows, navRow)
-	}
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "torrent_start_selected"), fmt.Sprintf("torrent_sel:start_sel:%s", sessionID)),
-	))
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData(i18n.T(lang, "help_back"), fmt.Sprintf("torrent_sel:back:%s", sessionID)),
-	))
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
-
 	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	edit.ParseMode = MarkdownV2
-	edit.ReplyMarkup = &keyboard
 
 	_, _ = s.Bot.Request(edit)
 }

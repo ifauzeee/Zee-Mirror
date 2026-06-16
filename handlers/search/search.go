@@ -94,22 +94,8 @@ func HandleSearch(s *service.BotService, message *tgbotapi.Message, args string)
 	isSearchAll := message.Command() == "searchall"
 
 	if !isSearchAll {
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🌟 Solid (Umum)", fmt.Sprintf("t_search:solid:%s", query)),
-				tgbotapi.NewInlineKeyboardButtonData("🏴‍☠️ PirateBay", fmt.Sprintf("t_search:apibay:%s", query)),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🌸 Nyaa (Anime)", fmt.Sprintf("t_search:nyaa:%s", query)),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🌍 Cari Semua (Gabungan)", fmt.Sprintf("t_search:all:%s", query)),
-			),
-		)
-
 		msg := tgbotapi.NewMessage(message.Chat.ID, fmt.Sprintf("🔍 *Pencarian:* `%s`\n\nPilih provider torrent untuk mulai mencari:", utils.EscapeMarkdownV2(query)))
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
-		msg.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(msg)
 		return
 	}
@@ -224,16 +210,8 @@ func HandleSearchCallback(s *service.BotService, callback *tgbotapi.CallbackQuer
 
 		text := fmt.Sprintf("📭 *Tidak ada hasil ditemukan di %s*\n\n_Cobalah menggunakan kata kunci lain atau provider yang berbeda\\._", provider)
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_back:%s", sessionID)),
-				tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", fmt.Sprintf("t_close:%s", sessionID)),
-			),
-		)
-
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		editMsg.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(editMsg)
 		return
 	}
@@ -291,9 +269,6 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 	text := fmt.Sprintf("🔍 *Hasil Pencarian \\(%s\\)*\n`%s`\n\n", utils.EscapeMarkdownV2(provider), utils.EscapeMarkdownV2Code(query))
 	text += fmt.Sprintf("📄 Halaman %d/%d\n\n", page+1, totalPages)
 
-	var rows [][]tgbotapi.InlineKeyboardButton
-	var numberKeyRow []tgbotapi.InlineKeyboardButton
-
 	for i, item := range visibleItems {
 		idx := start + i + 1
 		text += fmt.Sprintf("%d\\. *%s*\n📦 %s • 👤 %s • 🌐 %s\n\n",
@@ -303,32 +278,10 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 			utils.EscapeMarkdownV2(item.Seeders),
 			utils.EscapeMarkdownV2(item.Source),
 		)
-
-		numberKeyRow = append(numberKeyRow, tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%d", idx),
-			fmt.Sprintf("t_item:%d:%s", start+i, sessionID),
-		))
 	}
-	rows = append(rows, numberKeyRow)
-
-	var navRow []tgbotapi.InlineKeyboardButton
-	if totalPages > 1 {
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ Prev", fmt.Sprintf("t_page:%d:%s", page-1, sessionID)))
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d/%d", page+1, totalPages), "ignore"))
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("Next ➡️", fmt.Sprintf("t_page:%d:%s", page+1, sessionID)))
-	}
-	rows = append(rows, navRow)
-
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_back:%s", sessionID)),
-		tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", fmt.Sprintf("t_close:%s", sessionID)),
-	))
-
-	keyboard := tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 
 	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-	editMsg.ReplyMarkup = &keyboard
 
 	if _, err := s.Bot.Send(editMsg); err != nil {
 		slog.Warn("Search results markdown error, using fallback", "error", err)
@@ -337,7 +290,6 @@ func showSearchResults(s *service.BotService, chatID int64, messageID int, sessi
 			fallbackText += fmt.Sprintf("%d. %s\nSize: %s | Seeds: %s\n\n", start+i+1, item.Title, item.Size, item.Seeders)
 		}
 		fallbackEdit := tgbotapi.NewEditMessageText(chatID, messageID, fallbackText)
-		fallbackEdit.ReplyMarkup = &keyboard
 		_, _ = s.Bot.Send(fallbackEdit)
 	}
 }
@@ -360,19 +312,9 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 		}
 		query := session.Query
 		SearchMu.RUnlock()
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🌟 Solid (Umum)", fmt.Sprintf("t_search:solid:%s", query)),
-				tgbotapi.NewInlineKeyboardButtonData("🏴‍☠️ PirateBay", fmt.Sprintf("t_search:apibay:%s", query)),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🌸 Nyaa (Anime)", fmt.Sprintf("t_search:nyaa:%s", query)),
-			),
-		)
 
 		textRaw := fmt.Sprintf("🔍 Pencarian: %s\n\nPilih provider pencarian yang lebih stabil:", query)
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, textRaw)
-		editMsg.ReplyMarkup = &keyboard
 
 		if _, err := s.Bot.Send(editMsg); err != nil {
 			slog.Warn("t_back edit error", "error", err)
@@ -447,22 +389,13 @@ func HandleSearchNavCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			utils.EscapeMarkdownV2Code(cleanMagnet),
 		)
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔙 Kembali", fmt.Sprintf("t_page:%d:%s", page, sessionID)),
-				tgbotapi.NewInlineKeyboardButtonData("❌ Tutup", fmt.Sprintf("t_close:%s", sessionID)),
-			),
-		)
-
 		editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2
-		editMsg.ReplyMarkup = &keyboard
 
 		if _, err := s.Bot.Send(editMsg); err != nil {
 			slog.Warn("Search item detail markdown error, using fallback", "error", err)
 			fallbackText := fmt.Sprintf("Detail Torrent:\n\n%s\nSize: %s\nMagnet:\n%s", title, size, cleanMagnet)
 			fallbackEdit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, fallbackText)
-			fallbackEdit.ReplyMarkup = &keyboard
 			_, _ = s.Bot.Send(fallbackEdit)
 		}
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, ""))
