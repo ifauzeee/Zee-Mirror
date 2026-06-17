@@ -53,7 +53,7 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 
 	uploadPath := task.LocalPath
 	if uploadPath == "" {
-		return fmt.Errorf("no file to upload")
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("no file to upload")}
 	}
 
 	totalSize := task.TotalSize
@@ -117,19 +117,19 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %v", err)
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("failed to create stderr pipe: %v", err)}
 	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %v", err)
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("failed to create stdout pipe: %v", err)}
 	}
 
 	slog.Info("Starting rclone upload", "taskID", task.ID, "args", strings.Join(args, " "))
 
 	err = cmd.Start()
 	if err != nil {
-		return fmt.Errorf("failed to start rclone: %v", err)
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("failed to start rclone: %v", err)}
 	}
 
 	done := make(chan struct{})
@@ -184,14 +184,14 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 	if err != nil {
 		metrics.UploadDuration.WithLabelValues("rclone", "failed").Observe(time.Since(startTime).Seconds())
 		if task.Status == domain.StatusCancelled {
-			return fmt.Errorf("task cancelled")
+			return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("task cancelled")}
 		}
-		return fmt.Errorf("rclone failed: %v", err)
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("rclone failed: %v", err)}
 	}
 
 	if task.Status == domain.StatusCancelled {
 		metrics.UploadDuration.WithLabelValues("rclone", "failed").Observe(time.Since(startTime).Seconds())
-		return fmt.Errorf("task cancelled")
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("task cancelled")}
 	}
 
 	isDir := false
@@ -271,7 +271,7 @@ func (r *RcloneUploader) UploadToCustomDest(ctx context.Context, content io.Read
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("rclone to %s failed: %v, output: %s", dest, err, string(output))
+		return &domain.ExternalError{Tool: "rclone", Err: fmt.Errorf("rclone to %s failed: %v", dest, err), Output: string(output)}
 	}
 	slog.Info("Upload to custom dest completed", "dest", dest, "fileName", fileName)
 	return nil

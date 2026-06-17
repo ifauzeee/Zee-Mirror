@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 )
 
@@ -66,6 +67,24 @@ func (e *QuotaError) Unwrap() error {
 	return ErrQuota
 }
 
+type ExternalError struct {
+	Err      error
+	Tool     string
+	ExitCode int
+	Output   string
+}
+
+func (e *ExternalError) Error() string {
+	if e.Output != "" {
+		return fmt.Sprintf("%s error (exit %d): %v | output: %s", e.Tool, e.ExitCode, e.Err, e.Output)
+	}
+	return fmt.Sprintf("%s error (exit %d): %v", e.Tool, e.ExitCode, e.Err)
+}
+
+func (e *ExternalError) Unwrap() error {
+	return ErrExternal
+}
+
 func IsRetryable(err error) bool {
 	if err == nil {
 		return false
@@ -84,8 +103,18 @@ func CategorizeError(err error) error {
 	var netErr *NetworkError
 	var storErr *StorageError
 	var quotaErr *QuotaError
-	if errors.As(err, &netErr) || errors.As(err, &storErr) || errors.As(err, &quotaErr) {
+	var extErr *ExternalError
+	if errors.As(err, &netErr) || errors.As(err, &storErr) || errors.As(err, &quotaErr) || errors.As(err, &extErr) {
 		return err
+	}
+
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		addr := ""
+		if opErr.Addr != nil {
+			addr = opErr.Addr.String()
+		}
+		return &NetworkError{Err: err, URL: addr}
 	}
 
 	errMsg := strings.ToLower(err.Error())

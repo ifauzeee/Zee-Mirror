@@ -107,13 +107,13 @@ func (e *Aria2Engine) Download(ctx context.Context, task *domain.Task, outputDir
 				return nil
 			}
 
-			if status.Status == "error" {
-				return domain.CategorizeError(fmt.Errorf("aria2 error: %s", status.ErrorMessage))
-			}
+		if status.Status == "error" {
+			return &domain.ExternalError{Tool: "aria2", Err: fmt.Errorf("%s", status.ErrorMessage)}
+		}
 
-			if status.Status == "removed" {
-				return fmt.Errorf("task was removed from aria2")
-			}
+		if status.Status == "removed" {
+			return &domain.ExternalError{Tool: "aria2", Err: fmt.Errorf("task was removed")}
+		}
 
 			update := downloader.ProgressUpdate{}
 			update.Downloaded = utils.ParseBytesString(status.CompletedLength)

@@ -256,13 +256,11 @@ func (e *Engine) Download(ctx context.Context, task *domain.Task, outputDir stri
 				}
 			}
 			if len(errors) > 0 {
-				errorMsg := fmt.Errorf("yt-dlp failed: %s", strings.Join(errors, "\n"))
-				return domain.CategorizeError(errorMsg)
+				return &domain.ExternalError{Tool: "yt-dlp", Err: fmt.Errorf("%s", strings.Join(errors, "\n"))}
 			}
-			errorMsg := fmt.Errorf("yt-dlp failed: %s", errorOutput)
-			return domain.CategorizeError(errorMsg)
+			return &domain.ExternalError{Tool: "yt-dlp", Err: fmt.Errorf("%s", errorOutput)}
 		}
-		return domain.CategorizeError(fmt.Errorf("yt-dlp error: %v", err))
+		return &domain.ExternalError{Tool: "yt-dlp", Err: err}
 	}
 
 	if task.Hardsub && task.SubtitleLangs != "" {

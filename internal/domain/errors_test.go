@@ -3,6 +3,7 @@ package domain_test
 import (
 	"errors"
 	"fmt"
+	"net"
 	"testing"
 
 	"zee-mirror/internal/domain"
@@ -16,10 +17,28 @@ func TestCategorizeError(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
-	t.Run("AlreadyTypedError", func(t *testing.T) {
+	t.Run("AlreadyTypedNetworkError", func(t *testing.T) {
 		netErr := &domain.NetworkError{Err: errors.New("timeout"), URL: "http://example.com"}
 		result := domain.CategorizeError(netErr)
 		assert.Equal(t, netErr, result)
+	})
+
+	t.Run("AlreadyTypedStorageError", func(t *testing.T) {
+		storErr := &domain.StorageError{Err: errors.New("disk full"), Path: "/downloads"}
+		result := domain.CategorizeError(storErr)
+		assert.Equal(t, storErr, result)
+	})
+
+	t.Run("AlreadyTypedExternalError", func(t *testing.T) {
+		extErr := &domain.ExternalError{Tool: "aria2", Err: errors.New("download failed")}
+		result := domain.CategorizeError(extErr)
+		assert.Equal(t, extErr, result)
+	})
+
+	t.Run("NetOpError", func(t *testing.T) {
+		opErr := &net.OpError{Op: "dial", Net: "tcp", Addr: nil, Err: errors.New("connection refused")}
+		result := domain.CategorizeError(opErr)
+		assert.ErrorIs(t, result, domain.ErrNetwork)
 	})
 
 	t.Run("LinkExpired", func(t *testing.T) {
@@ -162,6 +181,41 @@ func TestIsRetryable(t *testing.T) {
 	t.Run("GenericError_Retryable", func(t *testing.T) {
 		err := errors.New("some random error")
 		assert.True(t, domain.IsRetryable(err))
+	})
+}
+
+func TestExternalError(t *testing.T) {
+	t.Run("BasicError", func(t *testing.T) {
+		inner := errors.New("download failed")
+		err := &domain.ExternalError{Tool: "aria2", Err: inner}
+
+		assert.Contains(t, err.Error(), "aria2")
+		assert.Contains(t, err.Error(), "download failed")
+		assert.ErrorIs(t, err, domain.ErrExternal)
+	})
+
+	t.Run("WithExitCode", func(t *testing.T) {
+		inner := errors.New("process exited")
+		err := &domain.ExternalError{Tool: "yt-dlp", Err: inner, ExitCode: 1}
+
+		assert.Contains(t, err.Error(), "yt-dlp")
+		assert.Contains(t, err.Error(), "exit 1")
+		assert.ErrorIs(t, err, domain.ErrExternal)
+	})
+
+	t.Run("WithOutput", func(t *testing.T) {
+		inner := errors.New("sync failed")
+		err := &domain.ExternalError{Tool: "rclone", Err: inner, Output: "error: file not found"}
+
+		assert.Contains(t, err.Error(), "rclone")
+		assert.Contains(t, err.Error(), "sync failed")
+		assert.Contains(t, err.Error(), "file not found")
+		assert.ErrorIs(t, err, domain.ErrExternal)
+	})
+
+	t.Run("Unwrap", func(t *testing.T) {
+		err := &domain.ExternalError{Tool: "aria2", Err: errors.New("test")}
+		assert.ErrorIs(t, err, domain.ErrExternal)
 	})
 }
 
