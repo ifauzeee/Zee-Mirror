@@ -1,12 +1,13 @@
 module zee-mirror
 
-go 1.25.11
+go 1.26.4
 
 require github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 
 require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/getsentry/sentry-go v0.46.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -54,7 +55,6 @@ require (
 	github.com/go-openapi/swag/stringutils v0.26.1 // indirect
 	github.com/go-openapi/swag/typeutils v0.26.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.26.1 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/gotd/ige v0.2.2 // indirect
 	github.com/gotd/neo v0.1.5 // indirect
