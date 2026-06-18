@@ -202,7 +202,7 @@ func (s *BotService) HandleTorrentSelectionCallback(callback *tgbotapi.CallbackQ
 	}
 }
 
-func (s *BotService) ShowTorrentBrowseMenu(callback *tgbotapi.CallbackQuery, sessionID string, offset int) {
+func (s *BotService) ShowTorrentBrowseMenu(callback *tgbotapi.CallbackQuery, sessionID string, _ int) {
 	s.TaskManager.Mu.RLock()
 	session, exists := s.TaskManager.TorrentSessions[sessionID]
 	if !exists {

@@ -16,7 +16,7 @@ func (s *BotService) Reply(message *tgbotapi.Message, text string) {
 	}
 }
 
-func (s *BotService) SendOrEditMessage(chatID int64, messageID int, text string, keyboard interface{}) {
+func (s *BotService) SendOrEditMessage(chatID int64, messageID int, text string, _ interface{}) {
 	if messageID != 0 {
 		editMsg := tgbotapi.NewEditMessageText(chatID, messageID, text)
 		editMsg.ParseMode = tgbotapi.ModeMarkdownV2

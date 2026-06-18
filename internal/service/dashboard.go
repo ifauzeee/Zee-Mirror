@@ -231,7 +231,7 @@ func (s *BotService) buildStatusDashboardText(lang string, tasks []*Task, batche
 	return text
 }
 
-func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup {
+func buildNavigationKeyboard(_, _ int) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 

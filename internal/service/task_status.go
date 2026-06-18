@@ -15,7 +15,7 @@ const (
 	BtnTextIndexURL  = "🌐 Index URL"
 )
 
-func addLeechDownloadButton(_ tgbotapi.InlineKeyboardMarkup, snapshot domain.TaskSnapshot, botToken string) tgbotapi.InlineKeyboardMarkup {
+func addLeechDownloadButton(_ tgbotapi.InlineKeyboardMarkup, _ domain.TaskSnapshot, _ string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
