@@ -70,8 +70,8 @@ func (e *QuotaError) Unwrap() error {
 type ExternalError struct {
 	Err      error
 	Tool     string
-	ExitCode int
 	Output   string
+	ExitCode int
 }
 
 func (e *ExternalError) Error() string {

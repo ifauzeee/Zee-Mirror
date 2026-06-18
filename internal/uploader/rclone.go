@@ -26,12 +26,12 @@ import (
 )
 
 type ProgressUpdate struct {
+	Error        string
 	UploadedSize int64
 	TotalSize    int64
 	Progress     float64
 	Speed        int64
 	ETA          time.Duration
-	Error        string
 }
 
 type FileUploader interface {

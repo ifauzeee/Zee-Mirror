@@ -197,7 +197,7 @@ func FormatTaskProfessional(lang string, taskSnapshot domain.TaskSnapshot) strin
 	)
 }
 
-func GetStartKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
+func GetStartKeyboard(_ string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
@@ -210,14 +210,8 @@ func GetHelpKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
-func GetDownloadHelpKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.InlineKeyboardMarkup{}
-}
-
 func GetSettingsKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
-func buildTelegramFileURL(botToken, filePath string) string {
-	return "https://api.telegram.org/file/bot" + botToken + "/" + filePath
-}
+

@@ -97,6 +97,6 @@ func (s *BotService) FormatDriveFileList(path string, files []DriveFile) string 
 	return text.String()
 }
 
-func (s *BotService) BuildDriveNavigationKeyboard(files []DriveFile, currentRelPath string) tgbotapi.InlineKeyboardMarkup {
+func (s *BotService) BuildDriveNavigationKeyboard(_ []DriveFile, currentRelPath string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }

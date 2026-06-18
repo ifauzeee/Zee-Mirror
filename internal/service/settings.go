@@ -210,6 +210,6 @@ func (s *BotService) formatSettingsMessage(userID int64) string {
 	)
 }
 
-func (s *BotService) getSettingsKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
+func (s *BotService) getSettingsKeyboard(_ int64) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }

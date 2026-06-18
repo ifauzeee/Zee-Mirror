@@ -8,10 +8,10 @@ import (
 
 type HelpCommandEntry struct {
 	Name        string
-	Aliases     []string
 	Description string
 	Category    string
 	Emoji       string
+	Aliases     []string
 }
 
 var registeredCommands []HelpCommandEntry

@@ -3,8 +3,8 @@ package api
 import (
 	"compress/gzip"
 	"context"
-	"crypto/subtle"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -415,13 +415,17 @@ func globalMiddleware(next http.Handler, allowedOrigin string, auditRepo reposit
 				actorName = "dashboard(jwt)"
 			}
 			if auditRepo != nil {
-				go auditRepo.LogAudit(context.Background(), domain.AuditEntry{
-					Action:    r.Method + " " + r.URL.Path,
-					ActorName: actorName,
-					Resource:  r.URL.Path,
-					Details:   r.URL.RawQuery,
-					IPAddress: clientIP,
-				})
+				go func(action, actorName, resource, details, ip string) {
+					if err := auditRepo.LogAudit(context.Background(), domain.AuditEntry{
+						Action:    action,
+						ActorName: actorName,
+						Resource:  resource,
+						Details:   details,
+						IPAddress: ip,
+					}); err != nil {
+						slog.Debug("Failed to log audit entry", "error", err)
+					}
+				}(r.Method+" "+r.URL.Path, actorName, r.URL.Path, r.URL.RawQuery, clientIP)
 			}
 		}
 

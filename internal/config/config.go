@@ -15,7 +15,7 @@ import (
 )
 
 type Config struct {
-	VikingUserHash           string
+	TelegramAPI              string
 	IndexURL                 string
 	RcloneLogLevel           string
 	RcloneDest               string
@@ -35,30 +35,30 @@ type Config struct {
 	Aria2RPCURL              string
 	Aria2RPCSecret           string
 	WebhookURL               string
+	VikingUserHash           string
 	UserSessionString        string
 	WebhookSecret            string
-	TelegramAPI              string
 	RclonePacerBurst         string
 	RclonePacerMinSleep      string
 	RcloneBufferSize         string
 	RcloneDriveChunkSize     string
 	RcloneCheckers           string
 	DBDriver                 string
-	AuthorizedUsers          []int64
+	encryptionKeyHex         string
 	BotTokens                []string
-	DashboardPort            int
-	DefaultMaxDailyBandwidth int64
-	MaxConcurrentDownloads   int
-	DefaultMaxDailyTasks     int
-	MaxRetries               int
+	AuthorizedUsers          []int64
+	EncryptionKey            []byte
 	AutoCleanupDays          int
-	OwnerID                  int64
+	DefaultMaxDailyTasks     int
+	MaxConcurrentDownloads   int
+	MaxRetries               int
 	AppID                    int
+	OwnerID                  int64
+	DefaultMaxDailyBandwidth int64
+	DashboardPort            int
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
 	UseWebhook               bool
-	EncryptionKey            []byte
-	encryptionKeyHex         string
 }
 
 func LoadConfig() *Config {

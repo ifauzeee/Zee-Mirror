@@ -257,13 +257,13 @@ func (s *BotService) HandleCreateTaskError(chatID int64, messageID int, err erro
 }
 func (s *BotService) GetFileWithFallback(fileID string) (tgbotapi.File, bool, error) {
 	type result struct {
-		file tgbotapi.File
 		err  error
+		file tgbotapi.File
 	}
 
 	type offResult struct {
-		file tgbotapi.File
 		err  error
+		file tgbotapi.File
 	}
 
 	done := make(chan result, 1)

@@ -202,30 +202,6 @@ func buildYTDLPKeyboard(sortedHeights []int, resMap map[int]downloader.FormatInf
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
-func formatQualityLabel(height int, info downloader.FormatInfo) string {
-	var label string
-	switch height {
-	case 4320:
-		label = "8K (4320p)"
-	case 2160:
-		label = "4K (2160p)"
-	case 1440:
-		label = "2K (1440p)"
-	default:
-		label = fmt.Sprintf("%dp", height)
-	}
-
-	if info.FPS > 30 {
-		label += fmt.Sprintf(" %dfps", int(info.FPS))
-	}
-
-	if info.Size > 0 {
-		label += fmt.Sprintf(" (~%s)", utils.FormatBytes(info.Size))
-	}
-
-	return label
-}
-
 func YTDLPQualityCallbackHandler(s *service.BotService, callback *tgbotapi.CallbackQuery, parts []string) {
 	if len(parts) < 3 {
 		_, _ = s.Bot.Request(tgbotapi.NewCallback(callback.ID, "❌ Sesi kadaluarsa"))

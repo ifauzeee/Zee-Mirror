@@ -15,12 +15,12 @@ type CommandHandler func(s *service.BotService, msg *tgbotapi.Message)
 type CallbackHandler func(s *service.BotService, cb *tgbotapi.CallbackQuery)
 
 type CommandInfo struct {
+	DetailedFn  func() string
 	Name        string
-	Aliases     []string
 	Description string
 	Category    string
 	Emoji       string
-	DetailedFn  func() string
+	Aliases     []string
 }
 
 type Router struct {

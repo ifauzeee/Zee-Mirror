@@ -304,33 +304,33 @@ func processUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel, botSvc
 					_, _ = botSvc.Bot.Send(msg)
 					continue
 				}
-			go func() {
-				defer func() {
-					if r := recover(); r != nil {
-						slog.Error("PANIC in message handler", "recover", r, "user", update.Message.From.ID, "text", update.Message.Text)
-					}
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							slog.Error("PANIC in message handler", "recover", r, "user", update.Message.From.ID, "text", update.Message.Text)
+						}
+					}()
+					r.HandleMessage(update.Message)
 				}()
-				r.HandleMessage(update.Message)
-			}()
-		} else if update.CallbackQuery != nil {
-			data := update.CallbackQuery.Data
-			isHelp := strings.HasPrefix(data, "help:")
+			} else if update.CallbackQuery != nil {
+				data := update.CallbackQuery.Data
+				isHelp := strings.HasPrefix(data, "help:")
 
-			if !botSvc.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
-				slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
+				if !botSvc.IsAuthorized(update.CallbackQuery.From.ID) && !isHelp {
+					slog.Warn("Unauthorized callback attempt", "userID", update.CallbackQuery.From.ID, "username", update.CallbackQuery.From.UserName, "data", data)
 
-				cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
-				_, _ = botSvc.Bot.Request(cb)
-				continue
-			}
-			go func() {
-				defer func() {
-					if r := recover(); r != nil {
-						slog.Error("PANIC in callback handler", "recover", r, "user", update.CallbackQuery.From.ID, "data", data)
-					}
+					cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "🚫 Access Denied")
+					_, _ = botSvc.Bot.Request(cb)
+					continue
+				}
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							slog.Error("PANIC in callback handler", "recover", r, "user", update.CallbackQuery.From.ID, "data", data)
+						}
+					}()
+					r.HandleCallback(update.CallbackQuery)
 				}()
-				r.HandleCallback(update.CallbackQuery)
-			}()
 			}
 		}
 	}
@@ -397,7 +397,7 @@ func setupBasicRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "lang", Aliases: []string{"language"},
 		Description: "Set language preference",
-		Category: "general", Emoji: "🌐",
+		Category:    "general", Emoji: "🌐",
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleLanguage(m)
 	})
@@ -414,7 +414,7 @@ func setupDownloadRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "mirror", Aliases: []string{"m"},
 		Description: "Upload file dari URL ke Google Drive",
-		Category: "download", Emoji: "📥",
+		Category:    "download", Emoji: "📥",
 		DetailedFn: basic.GetHelpMirror,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		download.HandleMirror(s, m, m.CommandArguments())
@@ -423,14 +423,14 @@ func setupDownloadRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "leech", Aliases: []string{"l"},
 		Description: "Download file dari URL ke Telegram",
-		Category: "download", Emoji: "📤",
+		Category:    "download", Emoji: "📤",
 		DetailedFn: basic.GetHelpLeech,
 	}, func(s *service.BotService, m *tgbotapi.Message) { download.HandleLeech(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "viking", Aliases: []string{"v"},
 		Description: "Upload ke Viking File host",
-		Category: "download", Emoji: "⚔️",
+		Category:    "download", Emoji: "⚔️",
 		DetailedFn: basic.GetHelpViking,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleViking(m, m.CommandArguments())
@@ -439,14 +439,14 @@ func setupDownloadRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "ytdlp", Aliases: []string{"y", "yt"},
 		Description: "Download video via YT-DLP ke Drive",
-		Category: "download", Emoji: "🎬",
+		Category:    "download", Emoji: "🎬",
 		DetailedFn: basic.GetHelpYTDLP,
 	}, func(s *service.BotService, m *tgbotapi.Message) { download.HandleYTDLP(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "ytdlpleech", Aliases: []string{"yl"},
 		Description: "Download video via YT-DLP ke Telegram",
-		Category: "download", Emoji: "🎬",
+		Category:    "download", Emoji: "🎬",
 		DetailedFn: basic.GetHelpYTDLPLeech,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		download.HandleYTDLPLeech(s, m, m.CommandArguments())
@@ -455,14 +455,14 @@ func setupDownloadRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "torrent", Aliases: []string{"t"},
 		Description: "Download via magnet/torrent file",
-		Category: "download", Emoji: "🧲",
+		Category:    "download", Emoji: "🧲",
 		DetailedFn: basic.GetHelpTorrent,
 	}, func(s *service.BotService, m *tgbotapi.Message) { download.HandleTorrent(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "clone", Aliases: []string{"cl"},
 		Description: "Clone Google Drive file/folder",
-		Category: "download", Emoji: "📋",
+		Category:    "download", Emoji: "📋",
 		DetailedFn: basic.GetHelpClone,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleClone(m, m.CommandArguments())
@@ -473,7 +473,7 @@ func setupAdminRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "status", Aliases: []string{"st"},
 		Description: "Show active tasks",
-		Category: "monitor", Emoji: "📊",
+		Category:    "monitor", Emoji: "📊",
 		DetailedFn: basic.GetHelpStatus,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleStatus(m)
@@ -482,16 +482,16 @@ func setupAdminRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "cancel", Aliases: []string{"c"},
 		Description: "Cancel a specific task",
-		Category: "task", Emoji: "❌",
+		Category:    "task", Emoji: "❌",
 		DetailedFn: basic.GetHelpCancel,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleCancel(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "cancelall",
+		Name:        "cancelall",
 		Description: "Cancel all active tasks",
-		Category: "task", Emoji: "🚫",
+		Category:    "task", Emoji: "🚫",
 		DetailedFn: basic.GetHelpCancelAll,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleCancelAll(m)
@@ -500,120 +500,120 @@ func setupAdminRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "search", Aliases: []string{"searchall"},
 		Description: "Search torrents from trackers",
-		Category: "download", Emoji: "🔍",
+		Category:    "download", Emoji: "🔍",
 		DetailedFn: basic.GetHelpSearch,
 	}, func(s *service.BotService, m *tgbotapi.Message) { search.HandleSearch(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "batch",
+		Name:        "batch",
 		Description: "Batch download multiple URLs",
-		Category: "download", Emoji: "📦",
+		Category:    "download", Emoji: "📦",
 		DetailedFn: basic.GetHelpBatch,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleBatch(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "authorize",
+		Name:        "authorize",
 		Description: "Grant user access to bot",
-		Category: "admin", Emoji: "✅",
+		Category:    "admin", Emoji: "✅",
 		DetailedFn: basic.GetHelpAuthorize,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		admin.HandleAuth(s, m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "unauthorize",
+		Name:        "unauthorize",
 		Description: "Revoke user access",
-		Category: "admin", Emoji: "❌",
+		Category:    "admin", Emoji: "❌",
 		DetailedFn: basic.GetHelpUnauthorize,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		admin.HandleUnauth(s, m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "removeuser",
+		Name:        "removeuser",
 		Description: "Remove user from database",
-		Category: "admin", Emoji: "🗑️",
+		Category:    "admin", Emoji: "🗑️",
 	}, func(s *service.BotService, m *tgbotapi.Message) { admin.RemoveUserHandler(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "setrole",
+		Name:        "setrole",
 		Description: "Set user role",
-		Category: "admin", Emoji: "👤",
+		Category:    "admin", Emoji: "👤",
 	}, func(s *service.BotService, m *tgbotapi.Message) { admin.SetRoleHandler(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "setlimit",
+		Name:        "setlimit",
 		Description: "Set user download limit",
-		Category: "admin", Emoji: "📏",
+		Category:    "admin", Emoji: "📏",
 	}, func(s *service.BotService, m *tgbotapi.Message) { admin.SetLimitHandler(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "setexpire",
+		Name:        "setexpire",
 		Description: "Set user access expiry",
-		Category: "admin", Emoji: "⏰",
+		Category:    "admin", Emoji: "⏰",
 	}, func(s *service.BotService, m *tgbotapi.Message) { admin.SetExpireHandler(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "users",
+		Name:        "users",
 		Description: "List all registered users",
-		Category: "admin", Emoji: "👥",
+		Category:    "admin", Emoji: "👥",
 		DetailedFn: basic.GetHelpUsers,
 	}, func(s *service.BotService, m *tgbotapi.Message) { admin.HandleUserList(s, m) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "setalertchannel",
+		Name:        "setalertchannel",
 		Description: "Set error alert channel",
-		Category: "admin", Emoji: "🚨",
+		Category:    "admin", Emoji: "🚨",
 		DetailedFn: basic.GetHelpSetAlertChannel,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleSetAlertChannel(m, m.CommandArguments())
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: service.CmdSystem,
+		Name:        service.CmdSystem,
 		Description: "System info (CPU, RAM, disk)",
-		Category: "monitor", Emoji: "🖥️",
+		Category:    "monitor", Emoji: "🖥️",
 		DetailedFn: basic.GetHelpSystem,
 	}, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleSystem(s, m) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: service.CmdHealth,
+		Name:        service.CmdHealth,
 		Description: "Health check all components",
-		Category: "monitor", Emoji: "🏥",
+		Category:    "monitor", Emoji: "🏥",
 		DetailedFn: basic.GetHelpHealth,
 	}, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleHealth(s, m) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: service.CmdLogs,
+		Name:        service.CmdLogs,
 		Description: "View bot logs",
-		Category: "monitor", Emoji: "📜",
+		Category:    "monitor", Emoji: "📜",
 		DetailedFn: basic.GetHelpLogs,
 	}, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleLogs(s, m, m.CommandArguments()) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "recover",
+		Name:        "recover",
 		Description: "Recover incomplete tasks",
-		Category: "recovery", Emoji: "🔄",
+		Category:    "recovery", Emoji: "🔄",
 		DetailedFn: basic.GetHelpRecover,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleRecover(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "recoverystatus",
+		Name:        "recoverystatus",
 		Description: "View recovery statistics",
-		Category: "recovery", Emoji: "📊",
+		Category:    "recovery", Emoji: "📊",
 		DetailedFn: basic.GetHelpRecoveryStatus,
 	}, func(s *service.BotService, m *tgbotapi.Message) {
 		s.HandleRecoveryStatus(m)
 	})
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "join",
+		Name:        "join",
 		Description: "Join Telegram channel via userbot",
-		Category: "general", Emoji: "📢",
+		Category:    "general", Emoji: "📢",
 	}, func(s *service.BotService, m *tgbotapi.Message) { basic.HandleJoin(s, m, m.CommandArguments()) })
 }
 
@@ -640,56 +640,56 @@ func setupFileManagerRoutes(r *router.Router) {
 	r.RegisterCommandWithInfo(router.CommandInfo{
 		Name: "ls", Aliases: []string{"dir"},
 		Description: "List files in cloud storage",
-		Category: "files", Emoji: "📂",
+		Category:    "files", Emoji: "📂",
 		DetailedFn: basic.GetHelpLs,
 	}, fmHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "mkdir",
+		Name:        "mkdir",
 		Description: "Create folder in cloud storage",
-		Category: "files", Emoji: "📁",
+		Category:    "files", Emoji: "📁",
 		DetailedFn: basic.GetHelpMkdir,
 	}, fmHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "rm",
+		Name:        "rm",
 		Description: "Delete file/folder from storage",
-		Category: "files", Emoji: "🗑️",
+		Category:    "files", Emoji: "🗑️",
 		DetailedFn: basic.GetHelpRm,
 	}, fmHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "mv",
+		Name:        "mv",
 		Description: "Move/rename file in storage",
-		Category: "files", Emoji: "📦",
+		Category:    "files", Emoji: "📦",
 		DetailedFn: basic.GetHelpMv,
 	}, fmHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "share",
+		Name:        "share",
 		Description: "Generate share link for file",
-		Category: "files", Emoji: "🔗",
+		Category:    "files", Emoji: "🔗",
 		DetailedFn: basic.GetHelpShare,
 	}, fmHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "find",
+		Name:        "find",
 		Description: "Search files in cloud storage",
-		Category: "files", Emoji: "🔍",
+		Category:    "files", Emoji: "🔍",
 		DetailedFn: basic.GetHelpFind,
 	}, fmHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "storages",
+		Name:        "storages",
 		Description: "List available storage providers",
-		Category: "storage", Emoji: "📋",
+		Category:    "storage", Emoji: "📋",
 		DetailedFn: basic.GetHelpStorages,
 	}, func(s *service.BotService, m *tgbotapi.Message) { storage.HandleStorages(s, m) })
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "setstorage",
+		Name:        "setstorage",
 		Description: "Set active storage provider",
-		Category: "storage", Emoji: "⚙️",
+		Category:    "storage", Emoji: "⚙️",
 		DetailedFn: basic.GetHelpSetStorage,
 	}, func(s *service.BotService, m *tgbotapi.Message) { storage.HandleSetStorage(s, m, m.CommandArguments()) })
 }
@@ -721,65 +721,65 @@ func setupMediaRoutes(r *router.Router) {
 	}
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "extractaudio",
+		Name:        "extractaudio",
 		Description: "Extract audio from video (MP3)",
-		Category: "media", Emoji: "🎵",
+		Category:    "media", Emoji: "🎵",
 		DetailedFn: basic.GetHelpExtractAudio,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "compress",
+		Name:        "compress",
 		Description: "Compress video size",
-		Category: "media", Emoji: "🗜️",
+		Category:    "media", Emoji: "🗜️",
 		DetailedFn: basic.GetHelpCompress,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "thumbnail",
+		Name:        "thumbnail",
 		Description: "Generate thumbnail from video",
-		Category: "media", Emoji: "🖼️",
+		Category:    "media", Emoji: "🖼️",
 		DetailedFn: basic.GetHelpThumbnail,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "screenshots",
+		Name:        "screenshots",
 		Description: "Generate multiple screenshots",
-		Category: "media", Emoji: "📸",
+		Category:    "media", Emoji: "📸",
 		DetailedFn: basic.GetHelpScreenshots,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "subtitle",
+		Name:        "subtitle",
 		Description: "Embed soft subtitles",
-		Category: "media", Emoji: "💬",
+		Category:    "media", Emoji: "💬",
 		DetailedFn: basic.GetHelpSubtitle,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "hardsub",
+		Name:        "hardsub",
 		Description: "Burn subtitles permanently",
-		Category: "media", Emoji: "🔥",
+		Category:    "media", Emoji: "🔥",
 		DetailedFn: basic.GetHelpHardsub,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "rescale",
+		Name:        "rescale",
 		Description: "Change video resolution",
-		Category: "media", Emoji: "📐",
+		Category:    "media", Emoji: "📐",
 		DetailedFn: basic.GetHelpRescale,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "convert",
+		Name:        "convert",
 		Description: "Convert file format",
-		Category: "media", Emoji: "🔄",
+		Category:    "media", Emoji: "🔄",
 		DetailedFn: basic.GetHelpConvert,
 	}, mediaHandler)
 
 	r.RegisterCommandWithInfo(router.CommandInfo{
-		Name: "mediainfo",
+		Name:        "mediainfo",
 		Description: "Show detailed media info",
-		Category: "media", Emoji: "ℹ️",
+		Category:    "media", Emoji: "ℹ️",
 		DetailedFn: basic.GetHelpMediaInfo,
 	}, mediaHandler)
 }

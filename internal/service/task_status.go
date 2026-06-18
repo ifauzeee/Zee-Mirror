@@ -15,11 +15,7 @@ const (
 	BtnTextIndexURL  = "🌐 Index URL"
 )
 
-func isLeechType(t TaskType) bool {
-	return t == TypeLeech || t == TypeYTDLPLeech
-}
-
-func addLeechDownloadButton(keyboard tgbotapi.InlineKeyboardMarkup, snapshot domain.TaskSnapshot, botToken string) tgbotapi.InlineKeyboardMarkup {
+func addLeechDownloadButton(_ tgbotapi.InlineKeyboardMarkup, snapshot domain.TaskSnapshot, botToken string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 

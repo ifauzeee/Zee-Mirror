@@ -215,12 +215,6 @@ func (s *BotService) ShowTorrentBrowseMenu(callback *tgbotapi.CallbackQuery, ses
 	files := session.Files
 	s.TaskManager.Mu.RUnlock()
 
-	limit := 8
-	end := offset + limit
-	if end > len(files) {
-		end = len(files)
-	}
-
 	lang := s.GetUserLanguage(callback.From.ID)
 	text := i18n.T(lang, "torrent_browse_title", len(files))
 

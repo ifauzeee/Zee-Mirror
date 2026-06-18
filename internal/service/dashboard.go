@@ -273,15 +273,16 @@ func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbot
 		slog.Debug("Editing dashboard message", "chatID", chatID, "msgID", lastMsgID, "text", text)
 		editMsg := tgbotapi.NewEditMessageText(chatID, lastMsgID, text)
 		editMsg.ParseMode = "HTML"
-		if _, err := s.Bot.Send(editMsg); err == nil {
+		_, sendErr := s.Bot.Send(editMsg)
+		if sendErr == nil {
 			lastStatusText[chatID] = text
 			return
-		} else if strings.Contains(err.Error(), "message is not modified") {
-			lastStatusText[chatID] = text
-			return
-		} else {
-			slog.Warn("Failed to edit status message, falling back to new message", "error", err, "chatID", chatID)
 		}
+		if strings.Contains(sendErr.Error(), "message is not modified") {
+			lastStatusText[chatID] = text
+			return
+		}
+		slog.Warn("Failed to edit status message, falling back to new message", "error", sendErr, "chatID", chatID)
 	}
 
 	msg := tgbotapi.NewMessage(chatID, text)
