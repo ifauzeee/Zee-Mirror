@@ -238,11 +238,11 @@ func formatDriveFileList(path string, files []service.DriveFile) string {
 	return text.String()
 }
 
-func buildDriveNavigationKeyboard(s *service.BotService, files []service.DriveFile, currentRelPath string) tgbotapi.InlineKeyboardMarkup {
+func buildDriveNavigationKeyboard(_ *service.BotService, files []service.DriveFile, currentRelPath string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
-func buildSearchNavigationKeyboard(s *service.BotService, files []service.DriveFile) tgbotapi.InlineKeyboardMarkup {
+func buildSearchNavigationKeyboard(_ *service.BotService, files []service.DriveFile) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
@@ -717,7 +717,7 @@ func buildFileInfoMessage(relPath string, file service.DriveFile) string {
 	return text.String()
 }
 
-func buildFileInfoKeyboard(s *service.BotService, relPath, cloudLink string) tgbotapi.InlineKeyboardMarkup {
+func buildFileInfoKeyboard(_ *service.BotService, relPath, cloudLink string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 

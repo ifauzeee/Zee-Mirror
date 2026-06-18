@@ -70,7 +70,7 @@ func (s *BotService) EditMessage(chatID int64, msgID int, text string) {
 	}
 }
 
-func (s *BotService) EditMessageWithMarkup(chatID int64, msgID int, text string, markup *tgbotapi.InlineKeyboardMarkup) {
+func (s *BotService) EditMessageWithMarkup(chatID int64, msgID int, text string, _ *tgbotapi.InlineKeyboardMarkup) {
 	editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
 	editMsg.ParseMode = MarkdownV2
 	_, err := s.Bot.Send(editMsg)

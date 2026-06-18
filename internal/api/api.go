@@ -26,7 +26,7 @@ import (
 	"zee-mirror/internal/service"
 	"zee-mirror/plugins/torrent"
 
-	_ "zee-mirror/docs"
+	_ "zee-mirror/docs" // swagger docs init
 
 	"github.com/getsentry/sentry-go"
 	"github.com/golang-jwt/jwt/v5"
@@ -106,7 +106,7 @@ func (s *Server) Start() {
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if tokenStr := r.Header.Get("Authorization"); strings.HasPrefix(tokenStr, "Bearer ") {
-				token, err := jwt.Parse(strings.TrimPrefix(tokenStr, "Bearer "), func(t *jwt.Token) (interface{}, error) {
+				token, err := jwt.Parse(strings.TrimPrefix(tokenStr, "Bearer "), func(_ *jwt.Token) (interface{}, error) {
 					return jwtKey(s.Service.Config.DashboardToken), nil
 				})
 				if err == nil && token.Valid {

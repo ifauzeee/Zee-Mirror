@@ -16,8 +16,6 @@ import (
 func (s *BotService) ShowTorrentSelectionMenu(message *tgbotapi.Message, url, name string, zip, unzip bool, password string, replyID int) {
 	sessionID := s.CreateTorrentSession(url, name, zip, unzip, password, message.Chat.ID, message.MessageID, replyID, message.From.ID)
 
-
-
 	lang := s.GetUserLanguage(message.From.ID)
 	text := i18n.T(lang, "torrent_menu_text")
 

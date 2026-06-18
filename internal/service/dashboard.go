@@ -235,7 +235,7 @@ func buildNavigationKeyboard(page, totalPages int) tgbotapi.InlineKeyboardMarkup
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
-func (s *BotService) sendStatusMessage(chatID int64, text string, keyboard tgbotapi.InlineKeyboardMarkup, forceNew bool) {
+func (s *BotService) sendStatusMessage(chatID int64, text string, _ tgbotapi.InlineKeyboardMarkup, forceNew bool) {
 	sendMsgMu.Lock()
 	defer sendMsgMu.Unlock()
 

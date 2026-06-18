@@ -206,12 +206,10 @@ func GetHelpMainText(lang string) string {
 	return ProfessionalMessage(i18n.T(lang, "help_title"), content)
 }
 
-func GetHelpKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
+func GetHelpKeyboard(_ string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
-func GetSettingsKeyboard(lang string) tgbotapi.InlineKeyboardMarkup {
+func GetSettingsKeyboard(_ string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
-
-

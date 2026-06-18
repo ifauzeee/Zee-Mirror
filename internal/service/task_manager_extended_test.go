@@ -265,7 +265,8 @@ func TestTaskManager_CreateTask_DifferentTypes(t *testing.T) {
 	types := []struct {
 		name     string
 		taskType service.TaskType
-		url      string	}{
+		url      string
+	}{
 		{"Mirror", service.TypeMirror, "http://example.com/file.zip"},
 		{"Leech", service.TypeLeech, "http://example.com/file.zip"},
 		{"YTDLP", service.TypeYTDLP, "http://youtube.com/watch?v=abc"},

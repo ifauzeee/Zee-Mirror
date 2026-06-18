@@ -104,7 +104,7 @@ func normalizeHelpAction(action string) string {
 	}
 }
 
-func sendHelpMessage(s *service.BotService, callback *tgbotapi.CallbackQuery, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
+func sendHelpMessage(s *service.BotService, callback *tgbotapi.CallbackQuery, text string, _ tgbotapi.InlineKeyboardMarkup) {
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
 	editMsg.ParseMode = tgbotapi.ModeMarkdownV2
 	_, err := s.Bot.Send(editMsg)

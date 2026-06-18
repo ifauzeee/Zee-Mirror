@@ -198,7 +198,7 @@ func createYTDLPSession(s *service.BotService, url, name string, zip bool, passw
 	return sessionID
 }
 
-func buildYTDLPKeyboard(sortedHeights []int, resMap map[int]downloader.FormatInfo, sessionID string) tgbotapi.InlineKeyboardMarkup {
+func buildYTDLPKeyboard(_ []int, _ map[int]downloader.FormatInfo, _ string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.InlineKeyboardMarkup{}
 }
 
