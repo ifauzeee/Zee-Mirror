@@ -30,6 +30,7 @@ var _ repository.TaskRepository = (*DB)(nil)
 var _ repository.UserRepository = (*DB)(nil)
 var _ repository.SettingsRepository = (*DB)(nil)
 var _ repository.ScheduledTaskRepository = (*DB)(nil)
+var _ repository.AuditRepository = (*DB)(nil)
 
 func NewDB(driverName, configDir, dsn, migrationsDir string) (*DB, error) {
 	switch driverName {
@@ -50,10 +51,14 @@ func newSQLiteDB(configDir, dsn, migrationsDir string) (*DB, error) {
 	if err := os.MkdirAll(dbDir, 0750); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)")
 	if err != nil {
 		return nil, err
 	}
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	if err := db.Ping(); err != nil {
 		return nil, err

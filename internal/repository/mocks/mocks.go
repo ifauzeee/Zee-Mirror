@@ -180,6 +180,16 @@ func (m *MockRepository) DeleteScheduled(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+func (m *MockRepository) LogAudit(ctx context.Context, entry domain.AuditEntry) error {
+	args := m.Called(ctx, entry)
+	return args.Error(0)
+}
+
+func (m *MockRepository) ListAuditLogs(ctx context.Context, limit, offset int) ([]domain.AuditEntry, error) {
+	args := m.Called(ctx, limit, offset)
+	return args.Get(0).([]domain.AuditEntry), args.Error(1)
+}
+
 func (m *MockRepository) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)

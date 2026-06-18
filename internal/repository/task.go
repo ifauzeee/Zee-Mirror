@@ -54,9 +54,15 @@ type ScheduledTaskRepository interface {
 	DeleteScheduled(ctx context.Context, id string) error
 }
 
+type AuditRepository interface {
+	LogAudit(ctx context.Context, entry domain.AuditEntry) error
+	ListAuditLogs(ctx context.Context, limit, offset int) ([]domain.AuditEntry, error)
+}
+
 type FullRepository interface {
 	TaskRepository
 	UserRepository
 	SettingsRepository
+	AuditRepository
 	Ping(ctx context.Context) error
 }

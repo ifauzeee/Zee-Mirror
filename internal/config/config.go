@@ -1,12 +1,14 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"zee-mirror/internal/crypto"
 	"zee-mirror/pkg/utils"
 
 	"github.com/joho/godotenv"
@@ -55,6 +57,8 @@ type Config struct {
 	SmartAutoOrganization    bool
 	StopDuplicate            bool
 	UseWebhook               bool
+	EncryptionKey            []byte
+	encryptionKeyHex         string
 }
 
 func LoadConfig() *Config {
@@ -98,6 +102,21 @@ func LoadConfig() *Config {
 		AutoCleanupDays:          getEnvInt("AUTO_CLEANUP_DAYS", 30),
 		DBDriver:                 getEnv("DB_DRIVER", "sqlite"),
 		DatabaseURL:              os.Getenv("DATABASE_URL"),
+		encryptionKeyHex:         os.Getenv("ENCRYPTION_KEY"),
+	}
+
+	if keyHex := cfg.encryptionKeyHex; keyHex != "" {
+		key, err := hex.DecodeString(keyHex)
+		if err == nil && len(key) == 32 {
+			cfg.EncryptionKey = key
+			cfg.UserSessionString = decryptConfigValue(cfg.UserSessionString, key)
+			cfg.BotToken = decryptConfigValue(cfg.BotToken, key)
+			cfg.AuthPassword = decryptConfigValue(cfg.AuthPassword, key)
+			cfg.DashboardToken = decryptConfigValue(cfg.DashboardToken, key)
+			slog.Info("Encryption key loaded, sensitive values decrypted")
+		} else {
+			slog.Warn("Invalid ENCRYPTION_KEY: must be 32-byte hex", "length", len(key))
+		}
 	}
 
 	if ownerIDStr := os.Getenv("OWNER_ID"); ownerIDStr != "" {
@@ -119,7 +138,7 @@ func LoadConfig() *Config {
 		for _, t := range strings.Split(botTokens, ",") {
 			t = strings.TrimSpace(t)
 			if t != "" {
-				cfg.BotTokens = append(cfg.BotTokens, t)
+				cfg.BotTokens = append(cfg.BotTokens, decryptConfigValue(t, cfg.EncryptionKey))
 			}
 		}
 	} else if cfg.BotToken != "" {
@@ -187,6 +206,18 @@ func getEnvBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return b
+}
+
+func decryptConfigValue(val string, key []byte) string {
+	if !strings.HasPrefix(val, "enc:") {
+		return val
+	}
+	decoded, err := crypto.Decrypt(strings.TrimPrefix(val, "enc:"), key)
+	if err != nil {
+		slog.Warn("Failed to decrypt config value", "error", err)
+		return val
+	}
+	return string(decoded)
 }
 
 func (c *Config) Validate() error {

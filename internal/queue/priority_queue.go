@@ -7,6 +7,12 @@ import (
 	"zee-mirror/internal/metrics"
 )
 
+const (
+	PriorityLow    = 0
+	PriorityNormal = 50
+	PriorityHigh   = 100
+)
+
 type PriorityTask struct {
 	Task     any
 	Priority int

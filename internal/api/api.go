@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/subtle"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -20,13 +21,15 @@ import (
 	"zee-mirror/internal/config"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/metrics"
+	"zee-mirror/internal/repository"
 	"zee-mirror/internal/router"
 	"zee-mirror/internal/service"
 	"zee-mirror/plugins/torrent"
 
-	_ "zee-mirror/docs" // swagger docs init
+	_ "zee-mirror/docs"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/golang-jwt/jwt/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -56,27 +59,77 @@ func (s *Server) SetRouter(r *router.Router) {
 	s.Router = r
 }
 
+func jwtKey(secret string) []byte {
+	h := sha256.Sum256([]byte(secret))
+	return h[:]
+}
+
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	apiKey := r.Header.Get("X-API-Key")
+	if subtle.ConstantTimeCompare([]byte(apiKey), []byte(s.Service.Config.DashboardToken)) != 1 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid api key"}`))
+		return
+	}
+
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub": "dashboard",
+		"iat": now.Unix(),
+		"exp": now.Add(24 * time.Hour).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(jwtKey(s.Service.Config.DashboardToken))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"failed to generate token"}`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"token":     signed,
+		"expiresIn": 86400,
+	})
+	slog.Info("Dashboard login", "ip", getClientIP(r))
+}
+
 func (s *Server) Start() {
 	mux := http.NewServeMux()
 
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			apiKey := r.Header.Get("X-API-Key")
-			expectedKey := s.Service.Config.DashboardToken
-
-			if subtle.ConstantTimeCompare([]byte(apiKey), []byte(expectedKey)) != 1 {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				if err := json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"}); err != nil {
-					slog.Debug("Failed to encode unauthorized response", "error", err)
+			if tokenStr := r.Header.Get("Authorization"); strings.HasPrefix(tokenStr, "Bearer ") {
+				token, err := jwt.Parse(strings.TrimPrefix(tokenStr, "Bearer "), func(t *jwt.Token) (interface{}, error) {
+					return jwtKey(s.Service.Config.DashboardToken), nil
+				})
+				if err == nil && token.Valid {
+					next(w, r)
+					return
 				}
+			}
+
+			apiKey := r.Header.Get("X-API-Key")
+			if subtle.ConstantTimeCompare([]byte(apiKey), []byte(s.Service.Config.DashboardToken)) == 1 {
+				next(w, r)
 				return
 			}
-			next(w, r)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"Unauthorized"}`))
 		}
 	}
 
 	mux.HandleFunc("/api/stats", auth(s.handleStats))
+	mux.HandleFunc("/api/login", s.handleLogin)
+	mux.HandleFunc("/api/audit-logs", auth(s.handleAuditLogs))
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		version := "unknown"
 		var err error
@@ -177,7 +230,7 @@ func (s *Server) Start() {
 
 	s.httpServer = &http.Server{
 		Addr:              addr,
-		Handler:           securityHeaders(globalMiddleware(mux, allowedOrigin)),
+		Handler:           securityHeaders(globalMiddleware(mux, allowedOrigin, s.Service.DB)),
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -260,6 +313,17 @@ func (rl *apiRateLimiter) Allow(key string) bool {
 	return true
 }
 
+func (rl *apiRateLimiter) count(key string) int {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	entry, exists := rl.requests[key]
+	if !exists || time.Now().After(entry.resetAt) {
+		return 0
+	}
+	return entry.count
+}
+
 func (rl *apiRateLimiter) Cleanup() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -273,13 +337,39 @@ func (rl *apiRateLimiter) Cleanup() {
 
 var globalRateLimiter = newAPIRateLimiter(60, time.Minute)
 
-func globalMiddleware(next http.Handler, allowedOrigin string) http.Handler {
+var auditExcluded = map[string]bool{
+	"/api/health": true, "/api/login": true, "/api/ws": true, "/metrics": true,
+}
+
+func getClientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+	return r.RemoteAddr
+}
+
+func globalMiddleware(next http.Handler, allowedOrigin string, auditRepo repository.AuditRepository) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		origin := allowedOrigin
+		if origin == "*" {
+			if reqOrigin := r.Header.Get("Origin"); reqOrigin != "" {
+				origin = reqOrigin
+			}
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		if origin != "*" {
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Vary", "Origin")
+		}
 		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
@@ -298,12 +388,41 @@ func globalMiddleware(next http.Handler, allowedOrigin string) http.Handler {
 			return
 		}
 
-		if !globalRateLimiter.Allow(r.RemoteAddr) {
+		clientIP := getClientIP(r)
+		rlKey := clientIP
+		currentCount := globalRateLimiter.count(rlKey)
+		remaining := globalRateLimiter.limit - currentCount
+		if remaining < 0 {
+			remaining = 0
+		}
+		w.Header().Set("X-RateLimit-Limit", strconv.Itoa(globalRateLimiter.limit))
+		w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(globalRateLimiter.window).Unix(), 10))
+
+		if !globalRateLimiter.Allow(rlKey) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Retry-After", "60")
+			w.Header().Set("Retry-After", strconv.Itoa(int(globalRateLimiter.window.Seconds())))
 			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":"rate limit exceeded","retry_after":60}`))
+			_, _ = w.Write([]byte(`{"error":"rate limit exceeded","retry_after":` + strconv.Itoa(int(globalRateLimiter.window.Seconds())) + `}`))
 			return
+		}
+
+		if r.Method != http.MethodGet || !auditExcluded[r.URL.Path] {
+			actorName := "anonymous"
+			if apiKey := r.Header.Get("X-API-Key"); apiKey != "" {
+				actorName = "dashboard"
+			} else if strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+				actorName = "dashboard(jwt)"
+			}
+			if auditRepo != nil {
+				go auditRepo.LogAudit(context.Background(), domain.AuditEntry{
+					Action:    r.Method + " " + r.URL.Path,
+					ActorName: actorName,
+					Resource:  r.URL.Path,
+					Details:   r.URL.RawQuery,
+					IPAddress: clientIP,
+				})
+			}
 		}
 
 		defer func() {
@@ -1237,6 +1356,24 @@ func (s *Server) handleUpdateTools(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		slog.Error("Failed to encode git status response", "error", err)
 	}
+}
+
+func (s *Server) handleAuditLogs(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+	entries, err := s.Service.DB.ListAuditLogs(r.Context(), limit, offset)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(entries)
 }
 
 func (s *Server) handleGetTaskHistory(w http.ResponseWriter, r *http.Request) {

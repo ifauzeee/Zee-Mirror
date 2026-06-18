@@ -209,7 +209,7 @@ func NewTaskManager(bot *tgbotapi.BotAPI, cfg *config.Config, processTaskFunc fu
 				}
 
 				tm.Tasks[task.ID] = task
-				tm.Queue.Enqueue(task, 0)
+				tm.Queue.Enqueue(task, queue.PriorityLow)
 				select {
 				case tm.QueueSignal <- struct{}{}:
 				default:
@@ -420,9 +420,9 @@ func (tm *TaskManager) CreateTask(taskType TaskType, url, fileName string, chatI
 
 	_ = task.SaveToDB()
 
-	priority := 0
+	priority := queue.PriorityNormal
 	if utils.IsAdmin(userID, tm.Config.OwnerID, tm.Config.AuthorizedUsers) {
-		priority = 100
+		priority = queue.PriorityHigh
 	}
 
 	tm.Queue.Enqueue(task, priority)
@@ -494,7 +494,7 @@ func (tm *TaskManager) CreatePlaylistSubTask(parent *Task, url, fileName string,
 
 	_ = task.SaveToDB()
 
-	tm.Queue.Enqueue(task, 0)
+	tm.Queue.Enqueue(task, queue.PriorityLow)
 	select {
 	case tm.QueueSignal <- struct{}{}:
 	default:

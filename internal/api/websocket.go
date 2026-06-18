@@ -19,14 +19,20 @@ const (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:     1024,
+	WriteBufferSize:    1024,
+	EnableCompression:  true,
+	HandshakeTimeout:   10 * time.Second,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		if origin == "" {
-			return false
+			return true
 		}
-		return strings.Contains(origin, r.Host)
+		allowed := r.Host
+		if xfh := r.Header.Get("X-Forwarded-Host"); xfh != "" {
+			allowed = xfh
+		}
+		return strings.Contains(origin, allowed)
 	},
 }
 

@@ -113,7 +113,7 @@ func TestCORS_WithDashboardURL(t *testing.T) {
 	allowedOrigin := "http://myserver.com"
 	handler := globalMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}), allowedOrigin)
+	}), allowedOrigin, nil)
 
 	req := httptest.NewRequest("GET", "/api/stats", nil)
 	req.Header.Set("Origin", "http://myserver.com")
@@ -129,7 +129,7 @@ func TestCORS_WildcardWhenNoURL(t *testing.T) {
 	allowedOrigin := "*"
 	handler := globalMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}), allowedOrigin)
+	}), allowedOrigin, nil)
 
 	req := httptest.NewRequest("GET", "/api/stats", nil)
 	rec := httptest.NewRecorder()
