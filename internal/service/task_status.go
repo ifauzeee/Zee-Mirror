@@ -4,20 +4,10 @@ import (
 	"log/slog"
 	"os"
 
-	"zee-mirror/internal/domain"
 	"zee-mirror/internal/organizer"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
-
-const (
-	BtnTextCloudLink = "☁️ Cloud Link"
-	BtnTextIndexURL  = "🌐 Index URL"
-)
-
-func addLeechDownloadButton(_ tgbotapi.InlineKeyboardMarkup, _ domain.TaskSnapshot, _ string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.InlineKeyboardMarkup{}
-}
 
 func (s *BotService) updateTaskStatus(task *Task) {
 	snapshot := task.GetSnapshot()
