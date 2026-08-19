@@ -3,7 +3,7 @@ package service
 import (
 	"log/slog"
 	"os"
-
+	"zee-mirror/internal/domain"
 	"zee-mirror/internal/organizer"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -45,6 +45,9 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 		photo := tgbotapi.NewPhoto(snapshot.ChatID, tgbotapi.FilePath(thumb))
 		photo.Caption = text
 		photo.ParseMode = MarkdownV2
+		if keyboard := s.buildCompletionKeyboard(snapshot); keyboard != nil {
+			photo.ReplyMarkup = *keyboard
+		}
 		sentMsg, sendErr := s.Bot.Send(photo)
 		if sendErr == nil {
 			task.Update(func() {
@@ -60,6 +63,20 @@ func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 	return false
 }
 
+func (s *BotService) buildCompletionKeyboard(snapshot domain.TaskSnapshot) *tgbotapi.InlineKeyboardMarkup {
+	if snapshot.Status != StatusCompleted || snapshot.RemoteURL == "" {
+		return nil
+	}
+
+	buttons := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonURL(domain.BtnTextCloudLink, snapshot.RemoteURL),
+		tgbotapi.NewInlineKeyboardButtonURL(domain.BtnTextIndexURL, snapshot.RemoteURL),
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons)
+	return &keyboard
+}
+
 func (s *BotService) sendFinalMessage(task *Task, text string) {
 	snapshot := task.GetSnapshot()
 
@@ -68,7 +85,16 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 		msgID = task.ResultMessageID
 	})
 
+	keyboard := s.buildCompletionKeyboard(snapshot)
+
 	if msgID != 0 {
+		if keyboard != nil {
+			editMarkup := tgbotapi.NewEditMessageReplyMarkup(snapshot.ChatID, msgID, *keyboard)
+			if _, err := s.Bot.Send(editMarkup); err != nil {
+				slog.Debug("Failed to add keyboard to existing message", "taskID", task.ID, "error", err)
+			}
+		}
+
 		editCaption := tgbotapi.NewEditMessageCaption(snapshot.ChatID, msgID, text)
 		editCaption.ParseMode = MarkdownV2
 
@@ -88,6 +114,9 @@ func (s *BotService) sendFinalMessage(task *Task, text string) {
 
 	msg := tgbotapi.NewMessage(snapshot.ChatID, text)
 	msg.ParseMode = MarkdownV2
+	if keyboard != nil {
+		msg.ReplyMarkup = *keyboard
+	}
 
 	if sentMsg, err := s.Bot.Send(msg); err == nil {
 		task.Update(func() {

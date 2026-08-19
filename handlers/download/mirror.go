@@ -12,11 +12,6 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-const (
-	BtnTextCloudLink = "☁️ Cloud Link"
-	BtnTextIndexURL  = "🌐 Index URL"
-)
-
 func HandleMirror(s *service.BotService, message *tgbotapi.Message, args string) {
 	if err := s.CheckQuota(message.From.ID); err != nil {
 		s.Reply(message, service.GetErrorMessage("QUOTA EXCEEDED", err.Error()))

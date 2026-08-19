@@ -38,6 +38,11 @@ const (
 	MaxTelegramUploadSize int64 = 2 * 1024 * 1024 * 1024
 )
 
+const (
+	BtnTextCloudLink = "☁️ Cloud Link"
+	BtnTextIndexURL  = "🌐 Index URL"
+)
+
 type Task struct {
 	CompletedAt       time.Time
 	CreatedAt         time.Time

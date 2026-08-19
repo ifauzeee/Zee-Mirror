@@ -18,11 +18,9 @@ import (
 )
 
 const (
-	IconFolder       = "📂"
-	IconFile         = "📄"
-	CmdClose         = "close"
-	BtnTextCloudLink = "☁️ Link Cloud"
-	BtnTextIndexURL  = "🔗 Index URL"
+	IconFolder = "📂"
+	IconFile   = "📄"
+	CmdClose   = "close"
 )
 
 func HandleDriveList(s *service.BotService, message *tgbotapi.Message, args string, editMessageID int) {
