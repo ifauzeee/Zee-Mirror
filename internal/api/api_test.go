@@ -380,9 +380,7 @@ func TestTorrentEndpoint_Unauthenticated(t *testing.T) {
 
 func TestAria2NotInitialized(t *testing.T) {
 	s := newTestServer(t, "secret123")
-	s.Service.TaskManager = &service.TaskManager{
-		Aria2Engine: nil,
-	}
+	s.Service.TaskManager.Aria2Engine = nil
 
 	req := httptest.NewRequest("GET", "/api/health", nil)
 	rec := httptest.NewRecorder()
