@@ -3,6 +3,7 @@ package service
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"zee-mirror/internal/domain"
 	"zee-mirror/internal/organizer"
 
@@ -70,7 +71,20 @@ func (s *BotService) buildCompletionKeyboard(snapshot domain.TaskSnapshot) *tgbo
 
 	buttons := []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonURL(domain.BtnTextCloudLink, snapshot.RemoteURL),
-		tgbotapi.NewInlineKeyboardButtonURL(domain.BtnTextIndexURL, snapshot.RemoteURL),
+	}
+
+	if s.Config.IndexURL != "" {
+		remotePath := strings.ReplaceAll(snapshot.RemotePath, "\\", "/")
+		rcloneDest := strings.TrimRight(strings.ReplaceAll(s.TaskManager.RcloneDest, "\\", "/"), "/")
+		relPath := strings.TrimPrefix(remotePath, rcloneDest)
+		if relPath == remotePath {
+			parts := strings.SplitN(remotePath, ":", 2)
+			if len(parts) > 1 {
+				relPath = parts[1]
+			}
+		}
+		indexURL := strings.TrimRight(s.Config.IndexURL, "/") + "/" + strings.TrimLeft(relPath, "/")
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonURL(domain.BtnTextIndexURL, indexURL))
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons)
