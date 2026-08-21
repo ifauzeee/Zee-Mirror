@@ -69,7 +69,7 @@ func (s *Server) processWebhookUpdate(update tgbotapi.Update) {
 				service.GetErrorMessage("ACCESS DENIED",
 					"Anda belum terautentikasi untuk menggunakan bot ini.\nSilakan hubungi Owner untuk mendapatkan akses."))
 			msg.ParseMode = tgbotapi.ModeMarkdownV2
-			msg.ReplyToMessageID = update.Message.MessageID
+			msg.ReplyParameters.MessageID = update.Message.MessageID
 			_, _ = s.Service.Bot.Send(msg)
 			return
 		}

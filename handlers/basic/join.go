@@ -42,7 +42,7 @@ func HandleJoin(s *service.BotService, m *tgbotapi.Message, args string) {
 	if hash == "" {
 		msg := tgbotapi.NewMessage(m.Chat.ID, "❌ *Error:* Could not extract invite hash from link")
 		msg.ParseMode = tgbotapi.ModeMarkdownV2
-		msg.ReplyToMessageID = m.MessageID
+		msg.ReplyParameters.MessageID = m.MessageID
 		s.AutoDeleteMessage(m.Chat.ID, m.MessageID, 30*time.Second)
 		_, _ = s.Bot.Send(msg)
 		return

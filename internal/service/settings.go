@@ -50,7 +50,7 @@ func (s *BotService) HandleLanguage(message *tgbotapi.Message) {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = MarkdownV2
 	msg.ReplyMarkup = keyboard
-	msg.ReplyToMessageID = message.MessageID
+	msg.ReplyParameters.MessageID = message.MessageID
 	_, _ = s.Bot.Send(msg)
 }
 

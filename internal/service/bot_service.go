@@ -242,12 +242,12 @@ func (s *BotService) HandleCreateTaskError(chatID int64, messageID int, err erro
 
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = MarkdownV2
-	msg.ReplyToMessageID = messageID
+	msg.ReplyParameters.MessageID = messageID
 
 	_, sendErr := s.Bot.Send(msg)
 	if sendErr != nil {
 		slog.Warn("Failed to send error with reply, trying without reply", "error", sendErr)
-		msg.ReplyToMessageID = 0
+		msg.ReplyParameters.MessageID = 0
 		_, sendErr = s.Bot.Send(msg)
 		if sendErr != nil {
 			slog.Error("Failed to send error message completely", "error", sendErr)

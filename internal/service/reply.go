@@ -9,7 +9,7 @@ import (
 func (s *BotService) Reply(message *tgbotapi.Message, text string) {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.ReplyToMessageID = message.MessageID
+	msg.ReplyParameters.MessageID = message.MessageID
 
 	if _, err := s.Bot.Send(msg); err != nil {
 		slog.Error("Failed to send reply", "error", err)

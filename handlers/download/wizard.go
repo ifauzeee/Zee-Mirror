@@ -88,7 +88,7 @@ func showWizardOptionsMenu(s *service.BotService, chatID int64, url string, isZi
 
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	msg.DisableWebPagePreview = true
+	msg.LinkPreviewOptions = tgbotapi.LinkPreviewOptions{IsDisabled: true}
 	_, _ = s.Bot.Send(msg)
 }
 
@@ -124,7 +124,7 @@ func toggleWizardOption(s *service.BotService, callback *tgbotapi.CallbackQuery,
 
 	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, newText)
 	edit.ParseMode = tgbotapi.ModeMarkdownV2
-	edit.DisableWebPagePreview = true
+	edit.LinkPreviewOptions = tgbotapi.LinkPreviewOptions{IsDisabled: true}
 	_, _ = s.Bot.Send(edit)
 }
 
