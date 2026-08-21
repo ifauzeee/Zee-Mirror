@@ -298,7 +298,7 @@ func TestUpdateFromUploadProgress(t *testing.T) {
 func TestCalculateSHA256(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "f.txt")
 	content := []byte("hello world")
-	if err := os.WriteFile(path, content, 0o644); err != nil {
+	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatal(err)
 	}
 

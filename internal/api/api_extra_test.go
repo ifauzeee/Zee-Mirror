@@ -134,7 +134,7 @@ func TestResolveFileStatus_BasicEntries(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(tmp, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "a.txt"), []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, "a.txt"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := os.ReadDir(tmp)
@@ -193,7 +193,7 @@ func TestResolveFileStatus_OrphanDir(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sub, "leftover.bin"), []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(sub, "leftover.bin"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := os.ReadDir(tmp)
