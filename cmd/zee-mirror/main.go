@@ -46,7 +46,9 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 
-	_ = os.MkdirAll(cfg.ConfigDir, 0750)
+	if err := os.MkdirAll(cfg.ConfigDir, 0750); err != nil {
+		slog.Error("Failed to create config directory", "dir", cfg.ConfigDir, "error", err)
+	}
 	setupLogger(cfg)
 	initSentry(cfg)
 
