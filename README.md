@@ -8,8 +8,8 @@
 
 <br>
 
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
+[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![SQLite](https://img.shields.io/badge/SQLite-Embedded-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)](https://prometheus.io)
@@ -106,7 +106,7 @@ Google Drive, OneDrive, Mega, S3, Dropbox, and **40+ cloud providers** via rclon
 ## 🛠️ Tech Stack
 
 <details open>
-<summary><b>🔧 Backend — Go 1.25+</b></summary>
+<summary><b>🔧 Backend — Go 1.26+</b></summary>
 <br>
 
 | Package | Purpose |
@@ -121,7 +121,13 @@ Google Drive, OneDrive, Mega, S3, Dropbox, and **40+ cloud providers** via rclon
 | [`joho/godotenv`](https://github.com/joho/godotenv) | `.env` file loading for local development |
 | [`google/uuid`](https://github.com/google/uuid) | Unique task ID generation |
 | [`PuerkitoBio/goquery`](https://github.com/PuerkitoBio/goquery) | HTML parsing for torrent search scraping |
-| [`cenkalti/backoff`](https://github.com/cenkalti/backoff) | Exponential backoff for retrying failed operations |
+| [`getsentry/sentry-go`](https://github.com/getsentry/sentry-go) | Error tracking and crash reporting |
+| [`golang-jwt/jwt/v5`](https://github.com/golang-jwt/jwt) | JWT authentication for dashboard API sessions |
+| [`jackc/pgx/v5`](https://github.com/jackc/pgx) | PostgreSQL driver — optional alternative to SQLite |
+| [`redis/go-redis/v9`](https://github.com/redis/go-redis) | Redis client for caching |
+| [`swaggo/swag`](https://github.com/swaggo/swag) | OpenAPI/Swagger documentation generation |
+| [`wcharczuk/go-chart/v2`](https://github.com/wcharczuk/go-chart) | Chart image generation for statistics |
+| [`natefinch/lumberjack.v2`](https://github.com/natefinch/lumberjack) | Log file rotation |
 | [`stretchr/testify`](https://github.com/stretchr/testify) | Test assertions and mocking |
 | `log/slog` *(stdlib)* | Structured logging with configurable levels |
 | `golang.org/x/time` | Rate limiting for API requests |
@@ -134,8 +140,9 @@ Google Drive, OneDrive, Mega, S3, Dropbox, and **40+ cloud providers** via rclon
 
 | Package | Purpose |
 |---------|---------|
-| [React 18](https://reactjs.org) | Component-based UI framework |
-| [Vite 4](https://vitejs.dev) | Next-gen build tool with instant HMR |
+| [React 19](https://reactjs.org) | Component-based UI framework |
+| [Vite 8](https://vitejs.dev) | Next-gen build tool with instant HMR |
+| [React Router v7](https://reactrouter.com) | Client-side routing between dashboard pages |
 | [Tailwind CSS 3](https://tailwindcss.com) | Utility-first CSS for rapid UI styling |
 | [Recharts 3](https://recharts.org) | Composable data visualization (charts, graphs) |
 | [Framer Motion 12](https://www.framer.com/motion/) | Fluid animations and page transitions |
@@ -285,7 +292,7 @@ docker compose down && docker compose up -d --build
 <br>
 
 **System Requirements:**
-- Go 1.25+
+- Go 1.26+
 - Node.js 18+
 - aria2c, yt-dlp, rclone, ffmpeg, 7zz installed on the system
 - SQLite (built into Go driver, no separate install needed)
@@ -321,6 +328,7 @@ All configuration is managed through environment variables in the `.env` file.
 | Variable | Description |
 |----------|-------------|
 | `BOT_TOKEN` | Telegram Bot API token obtained from [@BotFather](https://t.me/BotFather) |
+| `BOT_TOKENS` | Comma-separated list of multiple bot tokens — runs several bot instances simultaneously (takes precedence over `BOT_TOKEN`) |
 | `OWNER_ID` | Telegram User ID of the bot owner (numeric). The owner has full admin privileges |
 | `TELEGRAM_API_ID` | API ID from [my.telegram.org](https://my.telegram.org). Required for Local Bot API (>2GB files) |
 | `TELEGRAM_API_HASH` | API Hash from [my.telegram.org](https://my.telegram.org). Required for Local Bot API (>2GB files) |
@@ -377,9 +385,64 @@ All configuration is managed through environment variables in the `.env` file.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `info` | Logging verbosity. Options: `debug`, `info`, `warn`, `error` |
+| `LOG_FORMAT` | `text` | Log output format: `text` or `json` |
 | `TZ` | `Asia/Jakarta` | Timezone for log timestamps, scheduled tasks, and statistics |
 
 Log output is written to both **stdout** and the file `config/zee-mirror.log` simultaneously.
+
+</details>
+
+<details>
+<summary><b>🌍 Environment & Deployment</b></summary>
+<br>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_ENV` | — | Environment: `development`, `staging`, or `production`. When set to `production`, the bot **refuses to start** if `WEB_DASHBOARD_TOKEN` is empty or still the default value (`zee-mirror-secret`) — a security guard against deploying with known credentials |
+| `APP_RELEASE` | — | Release version tag, forwarded to Sentry for release tracking |
+| `SENTRY_DSN` | — | Sentry DSN for error tracking and crash reporting. Leave empty to disable |
+
+</details>
+
+<details>
+<summary><b>🗄️ Database & Cache</b></summary>
+<br>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_DRIVER` | `sqlite` | Database driver: `sqlite` or `postgres` |
+| `DATABASE_URL` | — | PostgreSQL connection string (required when `DB_DRIVER=postgres`) |
+| `REDIS_URL` | — | Redis connection URL for caching. Leave empty to disable |
+| `ENCRYPTION_KEY` | — | 32-byte hex key. Values in `.env` prefixed with `enc:` are AES-decrypted at load (tokens, session strings) |
+| `AUTO_CLEANUP_DAYS` | `30` | Days before old completed tasks are cleaned up |
+
+</details>
+
+<details>
+<summary><b>🌐 Webhook Mode</b></summary>
+<br>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `USE_WEBHOOK` | `false` | `true` = webhook mode (requires public HTTPS), `false` = long polling. Falls back to polling automatically if webhook setup fails |
+| `WEBHOOK_URL` | — | Public HTTPS URL for Telegram webhooks (required when `USE_WEBHOOK=true`) |
+| `WEBHOOK_SECRET` | — | Secret token used to verify incoming Telegram webhook requests |
+
+</details>
+
+<details>
+<summary><b>⚡ Rclone Tuning</b></summary>
+<br>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RCLONE_TRANSFERS` | `10` | Parallel file transfer threads per upload |
+| `RCLONE_CHECKERS` | `20` | Background verification checkers |
+| `RCLONE_DRIVE_CHUNK_SIZE` | `256M` | Upload chunk size for Google Drive |
+| `RCLONE_BUFFER_SIZE` | `128M` | In-memory buffer per transfer |
+| `RCLONE_PACER_MIN_SLEEP` | `10ms` | Minimum delay between rclone API calls |
+| `RCLONE_PACER_BURST` | `200` | Maximum API calls allowed in a burst |
+| `RCLONE_LOG_LEVEL` | `NOTICE` | Rclone log verbosity |
 
 </details>
 
@@ -615,7 +678,7 @@ All media commands use **ffmpeg** under the hood. Reply to a video/audio message
 
 ## 🌐 Web Dashboard
 
-> A full-featured **React 18** control panel with **Tailwind CSS** styling, **Framer Motion** animations, and real-time **WebSocket** updates.
+> A full-featured **React 19** control panel with **Tailwind CSS** styling, **Framer Motion** animations, and real-time **WebSocket** updates.
 
 ### 🔑 Accessing the Dashboard
 
@@ -668,8 +731,9 @@ No manual page refresh needed — everything updates automatically.
 
 | Aspect | Detail |
 |--------|--------|
-| **Framework** | React 18 with functional components and hooks |
-| **Build** | Vite 4 with fast HMR for development |
+| **Framework** | React 19 with functional components and hooks |
+| **Build** | Vite 8 with fast HMR for development |
+| **Routing** | React Router v7 between dashboard pages |
 | **Styling** | Tailwind CSS 3 with custom configuration |
 | **Charts** | Recharts 3 for responsive data visualization |
 | **Animations** | Framer Motion 12 for page transitions and micro-interactions |
@@ -766,146 +830,72 @@ No manual page refresh needed — everything updates automatically.
 Zee-Mirror/
 │
 ├── cmd/                               # Application entry points
-│   ├── zee-mirror/
-│   │   └── main.go                   # Main entry point: bot init, route setup, signal handling
-│   └── session-gen/
-│       └── main.go                   # Interactive Telegram session string generator
+│   ├── zee-mirror/                    # Main bot binary
+│   └── session-gen/                   # Interactive Telegram session string generator
 │
-├── handlers/                          # Telegram bot command handlers (36 files)
-│   ├── handlers.go                   # BotService struct, initialization, shared utilities
-│   ├── service.go                    # Service lifecycle (init, shutdown, cleanup)
-│   ├── task_processor.go             # Core task processing pipeline (download → process → upload)
-│   ├── task_status.go                # Task progress tracking and status formatting
-│   ├── mirror_handler.go             # /mirror command: URL download + cloud upload
-│   ├── torrent_handler.go            # /torrent command: magnet/torrent file handling
-│   ├── torrent_meta.go               # Torrent metadata parsing and file selection
-│   ├── ytdlp_handler.go              # /ytdlp command: video download with quality selection
-│   ├── clone.go                      # /clone command: cloud-to-cloud server-side copy
-│   ├── clone_utils.go                # Clone helper functions
-│   ├── clone_test.go                 # Clone unit tests
-│   ├── viking.go                     # /viking command: Viking File storage upload
-│   ├── batch.go                      # /batch command: multi-URL sequential download
-│   ├── upload.go                     # Rclone upload logic with progress tracking
-│   ├── archive.go                    # Zip/Unzip operations with password support
-│   ├── search.go                     # Torrent search with paginated results
-│   ├── filemanager.go                # Google Drive file manager (ls/mkdir/rm/mv/share/find)
-│   ├── storage.go                    # Multi-storage management and remote switching
-│   ├── media.go                      # Media processing (ffmpeg): extract, compress, convert
-│   ├── statistics.go                 # Analytics: daily/weekly/monthly/per-user stats
-│   ├── monitor.go                    # System resource monitoring and alerting
-│   ├── recovery.go                   # Task checkpoint recovery after restarts
-│   ├── notifications.go              # Telegram channel logging and alert forwarding
-│   ├── auth.go                       # User auth, role management, limits, expiration
-│   ├── settings.go                   # Bot settings management with inline keyboard
-│   ├── start.go                      # /start command: main dashboard with action buttons
-│   ├── help_handler.go               # Interactive categorized help system
-│   ├── help_texts.go                 # Help text content and formatting
-│   ├── status.go                     # /status command: active task list with progress
-│   ├── system.go                     # /system and /health commands
-│   ├── join.go                       # /join command: userbot group/channel joining
-│   ├── templates.go                  # Message templates and MarkdownV2 formatting
-│   ├── utils.go                      # Handler utility functions
-│   ├── handlers_test.go              # Handler unit tests
-│   ├── disk_linux.go                 # Linux-specific disk usage implementation
-│   └── disk_other.go                 # Cross-platform disk usage fallback
+├── handlers/                          # Telegram command handlers (per-domain subpackages)
+│   ├── admin/                         # Auth, users, roles, limits, alerts
+│   ├── basic/                         # /start, /help, /ping, /lang, settings UI
+│   ├── download/                      # Mirror, leech, batch, ytdlp, torrent tasks
+│   ├── file/                          # Drive manager, storage switching, archives
+│   ├── media/                         # ffmpeg processing commands
+│   ├── search/                        # Torrent search with pagination
+│   └── storage/                       # Upload targets: rclone, Viking, clone
 │
-├── internal/                          # Internal packages (not importable by external code)
-│   ├── api/                          # REST API & WebSocket server
-│   │   ├── api.go                    # HTTP server, route registration, 20+ API handlers
-│   │   └── websocket.go             # WebSocket hub: client management, broadcast loop
-│   ├── config/                       # Configuration management
-│   │   └── config.go                # Load env vars, type conversion, validation
-│   ├── database/                     # SQLite database layer
-│   │   └── *.go                     # Connection management, migrations, query helpers
-│   ├── domain/                       # Domain entities and business types
-│   │   ├── task.go                  # Task entity: ID, status, progress, timestamps
-│   │   ├── user.go                  # User entity: ID, role, limits, expiration
-│   │   ├── session.go               # Session management types
-│   │   └── errors.go               # Domain-specific error types and codes
-│   ├── downloader/                   # Download engine abstractions
-│   │   ├── engine.go                # Download engine interface definition
-│   │   ├── aria2.go                 # aria2c RPC integration: start, monitor, cancel
-│   │   ├── ytdlp.go                # yt-dlp subprocess: format listing, download, progress
-│   │   └── userbot.go              # Userbot file download via MTProto
-│   ├── metrics/                      # Prometheus metrics
-│   │   └── *.go                     # Counter/gauge/histogram definitions
-│   ├── organizer/                    # Smart file organization
-│   │   └── *.go                     # Category detection, auto-sorting rules
-│   ├── parser/                       # Input parsing utilities
-│   │   └── *.go                     # URL parsing, flag extraction, torrent parsing
-│   ├── queue/                        # Download queue management
-│   │   └── *.go                     # Concurrency control, priority queue, rate limiting
-│   ├── recovery/                     # Task recovery system
-│   │   └── *.go                     # Checkpoint creation, state persistence, resume logic
-│   ├── repository/                   # Data access layer
-│   │   └── *.go                     # SQLite CRUD operations for users, tasks, settings
-│   ├── router/                       # Command & callback routing
-│   │   └── *.go                     # Command registration, prefix matching, dispatch
-│   └── userbot/                      # MTProto client
-│       └── *.go                     # Singleton gotd client, session management, media download
+├── internal/                          # Internal packages (not importable externally)
+│   ├── api/                           # REST API & WebSocket server for dashboard
+│   ├── cache/                         # Redis caching layer
+│   ├── config/                        # Env loading, validation, encrypted values
+│   ├── crypto/                        # AES encryption helpers (`enc:` prefix)
+│   ├── database/                      # SQLite/Postgres connections & migrations
+│   ├── domain/                        # Domain entities and business types
+│   ├── downloader/                    # Engines: aria2c RPC, yt-dlp, MTProto
+│   ├── errors/                        # Typed error definitions
+│   ├── metrics/                       # Prometheus counters/gauges/histograms
+│   ├── organizer/                     # Smart auto-categorization of uploads
+│   ├── parser/                        # URL parsing, flag extraction, torrent parsing
+│   ├── queue/                         # Concurrency control, priorities, rate limits
+│   ├── recovery/                      # Task checkpoints & crash recovery
+│   ├── repository/                    # Data access layer (+ mocks for tests)
+│   ├── router/                        # Command & callback dispatch
+│   ├── service/                       # Core BotService: task lifecycle & workers
+│   ├── uploader/                      # Upload pipeline (rclone / Telegram)
+│   └── userbot/                       # gotd MTProto client singleton
 │
-├── pkg/                               # Public utility packages
-│   ├── utils/                        # Helper functions
-│   │   └── *.go                     # File size formatting, dir size calc, string utils
-│   └── i18n/                         # Internationalization
-│       └── *.go                     # Language detection, translation loading, fallbacks
+├── pkg/                               # Reusable utility packages
+│   ├── chart/                         # Chart image rendering for statistics
+│   ├── i18n/                          # Translations & language detection
+│   └── utils/                         # Formatting & helper functions
 │
-├── dashboard/                         # Web Dashboard (React SPA)
-│   ├── src/
-│   │   ├── App.jsx                  # Root component: routing, layout, auth gate
-│   │   ├── main.jsx                 # React DOM entry point
-│   │   ├── index.css                # Global styles and Tailwind imports
-│   │   ├── pages/                   # 7 page components
-│   │   │   ├── Overview.jsx         # System dashboard: metrics cards, task list
-│   │   │   ├── Analytics.jsx        # Charts: download/upload trends
-│   │   │   ├── Explorer.jsx         # Dual file browser: local + remote
-│   │   │   ├── TorrentSelect.jsx    # Torrent content browser with checkboxes
-│   │   │   ├── Users.jsx            # User CRUD with role/limit editing
-│   │   │   ├── Settings.jsx         # Configuration editor with save/reset
-│   │   │   └── Logs.jsx             # Log viewer with auto-scroll
-│   │   ├── components/              # Reusable UI components
-│   │   │   ├── Sidebar/            # Navigation sidebar
-│   │   │   ├── Stats/              # Statistics display cards (4 components)
-│   │   │   ├── Task/               # Task progress card
-│   │   │   └── Popups/             # Modal dialogs and confirmations
-│   │   ├── hooks/                   # 7 custom React hooks
-│   │   │   └── *.js                # useWebSocket, useFetch, useAuth, etc.
-│   │   ├── context/                 # React context providers
-│   │   │   └── *.jsx               # AuthContext, ThemeContext
-│   │   └── utils/                   # Frontend utilities
-│   │       └── *.js                # API helpers, formatters, constants
-│   ├── package.json                 # Dependencies and build scripts
-│   ├── vite.config.js               # Vite build configuration
-│   ├── tailwind.config.js           # Tailwind CSS customization
-│   ├── postcss.config.js            # PostCSS plugins
-│   ├── eslint.config.js             # ESLint rules
-│   └── .prettierrc                  # Prettier formatting config
+├── plugins/                           # Extensible plugin system
+│   ├── registry/                      # Plugin registration & discovery
+│   ├── torrent/                       # Torrent site scrapers/adapters
+│   ├── ytdlp/                         # Video extractor extensions
+│   └── drive/ · mega/ · telegram/     # Provider-specific integrations
 │
-├── migrations/                        # SQLite schema migrations (auto-applied on startup)
-│   ├── 000001_init_schema.up.sql    # Users, tasks, settings tables + indexes
-│   ├── 000002_add_user_language.up.sql  # Add language column to users
-│   └── 000003_create_task_checkpoints.up.sql  # Task checkpoint table for recovery
+├── dashboard/                         # Web dashboard SPA (React 19 + TypeScript, Vite 8)
+│   └── src/pages/                     # Overview, Analytics, Explorer, TorrentSelect,
+│                                      # Users, Settings, Logs, TaskHistory, Login…
 │
-├── config/                            # Runtime config directory (mounted as Docker volume)
-│                                     # Contains: rclone.conf, cookies, zee-mirror.db, zee-mirror.log
+├── docs/                              # Generated Swagger/OpenAPI documentation
 │
-├── .github/                           # GitHub configuration
-│   ├── workflows/                   # CI/CD pipelines (4 workflows)
-│   │   ├── ci-cd.yml               # Lint → Security → Test → Frontend Build → Docker Build
-│   │   ├── quality.yml             # Tidy → Vet → Test → Security → Lint (via Taskfile)
-│   │   ├── docker-publish.yml      # Build & push Docker image to registry
-│   │   └── release.yml             # Automated release creation
-│   └── dependabot.yml               # Automated dependency update PRs
+├── charts/zee-mirror/                 # Helm chart for Kubernetes deployment
 │
-├── Dockerfile                         # Multi-stage build: Node (dashboard) → Go (binary) → Alpine (runtime)
-├── docker-compose.yml                 # 2 services: telegram-bot-api + zee-mirror
-├── Taskfile.yml                       # 13 dev tasks: build, run, test, lint, fmt, vet, security, etc.
-├── .golangci.yml                      # GolangCI-Lint: 12 linters enabled with custom rules
-├── .gitignore                         # Ignored files and directories
-├── .dockerignore                      # Docker build exclusions
-├── go.mod                             # Go module definition (Go 1.25.7)
-├── go.sum                             # Go dependency checksums
-└── LICENSE                            # MIT License
+├── migrations/                        # Versioned SQL migrations (auto-applied on startup)
+│   ├── 000001…000008_*.up/down.sql    # Schema + quality, rate limits, scheduled tasks,
+│   │                                  # MD5 dedup, audit logs
+│   └── postgres/                      # PostgreSQL variant migration set
+│
+├── .github/workflows/                 # CI pipelines: ci-cd.yml, docker-publish.yml,
+│                                      # release.yml (+ Dependabot config)
+│
+├── config/                            # Runtime directory (Docker volume): rclone.conf,
+│                                      # zee-mirror.db, zee-mirror.log
+├── Dockerfile                         # Multi-stage build bundling aria2, yt-dlp, rclone, ffmpeg, 7zz
+├── docker-compose.yml                 # telegram-bot-api + zee-mirror services
+├── Taskfile.yml                       # Dev task runner (build/test/lint/security)
+├── .golangci.yml                      # GolangCI-Lint configuration
+└── go.mod                             # Go module definition (Go 1.26.6)
 ```
 
 </details>
@@ -916,7 +906,7 @@ Zee-Mirror/
 
 ## 🗄️ Database Schema
 
-The bot uses **SQLite** with automatic migration on startup. Three migration files define the schema:
+The bot uses **SQLite** by default (`DB_DRIVER=sqlite`, pure-Go driver — no CGO). PostgreSQL is also supported (`DB_DRIVER=postgres` + `DATABASE_URL` via pgx), with a dedicated migration set under `migrations/postgres/`. Migrations run automatically on startup — eight versioned migrations define the schema, adding task quality tracking, per-user rate limits, scheduled tasks, MD5 duplicate detection, and audit logs on top of the base schema. An optional Redis instance (`REDIS_URL`) provides caching.
 
 <details>
 <summary><b>View Database Tables</b></summary>
@@ -995,7 +985,7 @@ The bot uses **SQLite** with automatic migration on startup. Three migration fil
 <br>
 
 **System Requirements:**
-- Go 1.25+
+- Go 1.26+
 - Node.js 18+
 - [Task](https://taskfile.dev) (task runner)
 - aria2c, yt-dlp, rclone, ffmpeg, 7zz installed locally
@@ -1104,14 +1094,13 @@ Configuration: `.golangci.yml` with 5-minute timeout and custom exclusion rules.
 
 ## 🔄 CI/CD Pipeline
 
-Four **GitHub Actions** workflows ensure code quality on every push and PR:
+Three **GitHub Actions** workflows ensure code quality on every push and PR:
 
 | Workflow | Trigger | What it does |
 |----------|---------|-------------|
-| **CI/CD** | Push & PR to `main` | Go lint → `govulncheck` security audit → Tests with `-race` → Frontend lint & build → Docker image build with Buildx cache |
-| **Quality** | Push & PR to `main` | `go mod tidy` check → `go vet` → Test suite → Security scan → GolangCI-Lint (via Taskfile) |
-| **Docker Publish** | Push to `main` | Build and publish Docker image to container registry |
-| **Release** | Tag push | Automated release creation and artifact publishing |
+| **CI/CD** (`ci-cd.yml`) | Push & PR to `main` | GolangCI-Lint → `govulncheck` security audit → Tests with `-race` + coverage summary → Frontend lint & build → Docker image build with Buildx cache |
+| **Docker Publish** (`docker-publish.yml`) | Push to `main` | Build and publish Docker image to container registry |
+| **Release** (`release.yml`) | Tag push | Automated release creation and artifact publishing |
 
 > 🤖 **Dependabot** is configured for automated Go module (`gomod`) and npm (`npm`) dependency update PRs.
 
