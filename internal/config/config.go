@@ -24,6 +24,7 @@ type Config struct {
 	DashboardToken           string
 	LogLevel                 string
 	LogFormat                string
+	AppEnv                   string
 	SentryDSN                string
 	RedisURL                 string
 	BotToken                 string
@@ -73,6 +74,7 @@ func LoadConfig() *Config {
 		DashboardPort:            getEnvInt("DASHBOARD_PORT_INTERNAL", 8080),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		LogFormat:                getEnv("LOG_FORMAT", "text"),
+		AppEnv:                   getEnv("APP_ENV", ""),
 		SentryDSN:                os.Getenv("SENTRY_DSN"),
 		RedisURL:                 os.Getenv("REDIS_URL"),
 		SmartAutoOrganization:    getEnvBool("SMART_AUTO_ORGANIZATION", false),
@@ -226,6 +228,10 @@ func (c *Config) Validate() error {
 	}
 	if c.OwnerID == 0 {
 		return fmt.Errorf("OWNER_ID must be set")
+	}
+	if strings.EqualFold(c.AppEnv, "production") &&
+		(c.DashboardToken == "" || c.DashboardToken == "zee-mirror-secret") {
+		return fmt.Errorf("WEB_DASHBOARD_TOKEN must be set to a secure value when APP_ENV=production (empty or default token is not allowed)")
 	}
 	if c.RcloneDest == "" {
 		slog.Warn("RCLONE_DEST not set, using default: gdrive:/MirrorBot")
