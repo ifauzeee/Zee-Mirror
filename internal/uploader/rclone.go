@@ -93,7 +93,7 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 		uploadPath,
 		rcloneDest,
 		"--config", configPath,
-		"--progress",
+		// no --progress: its \r-overwrite output starves our line parser in Docker (watchdog killed healthy uploads)
 		"--stats", "1s",
 		"--stats-one-line",
 		"--transfers", r.cfg.RcloneTransfers,
@@ -151,8 +151,14 @@ func (r *RcloneUploader) Upload(ctx context.Context, task *domain.Task, onProgre
 		onProgress(up)
 	}
 
-	go r.parseRcloneProgress(task.ID, stderrPipe, wrappedOnProgress)
-	go r.parseRcloneProgress(task.ID, stdoutPipe, wrappedOnProgress)
+	onActivity := func() {
+		activityMu.Lock()
+		lastActivity = time.Now()
+		activityMu.Unlock()
+	}
+
+	go r.parseRcloneProgress(task.ID, stderrPipe, wrappedOnProgress, onActivity)
+	go r.parseRcloneProgress(task.ID, stdoutPipe, wrappedOnProgress, onActivity)
 
 	progressTimeout := 3 * time.Minute
 
@@ -643,7 +649,7 @@ func (r *RcloneUploader) generateDirectoryLink(ctx context.Context, task *domain
 	}
 }
 
-func (r *RcloneUploader) parseRcloneProgress(taskID string, reader io.ReadCloser, onProgress func(ProgressUpdate)) {
+func (r *RcloneUploader) parseRcloneProgress(taskID string, reader io.ReadCloser, onProgress func(ProgressUpdate), onActivity func()) {
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(utils.ScanLinesWithCR)
 
@@ -657,6 +663,8 @@ func (r *RcloneUploader) parseRcloneProgress(taskID string, reader io.ReadCloser
 		if line == "" {
 			continue
 		}
+
+		onActivity()
 
 		lineCount++
 		if lineCount <= 20 {
