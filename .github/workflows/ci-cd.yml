@@ -38,6 +38,12 @@ jobs:
       - name: Coverage Summary
         run: go tool cover -func=coverage.out | tail -n 1
 
+      - name: Coverage Gate
+        run: |
+          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{gsub(/%/,"",$3); print $3}')
+          echo "Total coverage: ${TOTAL}%"
+          awk -v t="$TOTAL" 'BEGIN { if (t+0 < 10) { print "::error::Coverage " t "% is below the 10% floor"; exit 1 } }'
+
   frontend-build:
     name: Frontend Build Check
     runs-on: ubuntu-latest
