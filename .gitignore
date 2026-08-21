@@ -55,6 +55,7 @@ coverage
 coverage.out
 coverage.html
 *.cover
+/service_cover
 
 # Logs
 *.log
