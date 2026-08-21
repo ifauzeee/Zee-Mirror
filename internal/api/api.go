@@ -718,7 +718,7 @@ func (s *Server) resolveFileStatus(f os.DirEntry, name, fullPath string) (string
 		}
 
 		ctx := context.Background()
-		if tr, err := s.Service.DB.GetTaskByID(ctx, name); err == nil {
+		if tr, err := s.Service.DB.GetTaskByID(ctx, name); err == nil && tr != nil {
 			return tr.FileName, "finished"
 		}
 
