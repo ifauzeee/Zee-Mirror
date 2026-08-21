@@ -1,6 +1,8 @@
 package organizer
 
 import (
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -376,6 +378,36 @@ func IsDocumentFile(filename string) bool {
 }
 
 func IsArchiveFile(filename string) bool { return isInCategory(filename, "📦 Archives") }
+
+// LooksLikeArchive sniffs archive magic bytes instead of trusting the filename.
+func LooksLikeArchive(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	sig := make([]byte, 6)
+	if _, err := io.ReadFull(f, sig); err != nil {
+		return false
+	}
+
+	zipMagic := sig[0] == 'P' && sig[1] == 'K'
+	rarMagic := string(sig[:4]) == "Rar!"
+	sevenZMagic := string(sig) == "7z\xbc\xaf'\x1c"
+	if zipMagic || rarMagic || sevenZMagic {
+		return true
+	}
+
+	if _, err := f.Seek(257, io.SeekStart); err != nil {
+		return false
+	}
+	ustar := make([]byte, 5)
+	if _, err := io.ReadFull(f, ustar); err != nil {
+		return false
+	}
+	return string(ustar) == "ustar"
+}
 
 func IsTorrentFile(filename string) bool {
 	return isInCategory(filename, "🌊 Torrents") ||

@@ -202,7 +202,7 @@ func (s *BotService) HandlePostDownload(task *Task, outputDir string) {
 	}
 	task.FileName = filepath.Base(task.LocalPath)
 
-	if task.Unzip && organizer.IsArchiveFile(task.LocalPath) {
+	if task.Unzip && (organizer.IsArchiveFile(task.LocalPath) || organizer.LooksLikeArchive(task.LocalPath)) {
 		if err := s.extractArchive(task); err != nil {
 			task.SetError(fmt.Sprintf("Extraction failed: %v", err))
 			s.updateTaskStatus(task)
