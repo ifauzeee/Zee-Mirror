@@ -2,7 +2,7 @@
 FROM node:22-alpine AS dashboard-builder
 WORKDIR /dashboard
 COPY dashboard/package*.json ./
-RUN npm install
+RUN npm ci
 COPY dashboard/ ./
 RUN npm run build
 
@@ -35,15 +35,16 @@ RUN apk add --no-cache \
     nodejs \
     py3-cryptography \
     py3-pycryptodomex \
-    gcc \
-    musl-dev \
-    python3-dev \
     coreutils \
-    expect
+    expect && \
+    apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev && \
+    pip3 install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli && \
+    apk del .build-deps
 
+# gcc/musl-dev/python3-dev dipasang sebagai .build-deps sementara (untuk wheel builds),
+# lalu dihapus via apk del agar runtime image tetap ramping.
 # Menggunakan --no-cache-dir dan memastikan download versi terbaru setiap build
 # Cache bust for yt-dlp: 2026-06-16
-RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp speedtest-cli
 
 
 COPY --from=rclone/rclone:latest /usr/local/bin/rclone /usr/bin/rclone
