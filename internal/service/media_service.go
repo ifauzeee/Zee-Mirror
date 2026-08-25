@@ -127,17 +127,17 @@ func (s *MediaService) GenerateScreenshotsList(inputPath string, count int) ([]s
 func (s *MediaService) FormatMediaInfo(filename string, info FFProbeOutput) string {
 	var content strings.Builder
 
-	content.WriteString(fmt.Sprintf("📄 *File:* `%s`\n", utils.EscapeMarkdownV2Code(filename)))
+	fmt.Fprintf(&content, "📄 *File:* `%s`\n", utils.EscapeMarkdownV2Code(filename))
 	size, _ := strconv.ParseInt(info.Format.Size, 10, 64)
-	content.WriteString(fmt.Sprintf("⚖️ *Size:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(size))))
+	fmt.Fprintf(&content, "⚖️ *Size:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(size)))
 
 	durationSec, _ := strconv.ParseFloat(info.Format.Duration, 64)
 	duration := time.Duration(durationSec * float64(time.Second))
-	content.WriteString(fmt.Sprintf("🕒 *Duration:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatDuration(duration))))
+	fmt.Fprintf(&content, "🕒 *Duration:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatDuration(duration)))
 
 	bitrate, _ := strconv.ParseInt(info.Format.BitRate, 10, 64)
-	content.WriteString(fmt.Sprintf("📊 *Overall Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(bitrate/8))))
-	content.WriteString(fmt.Sprintf("📦 *Format:* `%s`\n", utils.EscapeMarkdownV2Code(info.Format.FormatName)))
+	fmt.Fprintf(&content, "📊 *Overall Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(bitrate/8)))
+	fmt.Fprintf(&content, "📦 *Format:* `%s`\n", utils.EscapeMarkdownV2Code(info.Format.FormatName))
 
 	videoCount := 0
 	audioCount := 0
@@ -145,31 +145,31 @@ func (s *MediaService) FormatMediaInfo(filename string, info FFProbeOutput) stri
 		switch st.CodecType {
 		case "video":
 			videoCount++
-			content.WriteString(fmt.Sprintf("\n🎬 *VIDEO STREAM \\#%d*\n", videoCount))
-			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2Code(st.CodecName)))
-			content.WriteString(fmt.Sprintf(" • *Resolution:* `%dx%d`\n", st.Width, st.Height))
+			fmt.Fprintf(&content, "\n🎬 *VIDEO STREAM \\#%d*\n", videoCount)
+			fmt.Fprintf(&content, " • *Codec:* `%s`\n", utils.EscapeMarkdownV2Code(st.CodecName))
+			fmt.Fprintf(&content, " • *Resolution:* `%dx%d`\n", st.Width, st.Height)
 			if st.DisplayAspectRatio != "" {
-				content.WriteString(fmt.Sprintf(" • *Aspect Ratio:* `%s`\n", utils.EscapeMarkdownV2Code(st.DisplayAspectRatio)))
+				fmt.Fprintf(&content, " • *Aspect Ratio:* `%s`\n", utils.EscapeMarkdownV2Code(st.DisplayAspectRatio))
 			}
-			content.WriteString(fmt.Sprintf(" • *Pixel Format:* `%s`\n", utils.EscapeMarkdownV2Code(st.PixFmt)))
+			fmt.Fprintf(&content, " • *Pixel Format:* `%s`\n", utils.EscapeMarkdownV2Code(st.PixFmt))
 			fpsParts := strings.Split(st.RFrameRate, "/")
 			if len(fpsParts) == 2 {
 				f1, _ := strconv.ParseFloat(fpsParts[0], 64)
 				f2, _ := strconv.ParseFloat(fpsParts[1], 64)
 				if f2 > 0 {
-					content.WriteString(fmt.Sprintf(" • *Frame Rate:* `%.2f fps`\n", f1/f2))
+					fmt.Fprintf(&content, " • *Frame Rate:* `%.2f fps`\n", f1/f2)
 				}
 			}
 		case "audio":
 			audioCount++
-			content.WriteString(fmt.Sprintf("\n🎵 *AUDIO STREAM \\#%d*\n", audioCount))
-			content.WriteString(fmt.Sprintf(" • *Codec:* `%s`\n", utils.EscapeMarkdownV2Code(st.CodecName)))
-			content.WriteString(fmt.Sprintf(" • *Channels:* `%d` \\(%s\\)\n", st.Channels, utils.EscapeMarkdownV2(st.ChannelLayout)))
+			fmt.Fprintf(&content, "\n🎵 *AUDIO STREAM \\#%d*\n", audioCount)
+			fmt.Fprintf(&content, " • *Codec:* `%s`\n", utils.EscapeMarkdownV2Code(st.CodecName))
+			fmt.Fprintf(&content, " • *Channels:* `%d` \\(%s\\)\n", st.Channels, utils.EscapeMarkdownV2(st.ChannelLayout))
 			sampleRate, _ := strconv.ParseInt(st.SampleRate, 10, 64)
-			content.WriteString(fmt.Sprintf(" • *Sample Rate:* `%.1f kHz`\n", float64(sampleRate)/1000.0))
+			fmt.Fprintf(&content, " • *Sample Rate:* `%.1f kHz`\n", float64(sampleRate)/1000.0)
 			if st.BitRate != "" {
 				abr, _ := strconv.ParseInt(st.BitRate, 10, 64)
-				content.WriteString(fmt.Sprintf(" • *Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(abr/8))))
+				fmt.Fprintf(&content, " • *Bitrate:* `%s/s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(abr/8)))
 			}
 		}
 	}

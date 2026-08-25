@@ -167,7 +167,11 @@ func (s *BotService) HandleLocalFileDownload(task *Task, outputDir string) {
 		}
 		lastSize = currentSize
 
-		time.Sleep(1 * time.Second)
+		select {
+		case <-task.Ctx.Done():
+			return
+		case <-time.After(1 * time.Second):
+		}
 	}
 
 	info, err := os.Stat(sourcePath)

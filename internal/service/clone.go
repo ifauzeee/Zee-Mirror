@@ -83,7 +83,7 @@ func (s *BotService) cloneWithRclone(task *Task) {
 	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
 	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
 
-	driveName, isDir, driveSize, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	driveName, isDir, driveSize, err := s.getDriveInfo(task.Ctx, driveID, configPath, remoteName, isFolderHint, task.URL)
 	if err != nil {
 		task.SetError(fmt.Sprintf("Gagal mendapatkan info Google Drive: %v", err))
 		s.updateTaskStatus(task)
@@ -271,7 +271,7 @@ func (s *BotService) downloadGDriveWithRclone(task *Task) {
 	configPath := filepath.Join(s.TaskManager.ConfigDir, "rclone.conf")
 	remoteName := strings.Split(s.TaskManager.RcloneDest, ":")[0]
 
-	driveName, isDir, driveSize, err := s.getDriveInfo(driveID, configPath, remoteName, isFolderHint, task.URL)
+	driveName, isDir, driveSize, err := s.getDriveInfo(task.Ctx, driveID, configPath, remoteName, isFolderHint, task.URL)
 	if err != nil {
 		slog.Warn("Failed to get Google Drive info", "error", err)
 	}
@@ -412,7 +412,7 @@ func extractDriveID(urlStr string) (string, bool) {
 	return "", false
 }
 
-func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, int64, error) {
+func (s *BotService) getDriveInfo(ctx context.Context, id, configPath, remoteName string, isFolder bool, urlStr string) (string, bool, int64, error) {
 	idArgs := []string{
 		"lsjson",
 		fmt.Sprintf("%s,root_folder_id=%s:", remoteName, id),
@@ -422,7 +422,7 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 		"--no-mimetype",
 		"--no-modtime",
 	}
-	idCmd := exec.Command("rclone", idArgs...)
+	idCmd := exec.CommandContext(ctx, "rclone", idArgs...)
 	if out, err := idCmd.Output(); err == nil {
 		var info map[string]interface{}
 		if json.Unmarshal(out, &info) == nil {
@@ -477,7 +477,7 @@ func (s *BotService) getDriveInfo(id, configPath, remoteName string, isFolder bo
 		"--json",
 	}
 
-	cmd := exec.Command("rclone", args...)
+	cmd := exec.CommandContext(ctx, "rclone", args...)
 	output, err := cmd.Output()
 	if err == nil {
 		var info map[string]interface{}

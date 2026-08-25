@@ -61,7 +61,7 @@ func (s *BotService) UploadToTelegram(task *Task) error {
 		video := tgbotapi.NewVideo(task.ChatID, tgbotapi.FilePath(filePath))
 		video.Caption = fmt.Sprintf("📄 %s", task.FileName)
 
-		if thumb, errThumb := GenerateThumbnail(filePath, s.TaskManager.DownloadDir); errThumb == nil {
+		if thumb, errThumb := GenerateThumbnail(task.Ctx, filePath, s.TaskManager.DownloadDir); errThumb == nil {
 			video.Thumb = tgbotapi.FilePath(thumb)
 			defer func() {
 				if errRemove := os.Remove(thumb); errRemove != nil {

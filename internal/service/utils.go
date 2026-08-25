@@ -14,7 +14,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func GenerateThumbnail(videoPath, downloadDir string) (string, error) {
+func GenerateThumbnail(ctx context.Context, videoPath, downloadDir string) (string, error) {
 	videoPath = filepath.Clean(videoPath)
 	if !filepath.IsAbs(videoPath) {
 		return "", fmt.Errorf("%w: video path must be absolute", domain.ErrInvalidInput)
@@ -29,9 +29,9 @@ func GenerateThumbnail(videoPath, downloadDir string) (string, error) {
 		return "", fmt.Errorf("%w: video path is not within allowed directory", domain.ErrUnauthorized)
 	}
 
-	cmd := exec.Command("ffmpeg", "-i", videoPath, "-ss", "00:00:05", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", videoPath, "-ss", "00:00:05", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
 	if err := cmd.Run(); err != nil {
-		cmd = exec.Command("ffmpeg", "-i", videoPath, "-ss", "00:00:00", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
+		cmd = exec.CommandContext(ctx, "ffmpeg", "-i", videoPath, "-ss", "00:00:00", "-vframes", "1", "-q:v", "2", thumbnailPath, "-y")
 		if err := cmd.Run(); err != nil {
 			return "", err
 		}

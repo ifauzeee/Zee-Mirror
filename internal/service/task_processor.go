@@ -290,7 +290,13 @@ func (s *BotService) retryTask(task *Task, originalErr string) bool {
 		"error", originalErr)
 
 	go func() {
-		time.Sleep(backoff)
+		select {
+		case <-task.Ctx.Done():
+			return
+		case <-s.TaskManager.ShutdownChan:
+			return
+		case <-time.After(backoff):
+		}
 
 		task.Update(func() {
 			task.Status = StatusQueued

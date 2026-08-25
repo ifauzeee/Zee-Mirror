@@ -109,7 +109,7 @@ func HandleUserList(s *service.BotService, message *tgbotapi.Message) {
 	}
 
 	var content strings.Builder
-	content.WriteString(fmt.Sprintf("Total Pengguna: %d\n\n", usersCount))
+	_, _ = fmt.Fprintf(&content, "Total Pengguna: %d\n\n", usersCount)
 	for _, u := range users {
 		status := "✅"
 		if !u.IsActive {
@@ -129,8 +129,8 @@ func HandleUserList(s *service.BotService, message *tgbotapi.Message) {
 			limits = "♾️"
 		}
 
-		content.WriteString(fmt.Sprintf("%s `%d` \\| %s \\(*%s*\\) \\[%s\\]\n",
-			status, u.ID, utils.EscapeMarkdownV2(u.Username), strings.ToUpper(role), utils.EscapeMarkdownV2(limits)))
+		_, _ = fmt.Fprintf(&content, "%s `%d` \\| %s \\(*%s*\\) \\[%s\\]\n",
+			status, u.ID, utils.EscapeMarkdownV2(u.Username), strings.ToUpper(role), utils.EscapeMarkdownV2(limits))
 	}
 
 	s.Reply(message, service.ProfessionalMessage("DAFTAR PENGGUNA", content.String()))

@@ -170,7 +170,7 @@ func (db *DB) RunMigrations(migrationsDir string) error {
 }
 
 func (db *DB) Ping(ctx context.Context) error {
-	return db.DB.PingContext(ctx)
+	return db.PingContext(ctx)
 }
 
 func (db *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
@@ -302,7 +302,6 @@ func (db *DB) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]TaskRe
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", paramIdx)
 		args = append(args, filter.Offset)
-		paramIdx++
 	}
 
 	rows, err := db.QueryContext(ctx, query, args...)

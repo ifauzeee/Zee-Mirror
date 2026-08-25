@@ -42,7 +42,7 @@ func (s *BotService) updateTaskStatus(task *Task) {
 
 func (s *BotService) sendVideoWithThumbnail(task *Task, text string) bool {
 	snapshot := task.GetSnapshot()
-	if thumb, err := GenerateThumbnail(snapshot.LocalPath, s.TaskManager.DownloadDir); err == nil {
+	if thumb, err := GenerateThumbnail(task.Ctx, snapshot.LocalPath, s.TaskManager.DownloadDir); err == nil {
 		photo := tgbotapi.NewPhoto(snapshot.ChatID, tgbotapi.FilePath(thumb))
 		photo.Caption = text
 		photo.ParseMode = MarkdownV2

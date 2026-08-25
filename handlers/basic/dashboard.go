@@ -144,7 +144,7 @@ func handleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			var result strings.Builder
 			result.WriteString("🚀 *Speedtest Result*\n\n")
 			for _, line := range lines {
-				result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2(line)))
+				fmt.Fprintf(&result, "• `%s`\n", utils.EscapeMarkdownV2(line))
 			}
 			text = result.String()
 		}
@@ -188,7 +188,7 @@ func handleStoragesFromCallback(s *service.BotService, callback *tgbotapi.Callba
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 	for _, p := range providers {
-		text.WriteString(fmt.Sprintf("%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type)))
+		fmt.Fprintf(&text, "%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type))
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")

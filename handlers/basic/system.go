@@ -58,7 +58,7 @@ func HandleSpeed(s *service.BotService, message *tgbotapi.Message) {
 		var result strings.Builder
 		result.WriteString("🚀 *Speedtest Result*\n\n")
 		for _, line := range lines {
-			result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2Code(line)))
+			fmt.Fprintf(&result, "• `%s`\n", utils.EscapeMarkdownV2Code(line))
 		}
 
 		dlRe := regexp.MustCompile(`Download:\s+([0-9.]+)\s+Mbit/s`)
@@ -138,6 +138,7 @@ func HandleLogs(s *service.BotService, message *tgbotapi.Message, _ string) {
 		return
 	}
 
+	// #nosec G703 -- temp file name is constants + timestamp under os.TempDir()
 	err = os.WriteFile(tempPath, input, 0600)
 	if err != nil {
 		s.Reply(message, service.GetErrorMessage("WRITE ERROR", fmt.Sprintf("Gagal membuat file temp: %v", err)))
@@ -190,7 +191,7 @@ func HandleSpeedFromCallback(s *service.BotService, callback *tgbotapi.CallbackQ
 			var result strings.Builder
 			result.WriteString("🚀 *Speedtest Result*\n\n")
 			for _, line := range lines {
-				result.WriteString(fmt.Sprintf("• `%s`\n", utils.EscapeMarkdownV2(line)))
+				fmt.Fprintf(&result, "• `%s`\n", utils.EscapeMarkdownV2(line))
 			}
 			text = result.String()
 		}

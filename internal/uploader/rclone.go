@@ -34,6 +34,15 @@ type ProgressUpdate struct {
 	ETA          time.Duration
 }
 
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(d):
+		return true
+	}
+}
+
 type FileUploader interface {
 	Upload(ctx context.Context, task *domain.Task, onProgress func(ProgressUpdate)) error
 }
@@ -377,7 +386,9 @@ func (r *RcloneUploader) generateIDBasedIndexURL(ctx context.Context, task *doma
 		if err == nil {
 			break
 		}
-		time.Sleep(1 * time.Second)
+		if !sleepCtx(ctx, time.Second) {
+			break
+		}
 	}
 
 	if err == nil {
@@ -463,7 +474,9 @@ func (r *RcloneUploader) generateIDBasedIndexURL(ctx context.Context, task *doma
 			} else {
 				slog.Debug("Fallback lsjson returned error", "error", errFallback)
 			}
-			time.Sleep(1 * time.Second)
+			if !sleepCtx(ctx, time.Second) {
+				break
+			}
 		}
 	}
 	if strings.HasSuffix(parentPath, ":") || parentPath == "." {

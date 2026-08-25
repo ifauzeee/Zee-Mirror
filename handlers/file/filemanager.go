@@ -182,7 +182,7 @@ func formatDriveFileList(path string, files []service.DriveFile) string {
 
 	text.WriteString("📂 *FILE MANAGER \\- GDRIVE*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	text.WriteString(fmt.Sprintf("📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2Code(path)))
+	fmt.Fprintf(&text, "📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2Code(path))
 
 	if len(files) == 0 {
 		text.WriteString("📭 _Folder ini kosong_\n")
@@ -228,8 +228,8 @@ func formatDriveFileList(path string, files []service.DriveFile) string {
 		}
 
 		text.WriteString("📊 *SUMMARY*\n")
-		text.WriteString(fmt.Sprintf("📂 Folders: `%d`\n", folderCount))
-		text.WriteString(fmt.Sprintf("📄 Files: `%d`\n", fileCount))
+		fmt.Fprintf(&text, "📂 Folders: `%d`\n", folderCount)
+		fmt.Fprintf(&text, "📄 Files: `%d`\n", fileCount)
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")
@@ -451,14 +451,14 @@ func formatSearchResults(query string, files []service.DriveFile) string {
 
 	text.WriteString("🔍 *HASIL PENCARIAN*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	text.WriteString(fmt.Sprintf("🔎 Query: `%s`\n\n", utils.EscapeMarkdownV2(query)))
+	fmt.Fprintf(&text, "🔎 Query: `%s`\n\n", utils.EscapeMarkdownV2(query))
 
 	if len(files) == 0 {
 		text.WriteString("📭 _Tidak ada file ditemukan_\n")
 	} else {
 		maxShow := 20
 		if len(files) > maxShow {
-			text.WriteString(fmt.Sprintf("📊 Menampilkan %d dari %d hasil\n\n", maxShow, len(files)))
+			fmt.Fprintf(&text, "📊 Menampilkan %d dari %d hasil\n\n", maxShow, len(files))
 		}
 
 		text.WriteString("📂 *FILES FOUND*\n")
@@ -479,7 +479,7 @@ func formatSearchResults(query string, files []service.DriveFile) string {
 			if path == "" {
 				path = f.Name
 			}
-			text.WriteString(fmt.Sprintf("%d\\. %s `%s`%s\n", i+1, icon, utils.EscapeMarkdownV2(utils.TruncateString(path, 45)), size))
+			fmt.Fprintf(&text, "%d\\. %s `%s`%s\n", i+1, icon, utils.EscapeMarkdownV2(utils.TruncateString(path, 45)), size)
 		}
 	}
 
@@ -699,14 +699,14 @@ func generateIndexLink(s *service.BotService, targetPath string) string {
 
 func buildFileInfoMessage(relPath string, file service.DriveFile) string {
 	var text strings.Builder
-	text.WriteString(fmt.Sprintf("%s *FILE INFORMATION*\n", getFileIcon(relPath)))
+	fmt.Fprintf(&text, "%s *FILE INFORMATION*\n", getFileIcon(relPath))
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	text.WriteString(fmt.Sprintf("📄 *Name:* `%s`\n", utils.EscapeMarkdownV2(filepath.Base(relPath))))
+	fmt.Fprintf(&text, "📄 *Name:* `%s`\n", utils.EscapeMarkdownV2(filepath.Base(relPath)))
 
 	if file.Name != "" {
-		text.WriteString(fmt.Sprintf("📦 *Size:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(file.Size))))
-		text.WriteString(fmt.Sprintf("🕒 *Modified:* `%s`\n", utils.EscapeMarkdownV2(file.ModTime)))
-		text.WriteString(fmt.Sprintf("🏷️ *MimeType:* `%s`\n", utils.EscapeMarkdownV2(file.MimeType)))
+		fmt.Fprintf(&text, "📦 *Size:* `%s`\n", utils.EscapeMarkdownV2(utils.FormatBytes(file.Size)))
+		fmt.Fprintf(&text, "🕒 *Modified:* `%s`\n", utils.EscapeMarkdownV2(file.ModTime))
+		fmt.Fprintf(&text, "🏷️ *MimeType:* `%s`\n", utils.EscapeMarkdownV2(file.MimeType))
 	} else {
 		text.WriteString("_Metadata limited atau rclone sedang sibuk_\n")
 	}

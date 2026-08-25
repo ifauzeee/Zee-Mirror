@@ -161,29 +161,29 @@ func ParseFlags(args string) (url string, zip bool, unzip bool, password string,
 
 	for i := 0; i < len(parts); i++ {
 		part := parts[i]
-		switch {
-		case part == "-z":
+		switch part {
+		case "-z":
 			zip = true
-		case part == "-uz":
+		case "-uz":
 			unzip = true
-		case part == "-p":
+		case "-p":
 			if i+1 < len(parts) {
 				password = parts[i+1]
 				i++
 			}
-		case part == "-q":
+		case "-q":
 			if i+1 < len(parts) {
 				quality = parts[i+1]
 				i++
 			}
-		case part == "-s" || part == "-subs":
+		case "-s", "-subs":
 			if i+1 < len(parts) {
 				subs = parts[i+1]
 				i++
 			}
-		case part == "-hs" || part == "-hardsub":
+		case "-hs", "-hardsub":
 			hardsub = true
-		case part == "-n" || part == "-name":
+		case "-n", "-name":
 			var extracted string
 			extracted, i = parseNameArg(parts, i)
 			if extracted != "" {
@@ -203,11 +203,11 @@ func ExtractDest(args string) string {
 	parts := strings.Fields(args)
 	for i := 0; i < len(parts); i++ {
 		part := parts[i]
-		switch {
-		case part == "-z", part == "-uz", part == "-hs", part == "-hardsub":
-		case part == "-p", part == "-q", part == "-s", part == "-subs":
+		switch part {
+		case "-z", "-uz", "-hs", "-hardsub":
+		case "-p", "-q", "-s", "-subs":
 			i++
-		case part == "-n" || part == "-name":
+		case "-n", "-name":
 			for i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "-") && !strings.HasPrefix(parts[i+1], "http") && !strings.HasPrefix(parts[i+1], "magnet:") {
 				i++
 			}

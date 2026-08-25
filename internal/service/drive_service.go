@@ -45,7 +45,7 @@ func (s *BotService) FormatDriveFileList(path string, files []DriveFile) string 
 
 	text.WriteString("📂 *FILE MANAGER \\- GDRIVE*\n")
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
-	text.WriteString(fmt.Sprintf("📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2Code(path)))
+	fmt.Fprintf(&text, "📍 *PATH:* `%s`\n\n", utils.EscapeMarkdownV2Code(path))
 
 	if len(files) == 0 {
 		text.WriteString("📭 _Folder ini kosong_\n")
@@ -89,8 +89,8 @@ func (s *BotService) FormatDriveFileList(path string, files []DriveFile) string 
 		}
 
 		text.WriteString("📊 *SUMMARY*\n")
-		text.WriteString(fmt.Sprintf("📂 Folders: `%d`\n", folderCount))
-		text.WriteString(fmt.Sprintf("📄 Files: `%d`\n", fileCount))
+		fmt.Fprintf(&text, "📂 Folders: `%d`\n", folderCount)
+		fmt.Fprintf(&text, "📄 Files: `%d`\n", fileCount)
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━")

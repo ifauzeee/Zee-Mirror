@@ -209,7 +209,7 @@ func (s *Server) Start() {
 	fs := http.FileServer(http.Dir("./dist"))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, "/api") {
-			path := filepath.Join("./dist", r.URL.Path)
+			path := filepath.Join("./dist", filepath.Clean("/"+r.URL.Path))
 			_, err := os.Stat(path)
 
 			if os.IsNotExist(err) {
@@ -415,6 +415,7 @@ func globalMiddleware(next http.Handler, allowedOrigin string, auditRepo reposit
 				actorName = "dashboard(jwt)"
 			}
 			if auditRepo != nil {
+				// #nosec G118 -- fire-and-forget audit log must outlive request lifecycle
 				go func(action, actorName, resource, details, ip string) {
 					if err := auditRepo.LogAudit(context.Background(), domain.AuditEntry{
 						Action:    action,
@@ -649,6 +650,7 @@ func (s *Server) handleExplorer(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Cannot delete root directory", http.StatusBadRequest)
 			return
 		}
+		// #nosec G703 -- fullPath containment-checked against DownloadDir above
 		if err := os.RemoveAll(fullPath); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -746,9 +748,11 @@ func (s *Server) handleRemoteExplorer(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Cannot delete root remote directory", http.StatusBadRequest)
 			return
 		}
-		cmd := exec.Command("rclone", "purge", remotePath, "--config", configPath)
+		// #nosec G702 -- remotePath anchored to configured RcloneDest; rclone runs without shell
+		cmd := exec.CommandContext(r.Context(), "rclone", "purge", remotePath, "--config", configPath)
 		if purgeErr := cmd.Run(); purgeErr != nil {
-			cmd = exec.Command("rclone", "deletefile", remotePath, "--config", configPath)
+			// #nosec G702 -- remotePath anchored to configured RcloneDest; rclone runs without shell
+			cmd = exec.CommandContext(r.Context(), "rclone", "deletefile", remotePath, "--config", configPath)
 			if deleteErr := cmd.Run(); deleteErr != nil {
 				http.Error(w, fmt.Sprintf("Delete failed: %v", deleteErr), http.StatusInternalServerError)
 				return
@@ -758,7 +762,8 @@ func (s *Server) handleRemoteExplorer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cmd := exec.Command("rclone", "lsjson", remotePath, "--fast-list", "--config", configPath)
+	// #nosec G702 -- remotePath anchored to configured RcloneDest; rclone runs without shell
+	cmd := exec.CommandContext(r.Context(), "rclone", "lsjson", remotePath, "--fast-list", "--config", configPath)
 	output, err := cmd.Output()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Rclone failed: %v", err), http.StatusInternalServerError)
@@ -766,6 +771,7 @@ func (s *Server) handleRemoteExplorer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	// #nosec G705 -- payload is rclone lsjson JSON served with an explicit application/json header
 	_, _ = w.Write(output)
 }
 
@@ -778,7 +784,8 @@ func (s *Server) handleRemoteLink(w http.ResponseWriter, r *http.Request) {
 	remotePath = filepath.ToSlash(remotePath)
 	configPath := filepath.Join(s.Service.Config.ConfigDir, "rclone.conf")
 
-	cmd := exec.Command("rclone", "link", remotePath, "--config", configPath)
+	// #nosec G702 -- remotePath anchored to configured RcloneDest; rclone runs without shell
+	cmd := exec.CommandContext(r.Context(), "rclone", "link", remotePath, "--config", configPath)
 	output, err := cmd.Output()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get link: %v", err), http.StatusInternalServerError)
@@ -1244,6 +1251,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// #nosec G703 -- fullPath containment-checked against DownloadDir above
 	file, err := os.Open(fullPath)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)

@@ -76,26 +76,26 @@ func (s *BotService) FormatSystemStats(stats SystemStats) string {
 	var content strings.Builder
 
 	content.WriteString("⏱️ *RUNTIME*\n")
-	content.WriteString(fmt.Sprintf("• Uptime: `%s`\n", utils.EscapeMarkdownV2(formatUptime(stats.Uptime))))
-	content.WriteString(fmt.Sprintf("• Started: `%s`\n", utils.EscapeMarkdownV2(stats.StartTime.Format("02 Jan 15:04"))))
-	content.WriteString(fmt.Sprintf("• Goroutines: `%d`\n\n", stats.GoRoutines))
+	fmt.Fprintf(&content, "• Uptime: `%s`\n", utils.EscapeMarkdownV2(formatUptime(stats.Uptime)))
+	fmt.Fprintf(&content, "• Started: `%s`\n", utils.EscapeMarkdownV2(stats.StartTime.Format("02 Jan 15:04")))
+	fmt.Fprintf(&content, "• Goroutines: `%d`\n\n", stats.GoRoutines)
 
 	content.WriteString("📥 *TASKS*\n")
-	content.WriteString(fmt.Sprintf("• Active: `%d`\n", stats.ActiveTasks))
-	content.WriteString(fmt.Sprintf("• Queued: `%d`\n\n", stats.QueuedTasks))
+	fmt.Fprintf(&content, "• Active: `%d`\n", stats.ActiveTasks)
+	fmt.Fprintf(&content, "• Queued: `%d`\n\n", stats.QueuedTasks)
 
 	content.WriteString("💾 *MEMORY USAGE*\n")
 	memBar := createUsageBar(float64(stats.MemoryUsed)/float64(stats.MemoryTotal)*100, 12)
-	content.WriteString(fmt.Sprintf("• Used: `%s / %s`\n",
+	fmt.Fprintf(&content, "• Used: `%s / %s`\n",
 		utils.EscapeMarkdownV2(utils.FormatBytesUint64(stats.MemoryUsed)),
-		utils.EscapeMarkdownV2(utils.FormatBytesUint64(stats.MemoryTotal))))
-	content.WriteString(fmt.Sprintf("%s\n\n", utils.EscapeMarkdownV2(memBar)))
+		utils.EscapeMarkdownV2(utils.FormatBytesUint64(stats.MemoryTotal)))
+	fmt.Fprintf(&content, "%s\n\n", utils.EscapeMarkdownV2(memBar))
 
 	content.WriteString("💿 *DISK STORAGE*\n")
 	diskBar := createUsageBar(stats.DiskUsage, 12)
-	content.WriteString(fmt.Sprintf("• Used: `%s / %s`\n",
+	fmt.Fprintf(&content, "• Used: `%s / %s`\n",
 		utils.EscapeMarkdownV2(utils.FormatBytesUint64(stats.DiskUsed)),
-		utils.EscapeMarkdownV2(utils.FormatBytesUint64(stats.DiskTotal))))
+		utils.EscapeMarkdownV2(utils.FormatBytesUint64(stats.DiskTotal)))
 	content.WriteString(utils.EscapeMarkdownV2(diskBar))
 
 	return ProfessionalMessage("SYSTEM RESOURCES", content.String())
@@ -233,7 +233,7 @@ func (s *BotService) FormatHealthCheck(checks []HealthCheck) string {
 		status = "🔴 *ISSUES DETECTED*"
 	}
 
-	content.WriteString(fmt.Sprintf("STATUS: %s\n%s\n\n", status, CompactSeparator))
+	fmt.Fprintf(&content, "STATUS: %s\n%s\n\n", status, CompactSeparator)
 
 	for _, c := range checks {
 		icon := "✅"
@@ -245,11 +245,11 @@ func (s *BotService) FormatHealthCheck(checks []HealthCheck) string {
 			}
 		}
 
-		content.WriteString(fmt.Sprintf("%s *%s*\n", icon, utils.EscapeMarkdownV2(c.Name)))
-		content.WriteString(fmt.Sprintf("└ _%s_\n", utils.EscapeMarkdownV2(c.Message)))
+		fmt.Fprintf(&content, "%s *%s*\n", icon, utils.EscapeMarkdownV2(c.Name))
+		fmt.Fprintf(&content, "└ _%s_\n", utils.EscapeMarkdownV2(c.Message))
 	}
 
-	content.WriteString(fmt.Sprintf("\n%s\n🕐 Checked: `%s`", CompactSeparator, utils.EscapeMarkdownV2(time.Now().Format("15:04:05"))))
+	fmt.Fprintf(&content, "\n%s\n🕐 Checked: `%s`", CompactSeparator, utils.EscapeMarkdownV2(time.Now().Format("15:04:05")))
 
 	return ProfessionalMessage("HEALTH CHECK", content.String())
 }

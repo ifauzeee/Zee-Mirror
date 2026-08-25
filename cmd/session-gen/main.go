@@ -206,7 +206,7 @@ func updateEnvFile(path string, updates map[string]string) error {
 			}
 			defer f.Close()
 			for k, v := range updates {
-				if _, writeErr := f.WriteString(fmt.Sprintf("%s=%s\n", k, v)); writeErr != nil {
+				if _, writeErr := fmt.Fprintf(f, "%s=%s\n", k, v); writeErr != nil {
 					return writeErr
 				}
 			}
@@ -249,5 +249,6 @@ func updateEnvFile(path string, updates map[string]string) error {
 		output += "\n"
 	}
 
+	// #nosec G703 -- path resolved locally by this interactive operator tool
 	return os.WriteFile(path, []byte(output), 0600)
 }

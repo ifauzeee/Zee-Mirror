@@ -101,7 +101,7 @@ func HandleStorages(s *service.BotService, message *tgbotapi.Message) {
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 	for _, p := range providers {
-		text.WriteString(fmt.Sprintf("%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type)))
+		fmt.Fprintf(&text, "%s *%s* \\(%s\\)\n", p.Icon, utils.EscapeMarkdownV2(p.Name), utils.EscapeMarkdownV2(p.Type))
 	}
 
 	text.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -175,19 +175,19 @@ func handleStorageBrowse(s *service.BotService, callback *tgbotapi.CallbackQuery
 	_ = json.Unmarshal(output, &files)
 
 	var text strings.Builder
-	text.WriteString(fmt.Sprintf("📂 *%s*\n", utils.EscapeMarkdownV2(remotePath)))
+	fmt.Fprintf(&text, "📂 *%s*\n", utils.EscapeMarkdownV2(remotePath))
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 	for i, f := range files {
 		if i >= 15 {
-			text.WriteString(fmt.Sprintf("\n_\\.\\.\\. dan %d item lainnya_", len(files)-15))
+			fmt.Fprintf(&text, "\n_\\.\\.\\. dan %d item lainnya_", len(files)-15)
 			break
 		}
 		icon := "📄"
 		if f.IsDir {
 			icon = "📁"
 		}
-		text.WriteString(fmt.Sprintf("%s `%s`\n", icon, utils.EscapeMarkdownV2Code(utils.TruncateString(f.Name, 40))))
+		fmt.Fprintf(&text, "%s `%s`\n", icon, utils.EscapeMarkdownV2Code(utils.TruncateString(f.Name, 40)))
 	}
 
 	editMsg := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text.String())
@@ -205,7 +205,7 @@ func handleStorageInfo(s *service.BotService, callback *tgbotapi.CallbackQuery, 
 	output, err := cmd.Output()
 
 	var text strings.Builder
-	text.WriteString(fmt.Sprintf("ℹ️ *Storage Info: %s*\n", utils.EscapeMarkdownV2(storageName)))
+	fmt.Fprintf(&text, "ℹ️ *Storage Info: %s*\n", utils.EscapeMarkdownV2(storageName))
 	text.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 	if err != nil {
@@ -214,13 +214,13 @@ func handleStorageInfo(s *service.BotService, callback *tgbotapi.CallbackQuery, 
 		var info map[string]interface{}
 		if jsonErr := json.Unmarshal(output, &info); jsonErr == nil {
 			if total, ok := info["total"].(float64); ok {
-				text.WriteString(fmt.Sprintf("📊 *Total:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(total)))))
+				fmt.Fprintf(&text, "📊 *Total:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(total))))
 			}
 			if used, ok := info["used"].(float64); ok {
-				text.WriteString(fmt.Sprintf("💾 *Used:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(used)))))
+				fmt.Fprintf(&text, "💾 *Used:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(used))))
 			}
 			if free, ok := info["free"].(float64); ok {
-				text.WriteString(fmt.Sprintf("✅ *Free:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(free)))))
+				fmt.Fprintf(&text, "✅ *Free:* `%s`\n", utils.EscapeMarkdownV2Code(utils.FormatBytes(int64(free))))
 			}
 		}
 	}
