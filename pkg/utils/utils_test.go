@@ -326,3 +326,145 @@ func TestScanLinesWithCR(t *testing.T) {
 		})
 	}
 }
+
+func TestParseFlagsExtended(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		url      string
+		password string
+		quality  string
+		fileName string
+		subs     string
+		zip      bool
+		unzip    bool
+		hardsub  bool
+	}{
+		{
+			name:    "hardsub short flag",
+			input:   "https://example.com/video.mp4 -hs",
+			url:     "https://example.com/video.mp4",
+			hardsub: true,
+		},
+		{
+			name:    "hardsub long flag",
+			input:   "https://example.com/video.mp4 -hardsub",
+			url:     "https://example.com/video.mp4",
+			hardsub: true,
+		},
+		{
+			name:  "subtitle language short flag",
+			input: "https://example.com/video.mp4 -s en",
+			url:   "https://example.com/video.mp4",
+			subs:  "en",
+		},
+		{
+			name:  "subtitle languages long flag with list",
+			input: "https://example.com/video.mp4 -subs en,es,id",
+			url:   "https://example.com/video.mp4",
+			subs:  "en,es,id",
+		},
+		{
+			name:  "magnet input with zip flag",
+			input: "magnet:?xt=urn:btih:abc123 -z",
+			url:   "magnet:?xt=urn:btih:abc123",
+			zip:   true,
+		},
+		{
+			name:  "password flag at end without value yields empty password",
+			input: "https://example.com/file.zip -p",
+			url:   "https://example.com/file.zip",
+		},
+		{
+			name:  "unknown tokens are ignored when no URL present",
+			input: "just random text here",
+		},
+		{
+			name:     "multi-word name joined with spaces",
+			input:    "https://example.com/file.zip -n My Cool File.zip",
+			url:      "https://example.com/file.zip",
+			fileName: "My Cool File.zip",
+		},
+		{
+			name:     "name stops at next flag",
+			input:    "https://example.com/file.zip -n Foo -z",
+			url:      "https://example.com/file.zip",
+			fileName: "Foo",
+			zip:      true,
+		},
+		{
+			name:     "name stops at magnet link",
+			input:    "-n My Torrent magnet:?xt=urn:btih:xyz",
+			url:      "magnet:?xt=urn:btih:xyz",
+			fileName: "My Torrent",
+		},
+		{
+			name:     "all flags combined",
+			input:    "magnet:?xt=urn:btih:mix -z -uz -p secret -q 720 -hs -s en -n Batch One",
+			url:      "magnet:?xt=urn:btih:mix",
+			password: "secret",
+			quality:  "720",
+			fileName: "Batch One",
+			subs:     "en",
+			zip:      true,
+			unzip:    true,
+			hardsub:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url, zip, unzip, password, quality, fileName, subs, hardsub := ParseFlags(tt.input)
+
+			if url != tt.url {
+				t.Errorf("URL = %q; want %q", url, tt.url)
+			}
+			if zip != tt.zip {
+				t.Errorf("Zip = %v; want %v", zip, tt.zip)
+			}
+			if unzip != tt.unzip {
+				t.Errorf("Unzip = %v; want %v", unzip, tt.unzip)
+			}
+			if password != tt.password {
+				t.Errorf("Password = %q; want %q", password, tt.password)
+			}
+			if quality != tt.quality {
+				t.Errorf("Quality = %q; want %q", quality, tt.quality)
+			}
+			if fileName != tt.fileName {
+				t.Errorf("FileName = %q; want %q", fileName, tt.fileName)
+			}
+			if subs != tt.subs {
+				t.Errorf("Subs = %q; want %q", subs, tt.subs)
+			}
+			if hardsub != tt.hardsub {
+				t.Errorf("Hardsub = %v; want %v", hardsub, tt.hardsub)
+			}
+		})
+	}
+}
+
+func TestExtractDest(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"plain destination", "gdrive:/Backup", "gdrive:/Backup"},
+		{"destination with zip flag", "gdrive:/Backup -z", "gdrive:/Backup"},
+		{"destination with value flags", "gdrive:/Backup -p secret -q 1080", "gdrive:/Backup"},
+		{"URL only yields empty", "https://example.com/file.zip -z", ""},
+		{"flags only yield empty", "-z -uz -hs", ""},
+		{"empty input", "", ""},
+		{"multi-word name consumed before dest", "gdrive:/Backup -n My Name -z", "gdrive:/Backup"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ExtractDest(tt.input)
+			if result != tt.expected {
+				t.Errorf("ExtractDest(%q) = %q; want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
