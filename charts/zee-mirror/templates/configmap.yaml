@@ -14,4 +14,3 @@ data:
   RCLONE_DEST: {{ .Values.config.rcloneDest | quote }}
   MAX_CONCURRENT_DOWNLOADS: "{{ .Values.config.maxConcurrentDownloads }}"
   STOP_DUPLICATE: "{{ .Values.config.stopDuplicate }}"
-  WEB_DASHBOARD_TOKEN: {{ .Values.config.dashboardToken | quote }}

@@ -17,12 +17,18 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: zee-mirror
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: {{ .Values.service.port }}
               name: http
@@ -39,6 +45,12 @@ spec:
             - name: rclone
               mountPath: /app/config/rclone.conf
               subPath: rclone.conf
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /api/health
@@ -61,6 +73,6 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "zee-mirror.fullname" . }}-downloads
         - name: rclone
-          configMap:
+          secret:
             name: {{ include "zee-mirror.fullname" . }}-rclone
             optional: true
