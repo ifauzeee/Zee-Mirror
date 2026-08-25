@@ -1,40 +1,62 @@
-linters-settings:
-  errcheck:
-    exclude-functions:
-      - (*database/sql.Tx).Rollback
-  govet:
-    enable-all: true
-  gocyclo:
-    min-complexity: 15
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-
-linters:
-  disable-all: true
-  enable:
-    - errcheck
-    - gosimple
-    - govet
-    - staticcheck
-    - unused
-    - revive
-    - gosec
-    - gocritic
-    - misspell
-    - bodyclose
-    - gofmt
-    - goimports
-    - whitespace
-
+version: "2"
 run:
-  timeout: 5m
   issues-exit-code: 1
   tests: true
 
 issues:
-  exclude-rules:
-    - path: handlers/
-      linters:
-        - gosec
-      text: "G204:"
+  max-issues-per-linter: 0
+  max-same-issues: 0
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - gocritic
+    - gosec
+    - govet
+    - misspell
+    - revive
+    - staticcheck
+    - unused
+    - whitespace
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*database/sql.Tx).Rollback
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable-all: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gosec
+        path: handlers/
+        text: 'G204:'
+      - linters:
+          - gosec
+        path: _test\.go
+        text: 'G101:'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -33,17 +33,17 @@ tasks:
 
   test:
     cmds:
-      - go test -v ./...
+      - go test -shuffle=on -v ./...
 
   lint:
     cmds:
-      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
       - "$(go env GOPATH)/bin/golangci-lint run ./..."
 
   fmt:
     cmds:
       - go fmt ./...
-      - go install golang.org/x/tools/cmd/goimports@latest
+      - go install golang.org/x/tools/cmd/goimports@v0.47.0
       - "$(go env GOPATH)/bin/goimports -w ."
 
   vet:
@@ -52,7 +52,7 @@ tasks:
 
   security:
     cmds:
-      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      - go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
       - "$(go env GOPATH)/bin/govulncheck ./..."
 
   tidy:

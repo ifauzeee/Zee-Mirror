@@ -110,4 +110,6 @@ require (
 	rsc.io/qr v0.2.0 // indirect
 )
 
+// Upstream go-telegram-bot-api/v5 is inactive; this pins OvyFlash's maintained fork.
+// Bump deliberately together with go.sum — removing this silently reverts to upstream.
 replace github.com/go-telegram-bot-api/telegram-bot-api/v5 => github.com/OvyFlash/telegram-bot-api/v5 v5.0.0-20241013102643-36756d99d4ae

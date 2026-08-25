@@ -81,3 +81,7 @@ tmp/
 temp/
 *.tmp
 config/aria2.session
+
+# Tooling state
+.omo/
+*.tsbuildinfo
