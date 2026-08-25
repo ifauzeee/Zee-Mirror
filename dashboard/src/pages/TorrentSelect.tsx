@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import api from '../api'
 import {
   FileText,
   Folder,
@@ -11,7 +12,6 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react'
-import axios from 'axios'
 
 interface TorrentFile {
   index: number
@@ -26,10 +26,6 @@ interface TorrentSession {
   unzip?: boolean
 }
 
-interface TorrentSelectProps {
-  token: string
-}
-
 const formatBytes = (bytes: number | string): string => {
   const num = parseFloat(String(bytes))
   if (isNaN(num) || num <= 0) return '0 B'
@@ -39,7 +35,7 @@ const formatBytes = (bytes: number | string): string => {
   return parseFloat((num / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const TorrentSelect: React.FC<TorrentSelectProps> = ({ token }) => {
+const TorrentSelect: React.FC = () => {
   const [sessionId] = useState<string | null>(() => {
     const pathParts = window.location.pathname.split('/')
     const id = pathParts[pathParts.length - 1]
@@ -61,9 +57,7 @@ const TorrentSelect: React.FC<TorrentSelectProps> = ({ token }) => {
     if (!sessionId) return
 
     try {
-      const response = await axios.get(`/api/torrent/session?id=${sessionId}`, {
-        headers: { 'X-API-Key': token },
-      })
+      const response = await api.get(`/api/torrent/session?id=${sessionId}`)
       setSession(response.data)
       setLoading(false)
     } catch (err: any) {
@@ -76,16 +70,14 @@ const TorrentSelect: React.FC<TorrentSelectProps> = ({ token }) => {
       }
       setLoading(false)
     }
-  }, [sessionId, token])
+  }, [sessionId])
 
   const fetchFiles = useCallback(async () => {
     if (!sessionId) return
 
     const doFetch = async () => {
       try {
-        const response = await axios.get(`/api/torrent/files?id=${sessionId}`, {
-          headers: { 'X-API-Key': token },
-        })
+        const response = await api.get(`/api/torrent/files?id=${sessionId}`)
 
         if (response.data.loading) {
           setFileLoading(true)
@@ -120,7 +112,7 @@ const TorrentSelect: React.FC<TorrentSelectProps> = ({ token }) => {
     }
 
     doFetch()
-  }, [sessionId, token])
+  }, [sessionId])
 
   useEffect(() => {
     const init = async () => {
@@ -163,14 +155,11 @@ const TorrentSelect: React.FC<TorrentSelectProps> = ({ token }) => {
     setError(null)
 
     try {
-      await axios.post(
+      await api.post(
         '/api/torrent/start',
         {
           sessionId: sessionId,
           selectedFiles: Array.from(selectedFiles),
-        },
-        {
-          headers: { 'X-API-Key': token },
         },
       )
 

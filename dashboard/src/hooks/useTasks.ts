@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { usePopups } from './usePopups'
 import { Task } from '../types'
 
@@ -10,8 +10,7 @@ const useTasks = (token: string) => {
   const fetchTasks = useCallback(async () => {
     if (!token) return
     try {
-      const config = { headers: { 'X-API-Key': token } }
-      const res = await axios.get('/api/tasks', config)
+      const res = await api.get('/api/tasks')
       setTasks(res.data || [])
     } catch (err) {
       console.error(err)
@@ -26,8 +25,7 @@ const useTasks = (token: string) => {
       )
     ) {
       try {
-        const config = { headers: { 'X-API-Key': token } }
-        await axios.delete(`/api/tasks?id=${id}`, config)
+        await api.delete(`/api/tasks?id=${id}`)
         showToast('Task terminated successfully', 'success')
         fetchTasks()
       } catch (err) {

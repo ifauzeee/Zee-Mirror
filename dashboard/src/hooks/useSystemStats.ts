@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { Stats, SystemMetrics } from '../types'
 
 const useSystemStats = (token: string) => {
@@ -9,10 +9,9 @@ const useSystemStats = (token: string) => {
   const fetchStats = useCallback(async () => {
     if (!token) return
     try {
-      const config = { headers: { 'X-API-Key': token } }
       const [statsRes, sysRes] = await Promise.all([
-        axios.get('/api/stats', config),
-        axios.get('/api/system', config),
+        api.get('/api/stats'),
+        api.get('/api/system'),
       ])
 
       if (statsRes.data) setStats(statsRes.data)

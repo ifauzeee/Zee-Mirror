@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import api from '../api'
 import {
   Activity,
   Download,
@@ -29,9 +30,8 @@ const Overview: React.FC<OverviewProps> = ({ tasks, stats, system, onCancelTask,
   const [users, setUsers] = useState<User[]>([])
   useEffect(() => {
     if (!apiToken) return
-    fetch('/api/users', { headers: { 'X-API-Key': apiToken } })
-      .then(res => res.json())
-      .then(data => setUsers(data || []))
+    api.get('/api/users')
+      .then(res => setUsers(res.data || []))
       .catch(() => {})
   }, [apiToken])
   return (

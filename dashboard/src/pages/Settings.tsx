@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Zap,
 } from 'lucide-react'
-import axios from 'axios'
+import api from '../api'
 import { usePopups } from '../hooks/usePopups'
 
 interface SettingsState {
@@ -35,8 +35,7 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
   const fetchRawConfig = useCallback(async () => {
     if (!token) return
     try {
-      const config = { headers: { 'X-API-Key': token } }
-      const res = await axios.get('/api/config', config)
+      const res = await api.get('/api/config')
       setRawConfig(res.data.config)
     } catch (err) {
       console.error('Failed to fetch raw config:', err)
@@ -52,8 +51,7 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
 
   const handleUpdateSettings = async () => {
     try {
-      const config = { headers: { 'X-API-Key': token } }
-      await axios.post('/api/settings', settings, config)
+      await api.post('/api/settings', settings)
       showToast('Logic configuration synchronized', 'success')
     } catch {
       showAlert('Core Error', 'Failed to synchronize system settings.', { type: 'error' })
@@ -62,8 +60,7 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
 
   const handleUpdateRawConfig = async () => {
     try {
-      const config = { headers: { 'X-API-Key': token } }
-      const res = await axios.post('/api/config', { config: rawConfig }, config)
+      const res = await api.post('/api/config', { config: rawConfig })
       showToast(res.data.status || 'Manifest updated successfully', 'success')
     } catch {
       showAlert('Manifest Error', 'Failed to update system manifest.', { type: 'error' })
@@ -74,11 +71,11 @@ const Settings: React.FC<SettingsProps> = ({ token, initialSettings }) => {
     setUpdating(true)
     setUpdateResult(null)
     try {
-      const config = { headers: { 'X-API-Key': token } }
-      const res = await axios.post('/api/tools/update', {}, config)
+      const res = await api.post('/api/tools/update', {})
       setUpdateResult(res.data.output || res.data.error || 'Updated')
-    } catch (err: any) {
-      setUpdateResult(err.response?.data?.error || err.message || 'Update failed')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+      setUpdateResult(axiosErr.response?.data?.error || axiosErr.message || 'Update failed')
     } finally {
       setUpdating(false)
     }

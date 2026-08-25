@@ -13,15 +13,13 @@ import {
 } from 'lucide-react'
 
 interface SidebarProps {
-  activeTab: string
-  setActiveTab: (tab: string) => void
   tasksCount: number
   onLogout: () => void
 }
 
 import { useNavigate, useLocation } from 'react-router-dom'
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, tasksCount, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ tasksCount, onLogout }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const currentPath = location.pathname.substring(1) || 'overview'

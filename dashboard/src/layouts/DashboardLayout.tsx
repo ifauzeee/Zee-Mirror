@@ -34,8 +34,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return (
         <div className="flex h-screen bg-[#f8fafc] dark:bg-[#050505] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden font-sans selection:bg-primary selection:text-white">
             <Sidebar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
                 tasksCount={tasksCount}
                 onLogout={onLogout}
             />

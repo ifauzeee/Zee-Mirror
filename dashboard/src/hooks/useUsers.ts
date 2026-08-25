@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import api from '../api'
 import { User } from '../types'
 
 export const useUsers = (apiToken: string) => {
@@ -10,34 +11,20 @@ export const useUsers = (apiToken: string) => {
     if (!apiToken) return
     setLoading(true)
     try {
-      const response = await fetch('/api/users', {
-        headers: { 'X-API-Key': apiToken },
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data || [])
-        setError(null)
-      } else {
-        setError('Failed to fetch users')
-      }
+      const response = await api.get('/api/users')
+      setUsers(response.data || [])
+      setError(null)
     } catch {
-      setError('Network error')
+      setError('Failed to fetch users')
     } finally {
       setLoading(false)
     }
   }, [apiToken])
 
-  const updateUser = async (userData: any): Promise<{ success: boolean; error?: string }> => {
+  const updateUser = async (userData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('/api/users/update', {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      })
-      if (response.ok) {
+      const response = await api.post('/api/users/update', userData)
+      if (response.status === 200) {
         await fetchUsers()
         return { success: true }
       }
@@ -49,15 +36,8 @@ export const useUsers = (apiToken: string) => {
 
   const deleteUser = async (id: number): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('/api/users/delete', {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id }),
-      })
-      if (response.ok) {
+      const response = await api.post('/api/users/delete', { id })
+      if (response.status === 200) {
         await fetchUsers()
         return { success: true }
       }
@@ -67,22 +47,14 @@ export const useUsers = (apiToken: string) => {
     }
   }
 
-  const addUser = async (userData: any): Promise<{ success: boolean; error?: string }> => {
+  const addUser = async (userData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('/api/users/add', {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      })
+      const response = await api.post('/api/users/add', userData)
       if (response.status === 201) {
         await fetchUsers()
         return { success: true }
       }
-      const data = await response.json()
-      return { success: false, error: data.error || 'Add failed' }
+      return { success: false, error: (response.data as { error?: string }).error || 'Add failed' }
     } catch {
       return { success: false, error: 'Network error' }
     }

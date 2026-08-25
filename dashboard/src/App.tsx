@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
-import axios from 'axios'
+import api from './api'
 import DashboardLayout from './layouts/DashboardLayout'
 import Login from './pages/Login'
 import Overview from './pages/Overview'
@@ -118,7 +118,7 @@ const App = () => {
   const [settings, setSettings] = useState<any>(null)
 
   useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
+    const interceptor = api.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response && error.response.status === 401) {
@@ -131,7 +131,7 @@ const App = () => {
     )
 
     return () => {
-      axios.interceptors.response.eject(interceptor)
+      api.interceptors.response.eject(interceptor)
     }
   }, [])
 
@@ -159,7 +159,7 @@ const App = () => {
           await Promise.all([fetchTasks(), fetchStats()])
 
           try {
-            const res = await axios.get('/api/settings', { headers: { 'X-API-Key': apiToken } })
+            const res = await api.get('/api/settings')
             setSettings(res.data)
           } catch (e) {
             console.error('Settings load error', e)
@@ -225,7 +225,7 @@ const App = () => {
         'Are you sure you want to disconnect from the Cloud Engine? Active sessions will be terminated.',
       )
     ) {
-      localStorage.clear()
+      localStorage.removeItem('api_token')
       window.location.reload()
     }
   }
@@ -237,7 +237,7 @@ const App = () => {
     },
     {
       path: '/torrent-select/:id',
-      element: <TorrentSelect token={apiToken} />,
+      element: <TorrentSelect />,
     },
     {
       path: '/',
@@ -270,7 +270,7 @@ const App = () => {
         },
         {
           path: 'tasks/history',
-          element: <TaskHistory token={apiToken} />,
+          element: <TaskHistory />,
         },
         {
           path: 'tasks',

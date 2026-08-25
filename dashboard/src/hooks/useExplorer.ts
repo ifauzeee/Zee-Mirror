@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { usePopups } from './usePopups'
 import { FileItem } from '../types'
 
@@ -12,10 +12,9 @@ const useExplorer = (token: string) => {
     async (path = '') => {
       if (!token) return
       try {
-        const config = { headers: { 'X-API-Key': token } }
-        const res = await axios.get(`/api/explorer/remote?path=${encodeURIComponent(path)}`, config)
+        const res = await api.get(`/api/explorer/remote?path=${encodeURIComponent(path)}`)
 
-        const normalizedData: FileItem[] = (res.data || []).map((item: any) => ({
+        const normalizedData: FileItem[] = (res.data || []).map((item: Record<string, unknown>) => ({
           name: item.Name,
           displayName: item.Name,
           isDir: item.IsDir,
@@ -35,11 +34,9 @@ const useExplorer = (token: string) => {
 
   const getExternalLink = async (name: string) => {
     try {
-      const config = { headers: { 'X-API-Key': token } }
       const path = explorerPath ? `${explorerPath}/${name}` : name
-      const res = await axios.get(
+      const res = await api.get(
         `/api/explorer/remote/link?path=${encodeURIComponent(path)}`,
-        config,
       )
       if (res.data.link) {
         window.open(res.data.link, '_blank')
@@ -65,9 +62,8 @@ const useExplorer = (token: string) => {
       )
     ) {
       try {
-        const config = { headers: { 'X-API-Key': token } }
         const path = explorerPath ? `${explorerPath}/${name}` : name
-        await axios.delete(`/api/explorer/remote?path=${encodeURIComponent(path)}`, config)
+        await api.delete(`/api/explorer/remote?path=${encodeURIComponent(path)}`)
         showToast('Resource deleted successfully', 'success')
         fetchExplorer(explorerPath)
       } catch {
@@ -86,17 +82,13 @@ const useExplorer = (token: string) => {
     formData.append('path', path)
 
     try {
-      const config = {
-        headers: {
-          'X-API-Key': token,
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-      await axios.post('/api/explorer/upload', formData, config)
+      await api.post('/api/explorer/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       showToast(`Resource ${file.name} deployed successfully`, 'success')
       fetchExplorer(explorerPath)
       return { success: true }
-    } catch (err: any) {
+    } catch (err: unknown) {
       showAlert('Deployment Error', `Failed to upload ${file.name} to the remote matrix.`, {
         type: 'error',
       })

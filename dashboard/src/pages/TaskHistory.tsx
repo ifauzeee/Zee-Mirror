@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { History, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HistoryTask {
@@ -15,14 +15,7 @@ interface HistoryTask {
   error_message: string;
 }
 
-interface PaginatedResponse {
-  tasks: HistoryTask[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
-const TaskHistory: React.FC<{ token: string }> = ({ token }) => {
+const TaskHistory: React.FC = () => {
   const [tasks, setTasks] = useState<HistoryTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -38,7 +31,7 @@ const TaskHistory: React.FC<{ token: string }> = ({ token }) => {
     try {
       const params: Record<string, string | number> = { limit, offset: page * limit };
       if (statusFilter) params.status = statusFilter;
-      const res = await axios.get('/api/tasks/history', { params, headers: { 'X-API-Key': token } });
+      const res = await api.get('/api/tasks/history', { params });
       setTasks(res.data.tasks || res.data || []);
     } catch (err) {
       console.error('Failed to fetch tasks', err);

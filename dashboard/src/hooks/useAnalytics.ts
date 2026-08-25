@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
+import api from '../api'
 
 interface AnalyticsDataPoint {
   Date: string
   TotalTasks: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 const useAnalytics = (token: string) => {
@@ -13,8 +13,7 @@ const useAnalytics = (token: string) => {
   const fetchAnalytics = useCallback(async () => {
     if (!token) return
     try {
-      const config = { headers: { 'X-API-Key': token } }
-      const res = await axios.get('/api/analytics', config)
+      const res = await api.get('/api/analytics')
       setAnalyticsData(res.data || [])
     } catch (err) {
       console.error('Analytics error:', err)
