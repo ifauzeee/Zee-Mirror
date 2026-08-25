@@ -1,6 +1,11 @@
 package utils
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -466,5 +471,222 @@ func TestExtractDest(t *testing.T) {
 				t.Errorf("ExtractDest(%q) = %q; want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGetMagnetFileName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"magnet:?xt=urn:btih:abc&dn=My+File.zip", "My File.zip"},
+		{"magnet:?dn=movie.mkv&tr=http://tracker.example", "movie.mkv"},
+		{"magnet:?xt=urn:btih:abc", "unknown_magnet"},
+	}
+
+	for _, tt := range tests {
+		if got := getMagnetFileName(tt.input); got != tt.expected {
+			t.Errorf("getMagnetFileName(%q) = %q; want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestGetPathFileName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"/downloads/movie.mkv", "movie.mkv"},
+		{"/stream/playlist.m3u8", "stream"},
+		{"/playlist.m3u8", ""},
+		{"playlist.m3u8", "playlist.m3u8"},
+		{"/", ""},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		if got := getPathFileName(tt.input); got != tt.expected {
+			t.Errorf("getPathFileName(%q) = %q; want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestGetFallbackFileName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"https://cdn.host.com/files/report.pdf?token=x", "report.pdf"},
+		{"weird-string", "weird-string"},
+		{"https://host.com/", "host.com"},
+		{"https://host.com/no-ext", "no-ext"},
+	}
+
+	for _, tt := range tests {
+		if got := getFallbackFileName(tt.input); got != tt.expected {
+			t.Errorf("getFallbackFileName(%q) = %q; want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestResolveFileName(t *testing.T) {
+	t.Run("content disposition wins", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Disposition", `attachment; filename="Report Q3.pdf"`)
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer srv.Close()
+
+		if got := ResolveFileName(srv.URL + "/anything"); got != "Report Q3.pdf" {
+			t.Errorf("ResolveFileName = %q; want %q", got, "Report Q3.pdf")
+		}
+	})
+
+	t.Run("redirect falls back to final url name", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/final/video.mkv", http.StatusFound)
+		})
+		mux.HandleFunc("/final/video.mkv", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+
+		if got := ResolveFileName(srv.URL + "/start"); got != "video.mkv" {
+			t.Errorf("ResolveFileName = %q; want %q", got, "video.mkv")
+		}
+	})
+
+	t.Run("unreachable yields empty", func(t *testing.T) {
+		if got := ResolveFileName("http://127.0.0.1:1/x"); got != "" {
+			t.Errorf("ResolveFileName = %q; want empty", got)
+		}
+	})
+
+	t.Run("invalid url yields empty", func(t *testing.T) {
+		if got := ResolveFileName("::bad::"); got != "" {
+			t.Errorf("ResolveFileName = %q; want empty", got)
+		}
+	})
+}
+
+func TestIsGenericName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"550e8400-e29b-41d4-a716-446655440000", true},
+		{"deadbeefdeadbeef", true},
+		{"abc123", false},
+		{"movie.mkv", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		if got := IsGenericName(tt.input); got != tt.expected {
+			t.Errorf("IsGenericName(%q) = %v; want %v", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestIsValidURLAndMagnet(t *testing.T) {
+	if !IsValidURL("https://example.com") || !IsValidURL("magnet:?xt=1") || IsValidURL("ftp2://x") || IsValidURL("") {
+		t.Error("IsValidURL classification wrong")
+	}
+	if !IsMagnetLink("magnet:?xt=urn:btih:abc") || IsMagnetLink("https://example.com") {
+		t.Error("IsMagnetLink classification wrong")
+	}
+}
+
+func TestTruncateString(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+		maxLen   int
+	}{
+		{"short", "short", 10},
+		{"exactly10!", "exactly10!", 10},
+		{"a-very-long-name", "a-very-l…", 9},
+		{"abcdef", "abc", 3},
+	}
+
+	for _, tt := range tests {
+		if got := TruncateString(tt.input, tt.maxLen); got != tt.expected {
+			t.Errorf("TruncateString(%q,%d) = %q; want %q", tt.input, tt.maxLen, got, tt.expected)
+		}
+	}
+}
+
+func TestFormatStatusEmojiBoolToEmoji(t *testing.T) {
+	if FormatStatus("") != "" || FormatStatus("queued") != "Queued" {
+		t.Error("FormatStatus wrong")
+	}
+	if got := StatusEmoji("completed"); got != "✅" {
+		t.Errorf("StatusEmoji(completed) = %q", got)
+	}
+	if got := StatusEmoji("nonsense"); got != "❓" {
+		t.Errorf("StatusEmoji(nonsense) = %q", got)
+	}
+	if BoolToEmoji(true) == BoolToEmoji(false) {
+		t.Error("BoolToEmoji wrong")
+	}
+}
+
+func TestIsAdmin(t *testing.T) {
+	authorized := []int64{111, 222}
+	if !IsAdmin(1, 1, nil) {
+		t.Error("owner should be admin")
+	}
+	if !IsAdmin(222, 1, authorized) {
+		t.Error("authorized user should be admin")
+	}
+	if IsAdmin(999, 1, authorized) {
+		t.Error("random user should not be admin")
+	}
+}
+
+func TestParseIntAndGetLastLines(t *testing.T) {
+	if ParseInt("42") != 42 || ParseInt("nope") != 0 {
+		t.Error("ParseInt wrong")
+	}
+	logs := "line1\nline2\nline3"
+	if GetLastLines(logs, 2) != "line2\nline3" {
+		t.Error("GetLastLines tail wrong")
+	}
+	if GetLastLines(logs, 5) != logs && strings.TrimSpace(GetLastLines(logs, 5)) != logs {
+		t.Error("GetLastLines should return input when shorter than n")
+	}
+}
+
+func TestCopyFileAndCalculateDirSize(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	want := "hello copy"
+	if err := os.WriteFile(src, []byte(want), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	dst := filepath.Join(dir, "sub", "dst.txt")
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := CopyFile(src, dst); err != nil {
+		t.Fatalf("CopyFile: %v", err)
+	}
+	got, _ := os.ReadFile(dst)
+	if string(got) != want {
+		t.Errorf("copied content = %q; want %q", got, want)
+	}
+	if err := CopyFile(filepath.Join(dir, "missing"), dst); err == nil {
+		t.Error("CopyFile on missing source should error")
+	}
+
+	size, err := CalculateDirSize(dir)
+	if err != nil {
+		t.Fatalf("CalculateDirSize: %v", err)
+	}
+	if size != int64(len(want))*2 {
+		t.Errorf("CalculateDirSize = %d; want %d", size, int64(len(want))*2)
 	}
 }
