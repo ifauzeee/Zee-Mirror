@@ -92,20 +92,21 @@ type Task struct {
 }
 
 type TaskRecord struct {
-	CreatedAt      time.Time
-	CompletedAt    sql.NullTime
-	ID             string
-	GID            string
-	Type           string
-	Status         string
-	URL            string
-	FileName       string
-	LocalPath      string
-	RemotePath     string
-	Dest           string
-	Dest2          string
-	RemoteURL      string
-	Password       string
+	CreatedAt   time.Time
+	CompletedAt sql.NullTime
+	ID          string
+	GID         string
+	Type        string
+	Status      string
+	URL         string
+	FileName    string
+	LocalPath   string
+	RemotePath  string
+	Dest        string
+	Dest2       string
+	RemoteURL   string
+	// #nosec G117 -- archive password must never leave the server via API JSON
+	Password       string `json:"-"`
 	Error          string
 	Quality        string
 	MD5            string
@@ -141,23 +142,24 @@ type DailyStats struct {
 }
 
 type TaskSnapshot struct {
-	CreatedAt         time.Time     `json:"createdAt"`
-	StartedAt         time.Time     `json:"startedAt"`
-	CompletedAt       time.Time     `json:"completedAt"`
-	Status            TaskStatus    `json:"status"`
-	ID                string        `json:"id"`
-	GID               string        `json:"gid"`
-	URL               string        `json:"url"`
-	FileName          string        `json:"fileName"`
-	LocalPath         string        `json:"localPath"`
-	RemotePath        string        `json:"remotePath"`
-	Dest              string        `json:"dest,omitempty"`
-	Dest2             string        `json:"dest2,omitempty"`
-	RemoteURL         string        `json:"remoteURL"`
-	TelegramFileID    string        `json:"telegramFileID,omitempty"`
-	TelegramFilePath  string        `json:"telegramFilePath,omitempty"`
-	Error             string        `json:"error"`
-	Password          string        `json:"password"`
+	CreatedAt        time.Time  `json:"createdAt"`
+	StartedAt        time.Time  `json:"startedAt"`
+	CompletedAt      time.Time  `json:"completedAt"`
+	Status           TaskStatus `json:"status"`
+	ID               string     `json:"id"`
+	GID              string     `json:"gid"`
+	URL              string     `json:"url"`
+	FileName         string     `json:"fileName"`
+	LocalPath        string     `json:"localPath"`
+	RemotePath       string     `json:"remotePath"`
+	Dest             string     `json:"dest,omitempty"`
+	Dest2            string     `json:"dest2,omitempty"`
+	RemoteURL        string     `json:"remoteURL"`
+	TelegramFileID   string     `json:"telegramFileID,omitempty"`
+	TelegramFilePath string     `json:"telegramFilePath,omitempty"`
+	Error            string     `json:"error"`
+	// #nosec G117 -- archive password must never leave the server via API/websocket JSON
+	Password          string        `json:"-"`
 	Quality           string        `json:"quality"`
 	MD5               string        `json:"md5,omitempty"`
 	OrigFileName      string        `json:"origFileName"`
